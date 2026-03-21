@@ -12,8 +12,8 @@ A production-style feature flag management service built with .NET and EF Core, 
 
 ## Overview
 
-This project explores the design and implementation of a backend feature flag system intended for internal developer tooling scenarios. 
-It emphasizes deterministic evaluation, flexible rollout strategies, and clear separation of concerns between domain, service, and persistence layers.
+This project explores the design and implementation of a backend feature flag system intended for internal developer tooling scenarios.
+It emphasizes deterministic evaluation, flexible rollout strategies, and Clean Architecture with clear boundaries between Domain, Application, Infrastructure, and API layers.
 
 ## Design Decisions
 
@@ -25,15 +25,23 @@ It emphasizes deterministic evaluation, flexible rollout strategies, and clear s
 
 ## Architecture
 
-Controllers
-    ↓
-IFeatureFlagService
-    ↓
-FeatureEvaluator
-    ↓
-IRolloutStrategy (PercentageStrategy, RoleStrategy)
-    ↓
-Repository
+This project follows **Clean Architecture**, with dependencies pointing inward toward the domain.
+
+```
+FeatureFlag.Api             → HTTP controllers, middleware, DI composition root
+       ↓
+FeatureFlag.Application     → Use cases, service interfaces, DTOs
+       ↓
+FeatureFlag.Domain          → Entities, enums, value objects, domain interfaces
+       ↑
+FeatureFlag.Infrastructure  → EF Core, repository implementations, external concerns
+```
+
+- **Domain** has no dependencies on any other layer.
+- **Application** depends only on Domain.
+- **Infrastructure** implements interfaces defined in Domain/Application.
+- **Api** is the composition root — it wires everything together.
+- **FeatureFlag.Tests** covers unit and integration testing across layers.
 
 ## Domain Model
 
@@ -49,12 +57,8 @@ Repository
 3. Run the API:
    ```bash
    dotnet run --project FeatureFlag.Api
+   ```
 
-   ---
-
-### 9. Contributing / Branch Workflow
-
-```markdown
 ## Contributing
 
 - Work in feature branches: `feature/*`
