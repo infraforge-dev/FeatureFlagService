@@ -6,6 +6,11 @@
     // Node is required at runtime by Claude Code
     "ghcr.io/devcontainers/features/node:1": {
       "version": "lts"
+    },
+    "ghcr.io/devcontainers/features/github-cli:1": {},
+    // Required by the C# extension language server (Roslyn targets .NET 10)
+    "ghcr.io/devcontainers/features/dotnet:2": {
+      "version": "10.0"
     }
   },
   "forwardPorts": [
@@ -51,7 +56,8 @@
         "humao.rest-client",
         "eamodio.gitlens",
         "editorconfig.editorconfig",
-        "streetsidesoftware.code-spell-checker"
+        "streetsidesoftware.code-spell-checker",
+        "csharpier.csharpier-vscode"
       ],
       "settings": {
         "editor.formatOnSave": true,

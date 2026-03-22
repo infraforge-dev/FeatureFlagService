@@ -20,7 +20,8 @@ public class FeatureFlag
         EnvironmentType environment,
         bool isEnabled,
         RolloutStrategy strategyType,
-        string strategyConfig)
+        string strategyConfig
+    )
     {
         if (string.IsNullOrWhiteSpace(name))
             throw new ArgumentException("Name cannot be empty.", nameof(name));
@@ -33,7 +34,11 @@ public class FeatureFlag
     }
 
     // Required by EF Core
-    private FeatureFlag() { Name = string.Empty; StrategyConfig = "{}"; }
+    private FeatureFlag()
+    {
+        Name = string.Empty;
+        StrategyConfig = "{}";
+    }
 
     public void SetEnabled(bool enabled)
     {
