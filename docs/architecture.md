@@ -102,7 +102,7 @@ The system follows a **layered architecture with strong separation of concerns**
 
 **Core Entities:**
 
-* `FeatureFlag`
+* `Flag`
 * `FeatureEvaluationContext`
 
 **Enums:**

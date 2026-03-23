@@ -2,7 +2,7 @@ using FeatureFlag.Domain.Enums;
 
 namespace FeatureFlag.Domain.Entities;
 
-public class FeatureFlag
+public class Flag
 {
     public Guid Id { get; private set; } = Guid.NewGuid();
     public string Name { get; private set; }
@@ -15,7 +15,7 @@ public class FeatureFlag
     public DateTime UpdatedAt { get; private set; } = DateTime.UtcNow;
     public DateTime? ArchivedAt { get; private set; }
 
-    public FeatureFlag(
+    public Flag(
         string name,
         EnvironmentType environment,
         bool isEnabled,
@@ -34,7 +34,7 @@ public class FeatureFlag
     }
 
     // Required by EF Core
-    private FeatureFlag()
+    private Flag()
     {
         Name = string.Empty;
         StrategyConfig = "{}";

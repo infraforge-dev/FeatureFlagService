@@ -45,7 +45,7 @@ FeatureFlag.Infrastructure  → EF Core, repository implementations, external co
 
 ## Domain Model
 
-- `FeatureFlag` – Core entity representing a feature with metadata, strategy, and environment.
+- `Flag` – Core entity representing a feature with metadata, strategy, and environment.
 - `RolloutStrategy` – Enum representing strategy types (None, Percentage, RoleBased).
 - `EnvironmentType` – Enum for Development, Staging, Production.
 - `FeatureEvaluationContext` – Context containing user and environment info for evaluation.
