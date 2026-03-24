@@ -42,7 +42,7 @@ work is persistence (EF Core + repository) and the API layer (controllers, Swagg
 
 - Clean Architecture solution: Domain, Application, Infrastructure, Api, Tests
 - Dependency rule enforced: Domain has no outward dependencies
-- DevContainer configured with .NET 9 image (see Known Issues)
+- DevContainer base image updated to `devcontainers/base:ubuntu-24.04` with .NET 10 SDK via `dotnet` feature
 - `docs/decisions/` folder established for Architecture Decision Records
 
 ### Tests
@@ -70,21 +70,12 @@ work is persistence (EF Core + repository) and the API layer (controllers, Swagg
 
 ### KI-001 — DevContainer Image Does Not Have a .NET 10 Tag
 
-**Severity:** Medium — build works today, but version drift will become a problem  
-**Status:** Deferred — tracked for resolution before Phase 1 begins
+**Severity:** Medium
+**Status:** Resolved
 
-The devcontainer currently uses:
-```jsonc
-"image": "mcr.microsoft.com/devcontainers/dotnet:9.0"
-```
-
-No `devcontainers/dotnet:10.0` tag exists. The active SDK inside the container
-is `10.0.201`, which means newly added packages resolve to `10.0.x` versions
-while the solution targets `net9.0`.
-
-**Planned fix:** Replace the `image` property with a custom `Dockerfile` based on
-`mcr.microsoft.com/dotnet/sdk:10.0` and upgrade all `.csproj` files to `net10.0`.
-This work is scoped to a `refactor/upgrade-net10` branch before Phase 1 begins.
+Base image swapped to `mcr.microsoft.com/devcontainers/base:ubuntu-24.04`. The `dotnet`
+feature installs .NET 10 SDK. All five `.csproj` files updated to `net10.0`. Build and
+tests pass clean.
 
 ---
 
@@ -130,8 +121,7 @@ Complete the remaining Phase 0 work.
 
 ### Immediate Next Tasks
 
-1. `refactor/upgrade-net10` — swap devcontainer to custom Dockerfile, upgrade all projects to `net10.0`
-2. Implement EF Core `DbContext` and entity configuration
+1. Implement EF Core `DbContext` and entity configuration
 3. Implement `FeatureFlagRepository`
 4. Wire up repository in `AddInfrastructure()`
 5. Create feature flag controllers
