@@ -11,7 +11,8 @@
     // Required by the C# extension language server (Roslyn targets .NET 10)
     "ghcr.io/devcontainers/features/dotnet:2": {
       "version": "10.0"
-    }
+    },
+    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {}
   },
   "forwardPorts": [
     5000,
@@ -36,7 +37,8 @@
   "mounts": [
     // Bind from host instead of an isolated volume
     "source=${localEnv:HOME}/.claude,target=/home/vscode/.claude,type=bind",
-    "source=${localEnv:HOME}/.claude.json,target=/home/vscode/.claude.json,type=bind"
+    "source=${localEnv:HOME}/.claude.json,target=/home/vscode/.claude.json,type=bind",
+    "source=/var/run/docker.sock,target=/var/run/docker.sock,type=bind"
   ],
   "containerEnv": {
     "CLAUDE_CONFIG_DIR": "/home/vscode/.claude",
@@ -45,7 +47,7 @@
   // Both must match to avoid file permission issues
   "remoteUser": "vscode",
   "containerUser": "vscode",
-  "postCreateCommand": "dotnet restore FeatureFlagService.sln && dotnet tool restore",
+  "postCreateCommand": "sudo groupadd -f docker && sudo usermod -aG docker vscode && dotnet restore FeatureFlagService.sln && dotnet tool restore",
   // Git 2.35+ throws ownership warnings in containers — this silences them
   "postStartCommand": "git config --global --add safe.directory ${containerWorkspaceFolder}",
   "customizations": {
