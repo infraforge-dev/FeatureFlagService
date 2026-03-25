@@ -17,9 +17,7 @@ public sealed class RoleStrategy : IRolloutStrategy
         if (config is null || config.Roles is null || config.Roles.Count == 0)
             return false;
 
-        var allowedRoles = new HashSet<string>(
-            config.Roles,
-            StringComparer.OrdinalIgnoreCase);
+        var allowedRoles = new HashSet<string>(config.Roles, StringComparer.OrdinalIgnoreCase);
 
         return context.UserRoles.Any(role => allowedRoles.Contains(role));
     }

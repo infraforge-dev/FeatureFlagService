@@ -1,3 +1,6 @@
+using FeatureFlag.Domain.Interfaces;
+using FeatureFlag.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -7,10 +10,14 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddInfrastructure(
         this IServiceCollection services,
-        IConfiguration configuration)
+        IConfiguration configuration
+    )
     {
-        // TODO: services.AddDbContext<FeatureFlagDbContext>(...)
-        // TODO: services.AddScoped<IFeatureFlagRepository, FeatureFlagRepository>()
+        services.AddDbContext<FeatureFlagDbContext>(options =>
+            options.UseNpgsql(configuration.GetConnectionString("DefaultConnection"))
+        );
+
+        services.AddScoped<IFeatureFlagRepository, FeatureFlagRepository>();
 
         return services;
     }
