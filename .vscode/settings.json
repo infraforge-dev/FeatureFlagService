@@ -1,3 +1,10 @@
 {
-  "git.defaultBranchName": "dev"
+  "git.defaultBranchName": "dev",
+  "cSpell.words": [
+    "anthropics",
+    "csdevkit",
+    "eamodio",
+    "humao",
+    "Npgsql"
+  ]
 }
