@@ -1,6 +1,5 @@
 using FeatureFlag.Application.DTOs;
 using FeatureFlag.Application.Interfaces;
-using FeatureFlag.Domain.Entities;
 using FeatureFlag.Domain.Enums;
 using Microsoft.AspNetCore.Mvc;
 
@@ -23,7 +22,7 @@ public sealed class FeatureFlagsController : ControllerBase
         CancellationToken ct)
     {
         var flags = await _service.GetAllFlagsAsync(environment, ct);
-        return Ok(flags.Select(f => f.ToResponse()));
+        return Ok(flags);
     }
 
     [HttpGet("{name}")]
@@ -35,7 +34,7 @@ public sealed class FeatureFlagsController : ControllerBase
         try
         {
             var flag = await _service.GetFlagAsync(name, environment, ct);
-            return Ok(flag.ToResponse());
+            return Ok(flag);
         }
         catch (KeyNotFoundException)
         {
@@ -48,18 +47,11 @@ public sealed class FeatureFlagsController : ControllerBase
         [FromBody] CreateFlagRequest request,
         CancellationToken ct)
     {
-        var flag = new Flag(
-            request.Name,
-            request.Environment,
-            request.IsEnabled,
-            request.StrategyType,
-            request.StrategyConfig);
-
-        var created = await _service.CreateFlagAsync(flag, ct);
+        var created = await _service.CreateFlagAsync(request, ct);
         return CreatedAtAction(
             nameof(GetByName),
             new { name = created.Name, environment = created.Environment },
-            created.ToResponse());
+            created);
     }
 
     [HttpPut("{name}")]
@@ -71,14 +63,7 @@ public sealed class FeatureFlagsController : ControllerBase
     {
         try
         {
-            await _service.UpdateFlagAsync(
-                name,
-                environment,
-                request.IsEnabled,
-                request.StrategyType,
-                request.StrategyConfig,
-                ct);
-
+            await _service.UpdateFlagAsync(name, environment, request, ct);
             return NoContent();
         }
         catch (KeyNotFoundException)

@@ -1,4 +1,4 @@
-using FeatureFlag.Domain.Entities;
+using FeatureFlag.Application.DTOs;
 using FeatureFlag.Domain.Enums;
 using FeatureFlag.Domain.ValueObjects;
 
@@ -6,7 +6,7 @@ namespace FeatureFlag.Application.Interfaces;
 
 public interface IFeatureFlagService
 {
-    Task<Flag> GetFlagAsync(
+    Task<FlagResponse> GetFlagAsync(
         string name,
         EnvironmentType environment,
         CancellationToken ct = default
@@ -16,17 +16,15 @@ public interface IFeatureFlagService
         FeatureEvaluationContext context,
         CancellationToken ct = default
     );
-    Task<IReadOnlyList<Flag>> GetAllFlagsAsync(
+    Task<IReadOnlyList<FlagResponse>> GetAllFlagsAsync(
         EnvironmentType environment,
         CancellationToken ct = default
     );
-    Task<Flag> CreateFlagAsync(Flag flag, CancellationToken ct = default);
+    Task<FlagResponse> CreateFlagAsync(CreateFlagRequest request, CancellationToken ct = default);
     Task UpdateFlagAsync(
         string name,
         EnvironmentType environment,
-        bool isEnabled,
-        RolloutStrategy strategyType,
-        string strategyConfig,
+        UpdateFlagRequest request,
         CancellationToken ct = default
     );
     Task ArchiveFlagAsync(string name, EnvironmentType environment, CancellationToken ct = default);
