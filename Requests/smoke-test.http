@@ -1,0 +1,41 @@
+### Create Flag
+POST http://localhost:5227/api/flags
+Content-Type: application/json
+
+{
+  "name": "dark-mode",
+  "environment": "Development",
+  "isEnabled": true,
+  "strategyType": "None",
+  "strategyConfig": "{}"
+}
+
+### Get All Flags
+GET http://localhost:5227/api/flags?environment=Development
+
+### Get By Name
+GET http://localhost:5227/api/flags/dark-mode?environment=Development
+
+### Update Flag
+PUT http://localhost:5227/api/flags/dark-mode?environment=Development
+Content-Type: application/json
+
+{
+  "isEnabled": true,
+  "strategyType": "None",
+  "strategyConfig": "{}"
+}
+
+### Evaluate Flag
+POST http://localhost:5227/api/evaluate
+Content-Type: application/json
+
+{
+  "flagName": "dark-mode",
+  "userId": "user-123",
+  "userRoles": ["admin"],
+  "environment": "Development"
+}
+
+### Archive Flag
+DELETE http://localhost:5227/api/flags/dark-mode?environment=Development

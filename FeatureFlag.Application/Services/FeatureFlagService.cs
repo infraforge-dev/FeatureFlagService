@@ -1,3 +1,4 @@
+using FeatureFlag.Application.DTOs;
 using FeatureFlag.Application.Evaluation;
 using FeatureFlag.Application.Interfaces;
 using FeatureFlag.Domain.Entities;
@@ -18,14 +19,16 @@ public sealed class FeatureFlagService : IFeatureFlagService
         _evaluator = evaluator;
     }
 
-    public async Task<Flag> GetFlagAsync(
+    public async Task<FlagResponse> GetFlagAsync(
         string name,
         EnvironmentType environment,
         CancellationToken ct = default
     )
     {
-        return await _repository.GetByNameAsync(name, environment, ct)
+        var flag = await _repository.GetByNameAsync(name, environment, ct)
             ?? throw new KeyNotFoundException($"Flag '{name}' not found in {environment}.");
+
+        return flag.ToResponse();
     }
 
     public async Task<bool> IsEnabledAsync(
@@ -47,27 +50,36 @@ public sealed class FeatureFlagService : IFeatureFlagService
         return _evaluator.Evaluate(flag, context);
     }
 
-    public async Task<IReadOnlyList<Flag>> GetAllFlagsAsync(
+    public async Task<IReadOnlyList<FlagResponse>> GetAllFlagsAsync(
         EnvironmentType environment,
         CancellationToken ct = default
     )
     {
-        return await _repository.GetAllAsync(environment, ct);
+        var flags = await _repository.GetAllAsync(environment, ct);
+        return flags.Select(f => f.ToResponse()).ToList();
     }
 
-    public async Task<Flag> CreateFlagAsync(Flag flag, CancellationToken ct = default)
+    public async Task<FlagResponse> CreateFlagAsync(
+        CreateFlagRequest request,
+        CancellationToken ct = default
+    )
     {
+        var flag = new Flag(
+            request.Name,
+            request.Environment,
+            request.IsEnabled,
+            request.StrategyType,
+            request.StrategyConfig);
+
         await _repository.AddAsync(flag, ct);
         await _repository.SaveChangesAsync(ct);
-        return flag;
+        return flag.ToResponse();
     }
 
     public async Task UpdateFlagAsync(
         string name,
         EnvironmentType environment,
-        bool isEnabled,
-        RolloutStrategy strategyType,
-        string strategyConfig,
+        UpdateFlagRequest request,
         CancellationToken ct = default
     )
     {
@@ -76,7 +88,7 @@ public sealed class FeatureFlagService : IFeatureFlagService
             ?? throw new KeyNotFoundException($"Flag '{name}' not found in {environment}.");
 
         // Single atomic update — sets UpdatedAt exactly once
-        flag.Update(isEnabled, strategyType, strategyConfig);
+        flag.Update(request.IsEnabled, request.StrategyType, request.StrategyConfig);
         await _repository.SaveChangesAsync(ct);
     }
 

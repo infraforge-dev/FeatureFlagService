@@ -18,16 +18,19 @@ The system follows a **layered architecture with strong separation of concerns**
 [ Client ]
      ↓
 [ Controllers (API Layer) ]
+  DTOs in, DTOs out — no domain knowledge
      ↓
 [ Application Layer (IFeatureFlagService) ]
+  Speaks entirely in DTOs — Flag entity never crosses this boundary
      ↓
 [ Evaluation Engine (FeatureEvaluator) ]
+  Pure logic — works with domain entities internally
      ↓
 [ Strategy Layer (IRolloutStrategy) ]
      ↓
 [ Data Access Layer (Repository / EF Core) ]
      ↓
-[ Database ]
+[ Database (Postgres) ]
 ```
 
 ---
@@ -44,9 +47,10 @@ The system follows a **layered architecture with strong separation of concerns**
 
 **Key Characteristics:**
 
-* Thin controllers (no business logic)
-* Delegates all work to application layer
-* Swagger/OpenAPI enabled
+* Thin controllers — no business logic, no domain knowledge
+* Delegates all work to application layer via `IFeatureFlagService`
+* Receives and returns DTOs only — never touches domain entities
+* Swagger/OpenAPI enabled at `/openapi/v1.json`
 
 ---
 
@@ -56,11 +60,19 @@ The system follows a **layered architecture with strong separation of concerns**
 
 * Orchestrates use cases
 * Coordinates between domain, evaluator, and repository
+* Owns the DTO ↔ domain entity mapping boundary
 
 **Key Characteristics:**
 
-* Contains business workflows, not domain rules
-* Acts as the boundary between API and core logic
+* `IFeatureFlagService` interface speaks entirely in DTOs
+* `Flag` entity is constructed and mapped inside `FeatureFlagService` — never exposed to callers
+* `ToResponse()` mapping is called inside the service, not in controllers
+* Acts as the hard boundary between the API world and the domain world
+
+**Boundary Rule:**
+
+> `Flag` domain entity must never appear in any `IFeatureFlagService` method signature.
+> The controller layer must never call `.ToResponse()` directly.
 
 ---
 
@@ -68,14 +80,22 @@ The system follows a **layered architecture with strong separation of concerns**
 
 **Responsibility:**
 
-* Determines whether a feature flag is enabled
-* Delegates decision-making to strategies
+* Determines whether a feature flag is enabled for a given context
+* Delegates decision-making to the appropriate strategy
 
 **Key Characteristics:**
 
-* Pure logic (highly testable)
+* Pure logic — highly testable, no side effects
 * No direct database access
-* Accepts `FeatureEvaluationContext`
+* Registry dispatch pattern — `Dictionary<RolloutStrategy, IRolloutStrategy>`
+* Accepts `FeatureEvaluationContext` (value object from domain)
+
+**Precondition (KI-002):**
+
+> Callers must check `Flag.IsEnabled` before calling `Evaluate`. The evaluator is a
+> pure strategy dispatcher, not a policy enforcer. This contract is documented via
+> XML doc comment but not enforced by a guard clause. If a second caller is introduced,
+> reconsider adding the guard.
 
 ---
 
@@ -83,18 +103,20 @@ The system follows a **layered architecture with strong separation of concerns**
 
 **Responsibility:**
 
-* Encapsulates rollout logic
+* Encapsulates rollout logic for a specific strategy type
 
 **Implementations:**
 
-* `PercentageStrategy`
-* `RoleStrategy`
+* `NoneStrategy` — passthrough, always returns true
+* `PercentageStrategy` — deterministic SHA256 hashing into 100 buckets
+* `RoleStrategy` — config-driven, case-insensitive, fail-closed role matching
 
 **Key Characteristics:**
 
-* Follows Strategy Pattern
-* Easily extensible without modifying core logic
+* Follows Strategy Pattern — open for extension, closed for modification
+* Each strategy is registered as a Singleton (stateless, safe to share)
 * Each strategy is independently testable
+* New strategies require zero changes to `FeatureEvaluator`
 
 ---
 
@@ -102,21 +124,26 @@ The system follows a **layered architecture with strong separation of concerns**
 
 **Core Entities:**
 
-* `Flag`
-* `FeatureEvaluationContext`
+* `Flag` — encapsulates business rules, private setters, explicit mutation methods
+
+**Value Objects:**
+
+* `FeatureEvaluationContext` — immutable, `IEquatable<T>`, guard clauses on construction
 
 **Enums:**
 
-* `RolloutStrategy`
-* `EnvironmentType`
+* `RolloutStrategy` (None, Percentage, RoleBased)
+* `EnvironmentType` (None = 0 sentinel, Development, Staging, Production)
+
+**Interfaces:**
+
+* `IRolloutStrategy` — strategy contract
+* `IFeatureFlagRepository` — persistence contract
 
 **Responsibility:**
 
 * Encapsulate business rules
-* Protect invariants via:
-
-  * Private setters
-  * Explicit update methods
+* Protect invariants via private setters and explicit update methods
 
 **Key Principle:**
 
@@ -128,26 +155,41 @@ The system follows a **layered architecture with strong separation of concerns**
 
 **Responsibility:**
 
-* Persist and retrieve data
+* Persist and retrieve `Flag` entities
 
 **Key Characteristics:**
 
-* Uses EF Core for ORM
-* Maps domain entities to database schema
-* Abstracted via repository pattern
+* Postgres via Npgsql
+* `FlagConfiguration` uses Fluent API: enums stored as strings, `StrategyConfig` as `jsonb`
+* Partial unique index on `(Name, Environment)` filtered to `IsArchived = false` — archived flags are invisible to the uniqueness constraint
+* Repository filters out archived flags on all read operations
+* Abstracted via `IFeatureFlagRepository` — infrastructure detail hidden from domain and application layers
 
 ---
 
 ## 🔄 Request Flow (Evaluation Example)
 
-1. Client requests feature evaluation
-2. Controller receives request
-3. Controller calls `IFeatureFlagService`
-4. Service retrieves `FeatureFlag` from repository
-5. Service passes flag + context to `FeatureEvaluator`
-6. Evaluator selects appropriate `IRolloutStrategy`
-7. Strategy evaluates and returns result
-8. Result returned to client
+1. Client sends `POST /api/evaluate` with `EvaluationRequest` DTO
+2. `EvaluationController` receives request — constructs `FeatureEvaluationContext`
+3. Controller calls `IFeatureFlagService.IsEnabledAsync(flagName, context)`
+4. `FeatureFlagService` retrieves `Flag` entity from repository
+5. Service checks `Flag.IsEnabled` — returns false immediately if disabled
+6. Service passes `Flag` + context to `FeatureEvaluator.Evaluate`
+7. Evaluator looks up strategy by `Flag.StrategyType` in registry
+8. Strategy evaluates and returns bool result
+9. Service returns bool to controller
+10. Controller returns `{ "isEnabled": true/false }` to client
+
+---
+
+## 🔄 Request Flow (CRUD Example — Create)
+
+1. Client sends `POST /api/flags` with `CreateFlagRequest` DTO
+2. `FeatureFlagsController` receives request — passes DTO directly to service
+3. `FeatureFlagService.CreateFlagAsync` constructs `Flag` entity internally from DTO
+4. Service calls `IFeatureFlagRepository.AddAsync` and `SaveChangesAsync`
+5. Service maps `Flag` → `FlagResponse` via `FlagMappings.ToResponse()`
+6. Controller returns `201 Created` with `FlagResponse` body
 
 ---
 
@@ -159,105 +201,140 @@ Each layer has a single responsibility and minimal knowledge of others.
 
 ---
 
+### DTO Boundary at the Service Interface
+
+`IFeatureFlagService` is the hard boundary between the API world and the domain world.
+DTOs cross the boundary inward. Domain entities never cross the boundary outward.
+This keeps controllers stable when the domain evolves, and keeps domain logic
+independent of serialization concerns.
+
+---
+
 ### Strategy Pattern for Extensibility
 
-New rollout strategies can be added without modifying existing logic.
+New rollout strategies can be added without modifying `FeatureEvaluator` or any
+existing strategy. Implement `IRolloutStrategy`, register it in DI — done.
 
 ---
 
 ### Deterministic Evaluation
 
 Feature evaluation must always return the same result for the same input.
+`PercentageStrategy` uses SHA256 hashing to ensure determinism across restarts.
 
 ---
 
 ### Domain Integrity
 
-All mutations go through controlled methods to prevent invalid state.
+All mutations go through controlled methods to prevent invalid state. No public setters
+on domain entities. `Flag.Update()` sets all related fields atomically.
 
 ---
 
 ### Testability First
 
-* Evaluation logic is isolated
-* Strategies are independently testable
-* Minimal side effects
+* Evaluation logic is isolated from persistence
+* Strategies are independently testable (pure functions)
+* `IFeatureFlagRepository` is an interface — swappable in tests
+* `IFeatureFlagService` is an interface — controllers are independently testable
 
 ---
 
 ## ⚖️ Design Tradeoffs
 
-### Enum + JSON Strategy Configuration
+### DTO Boundary vs Convenience
+
+**Decision:** `IFeatureFlagService` speaks entirely in DTOs — no `Flag` entity in signatures.
 
 **Pros:**
-
-* Type safety in code
-* Flexible configuration storage
+* Controllers have zero domain knowledge — stable API layer
+* Mapping consolidated in one place — easier to reason about
+* Domain can evolve without breaking the API contract
 
 **Cons:**
+* Slight overhead — mapping `Flag → FlagResponse` inside the service
+* `EnvironmentType` enum still appears on the interface — acceptable for now, revisit if duplication becomes a problem
 
-* Requires careful validation
-* Potential runtime errors if misconfigured
+---
+
+### Enum + JSON Strategy Configuration
+
+**Decision:** `StrategyConfig` stored as `jsonb`, deserialized at evaluation time.
+
+**Pros:**
+* Flexible — each strategy defines its own config shape
+* No schema migrations required when a strategy's config changes
+
+**Cons:**
+* No validation at write time — misconfiguration fails silently at evaluation (KI-003)
+* **Planned fix:** FluentValidation on request DTOs in Phase 1
 
 ---
 
 ### Repository Pattern over Direct DbContext
 
 **Pros:**
-
-* Abstraction for testing
-* Decouples persistence
+* Abstraction for testing — swappable in unit tests
+* Decouples persistence detail from application logic
 
 **Cons:**
-
 * Additional complexity
-* Can be overkill for small systems
+* Can be overkill for small systems — accepted cost for portfolio quality
 
 ---
 
 ### Layered Architecture vs Simplicity
 
 **Pros:**
-
-* Scales well
-* Easier to reason about
+* Scales well — each layer can evolve independently
+* Easier to reason about — one layer, one job
 
 **Cons:**
-
 * More boilerplate
-* Slower initial development
+* Slower initial development — accepted cost for long-term maintainability
 
 ---
 
 ## 🔌 Extensibility Points
 
-* Add new `IRolloutStrategy` implementations
+* Add new `IRolloutStrategy` implementations — zero changes to evaluator required
 * Introduce caching layer between service and repository
 * Replace repository with external service if needed
-* Add event-driven evaluation tracking
+* Add event-driven evaluation tracking (Phase 4)
+* Swap Postgres for another DB — only `FlagConfiguration` and `DependencyInjection` in Infrastructure need updating
 
 ---
 
 ## 🚀 Future Architecture Considerations
 
-### Caching Layer
+### Caching Layer (Phase 6)
 
-* In-memory or Redis
-* Reduce DB lookups for hot flags
+* In-memory or Redis between `FeatureFlagService` and `FeatureFlagRepository`
+* Reduce DB lookups for frequently evaluated flags
+* Cache invalidation on flag update/archive
 
 ---
 
-### Event-Driven Observability
+### Event-Driven Observability (Phase 4)
 
-* Emit events for each evaluation
+* Emit evaluation events from `FeatureEvaluator` or `FeatureFlagService`
 * Feed into analytics pipeline
+* Enable "Why was this flag ON/OFF?" debugging endpoint
 
 ---
 
-### Multi-Service Decomposition (Optional)
+### Docker Compose Devcontainer (Phase 8)
 
-* Feature management service
-* Evaluation service
+* Replace current `postStartCommand` network join workaround (KI-007)
+* Both devcontainer and Postgres start together on a shared network
+* Eliminates startup ordering dependency
+
+---
+
+### Multi-Service Decomposition (Optional, Long-term)
+
+* Feature management service (CRUD)
+* Evaluation service (read-heavy, cacheable)
 * Metrics/observability service
 
 ---
@@ -265,10 +342,14 @@ All mutations go through controlled methods to prevent invalid state.
 ## 🧩 Notes for AI Assistants
 
 * Do not introduce logic into controllers
-* Do not bypass `FeatureEvaluator`
-* All rollout logic must live in strategies
-* Preserve domain encapsulation (no public setters)
+* Do not bypass `FeatureEvaluator` — all rollout logic lives in strategies
+* Preserve domain encapsulation — no public setters on `Flag`
 * Prefer adding new strategies over modifying existing ones
+* `IFeatureFlagService` must never expose `Flag` in any method signature
+* `ToResponse()` must be called inside `FeatureFlagService` — never in controllers
+* Connection string uses `Host=postgres` — do not change to `localhost`
+* See KI-002 before adding new callers to `FeatureEvaluator.Evaluate`
+* See KI-003 before accepting `StrategyConfig` without validation
 
 ---
 
@@ -278,8 +359,8 @@ This system is designed to behave like a **miniature production-grade platform**
 
 Its strength lies in:
 
-* Clear boundaries
-* Deterministic logic
-* Extensibility through composition
+* Clear layer boundaries — each layer speaks its own language (DTOs at API, entities at domain)
+* Deterministic logic — same input always produces same output
+* Extensibility through composition — new strategies require zero changes to existing code
 
 The architecture prioritizes long-term maintainability over short-term simplicity.
