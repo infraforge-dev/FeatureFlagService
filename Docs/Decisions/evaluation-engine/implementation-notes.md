@@ -4,7 +4,8 @@
 **Branch:** `feature/evaluation-engine`  
 **Spec reference:** `docs/Decisions/evaluation-engine/spec.md`  
 **Build status:** Passed — 0 warnings, 0 errors
-**PR:** —
+
+[Pull Request #22](https://github.com/amodelandme/FeatureFlagService/pull/22)
  
 ---
  

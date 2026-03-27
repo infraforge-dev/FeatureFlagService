@@ -5,7 +5,8 @@
 **Status:** Ready for implementation  
 **Estimated scope:** Small — two files changed, five `.csproj` files updated
 **Implementation notes:** `docs/Decisions/upgrade-net10/implementation-notes.md`
-**PR:** —
+
+[Pull Request #23](https://github.com/amodelandme/FeatureFlagService/pull/23)
 
 ---
 

@@ -5,7 +5,8 @@
 **Spec reference:** `docs/Decisions/upgrade-net10/spec.md`
 **Build status:** Passed — 0 warnings, 0 errors
 **Test status:** Passed — 8/8
-**PR:** —
+
+[Pull Request #23](https://github.com/amodelandme/FeatureFlagService/pull/23)
 
 ---
 
