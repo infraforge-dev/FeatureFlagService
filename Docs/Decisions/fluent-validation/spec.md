@@ -4,7 +4,22 @@
 **Closes:** KI-003  
 **Layer:** `FeatureFlag.Application` (validators + sanitizer) + `FeatureFlag.Api` (wiring)  
 **Related ADR:** `adr-input-security-model.md`
-**PR:** —
+
+---
+
+## Table of Contents
+
+- [Context](#context)
+- [Packages to Add](#packages-to-add)
+- [New Files to Create](#new-files-to-create)
+  - [1. InputSanitizer.cs](#1-inputsanitizercs)
+  - [2. CreateFlagRequestValidator.cs](#2-createflagrequestvalidatorcs)
+  - [3. UpdateFlagRequestValidator.cs](#3-updateflagrequestvalidatorcs)
+  - [4. EvaluationRequestValidator.cs](#4-evaluationrequestvalidatorcs)
+- [Files to Modify](#files-to-modify)
+- [Acceptance Criteria](#acceptance-criteria)
+- [What NOT to Do](#what-not-to-do)
+- [Folder Structure After This Change](#folder-structure-after-this-change)
 
 ---
 

@@ -1,5 +1,57 @@
 # Architecture — FeatureFlagService
 
+---
+
+## Table of Contents
+
+- [Product Vision](#-product-vision)
+- [Overview](#-overview)
+- [High-Level Architecture](#-high-level-architecture)
+- [Architectural Layers](#-architectural-layers)
+  - [1. API Layer](#1-api-layer-controllers)
+  - [2. Validation + Sanitization Layer](#2-validation--sanitization-layer)
+  - [3. Application Layer](#3-application-layer-ifeatureflagservice)
+  - [4. Evaluation Engine](#4-evaluation-engine-featureevaluator)
+  - [5. Strategy Layer](#5-strategy-layer-irolloutstrategy)
+  - [6. Domain Layer](#6-domain-layer)
+  - [7. Data Access Layer](#7-data-access-layer-repository--ef-core)
+- [Security Model](#-security-model)
+- [Request Flow — Evaluation](#-request-flow-evaluation-example)
+- [Request Flow — Create](#-request-flow-crud-example--create)
+- [Key Design Principles](#-key-design-principles)
+- [Design Tradeoffs](#-design-tradeoffs)
+- [Extensibility Points](#-extensibility-points)
+- [Future Architecture Considerations](#-future-architecture-considerations)
+- [Notes for AI Assistants](#-notes-for-ai-assistants)
+- [Summary](#-summary)
+
+---
+
+## 🎯 Product Vision
+
+**FeatureFlagService is being built to become an Azure-native, .NET-first, AI-assisted
+feature flag platform for teams that live in the Microsoft ecosystem.**
+
+The competitive positioning is deliberate:
+
+- **Azure-native** — Azure Key Vault for secrets, Application Insights for observability,
+  Azure Container Apps for deployment, Azure OpenAI for AI analysis. Not bolted-on Azure
+  support — designed for Azure from the ground up.
+- **.NET-first** — A production-quality .NET SDK is a first-class deliverable alongside
+  the service itself. Teams using ASP.NET Core, Azure Functions, and the broader .NET
+  ecosystem should feel at home immediately.
+- **AI-assisted** — Not a dashboard with an AI chatbot stapled to it. Flag health
+  analysis, stale flag detection, rollout risk reasoning, and natural language debugging
+  of evaluation decisions are core product features — not add-ons.
+- **Open core** — The service is open source and self-hostable. The business model is
+  managed hosting, enterprise features, and support on top of the open core.
+
+This vision shapes every architectural decision. When choosing between two valid
+technical approaches, the one that better serves Azure-native deployment, SDK
+ergonomics, or AI integration wins.
+
+---
+
 ## 🧭 Overview
 
 FeatureFlagService is a modular backend system designed to evaluate feature flags in a
@@ -580,5 +632,5 @@ Its strength lies in:
   deferred risks are phase-gated with clear rationale
 * Extensibility through composition — new strategies require zero changes to existing
   code, but must register their config validation rules
-
+ 
 The architecture prioritizes long-term maintainability over short-term simplicity.
