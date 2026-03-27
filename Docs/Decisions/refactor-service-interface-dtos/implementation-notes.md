@@ -6,7 +6,8 @@
 **Build status:** Passed — 0 warnings, 0 errors
 **Tests:** 8/8 passing
 **Smoke test:** Passed — POST, GET, PUT, DELETE all return correct responses
-**PR:** 27 
+
+[Pull Request #27](https://github.com/amodelandme/FeatureFlagService/pull/27)
 
 ---
 

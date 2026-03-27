@@ -4,7 +4,8 @@
 **Phase:** 0 — Foundation  
 **Status:** Ready for implementation
 **Implementation notes:** `docs/Decisions/evaluation-engine/implementation-notes.md`
-**PR:** —
+
+[Pull Request #22](https://github.com/amodelandme/FeatureFlagService/pull/22)
 
 ---
 

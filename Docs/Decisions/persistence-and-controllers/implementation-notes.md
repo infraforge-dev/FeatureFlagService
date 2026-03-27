@@ -5,7 +5,8 @@
 **Spec reference:** `docs/Decisions/persistence-and-controllers/spec.md`
 **Build status:** Passed — 0 warnings, 0 errors
 **Tests:** 8/8 passing
-**PR:** —
+
+[Pull Request #24](https://github.com/amodelandme/FeatureFlagService/pull/24)
 
 ---
 
