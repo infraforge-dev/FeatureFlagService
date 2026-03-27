@@ -2,9 +2,10 @@
 
 **Session date:** 2026-03-25
 **Branch:** `refactor/upgrade-net10`
-**Spec reference:** `docs/decisions/upgrade-net10.md`
+**Spec reference:** `docs/Decisions/upgrade-net10/spec.md`
 **Build status:** Passed — 0 warnings, 0 errors
 **Test status:** Passed — 8/8
+**PR:** —
 
 ---
 
