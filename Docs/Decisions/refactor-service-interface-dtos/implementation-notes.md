@@ -2,10 +2,11 @@
 
 **Session date:** 2026-03-26
 **Branch:** `refactor/service-interface-dtos`
-**Spec reference:** `docs/decisions/refactor-service-interface-dtos.md`
+**Spec reference:** `docs/Decisions/refactor-service-interface-dtos/spec.md`
 **Build status:** Passed — 0 warnings, 0 errors
 **Tests:** 8/8 passing
 **Smoke test:** Passed — POST, GET, PUT, DELETE all return correct responses
+**PR:** —
 
 ---
 
