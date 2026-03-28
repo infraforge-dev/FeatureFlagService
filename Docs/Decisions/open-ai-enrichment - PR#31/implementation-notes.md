@@ -1,11 +1,11 @@
 # OpenAPI Enrichment — Implementation Notes
 
-**Session date:** 2026-02-28
+**Session date:** 2026-03-28
 **Branch:** `feature/openapi-enrichment`
-**Spec reference:** `Docs/Decisions/open-ai-enrichment - pr#XX/spec.md`
+**Spec reference:** `Docs/Decisions/open-ai-enrichment - PR#31/spec.md`
 **Build status:** Passed — 0 warnings, 0 errors
 **Tests:** 8/8 passing
-**PR:** —
+**PR:** #31
 
 ---
 
