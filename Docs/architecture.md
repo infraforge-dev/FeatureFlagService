@@ -72,9 +72,9 @@ The system follows a **layered architecture with strong separation of concerns**
 [ Client ]
      ↓
 [ HTTP Boundary — Validation + Sanitization ]
-  FluentValidation auto-validation runs before any controller action
+  Controllers call ValidateAsync() manually — invalid requests rejected as 400
   InputSanitizer strips whitespace and control characters from string inputs
-  Invalid requests rejected here as 400 — domain and service never see bad data
+  Domain and service never see bad data
      ↓
 [ Controllers (API Layer) ]
   DTOs in, DTOs out — no domain knowledge
@@ -109,8 +109,8 @@ The system follows a **layered architecture with strong separation of concerns**
 * Thin controllers — no business logic, no domain knowledge
 * Delegates all work to application layer via `IFeatureFlagService`
 * Receives and returns DTOs only — never touches domain entities
-* Does not perform validation directly — auto-validation middleware handles this
-  before controller action methods execute
+* Calls `ValidateAsync()` manually on mutating actions (POST, PUT) — validation
+  runs at the top of each action before any service code executes
 * Swagger/OpenAPI enabled at `/openapi/v1.json`
 
 ---
@@ -124,14 +124,18 @@ The system follows a **layered architecture with strong separation of concerns**
 
 **Key Characteristics:**
 
-* `FluentValidation.AspNetCore` auto-validation is wired via `AddFluentValidation()` 
-  chained onto `AddControllers()` in `Program.cs`
+* `FluentValidation.AspNetCore` is **deprecated** and is not used. Validators are
+  registered as `Scoped` services via explicit `AddScoped<IValidator<T>, TValidator>()`
+  calls in `DependencyInjection.cs`. Controllers inject `IValidator<T>` and call
+  `ValidateAsync()` manually at the top of each mutating action.
 * All three request DTOs have dedicated `AbstractValidator<T>` implementations
   in `FeatureFlag.Application/Validators/`
 * `InputSanitizer` is a shared static helper — trims whitespace, strips ASCII control
   characters below 0x20 (except tab) from all string inputs
-* `.Transform()` is used in validators to call `InputSanitizer.Clean()` — this
-  validates the cleaned value but does not mutate the DTO
+* Validators call `InputSanitizer.Clean()` inside `Must()` lambdas for rules where
+  sanitization changes the outcome (e.g. regex checks). Structural rules
+  (`NotEmpty`, `MaximumLength`) run on the raw value — a whitespace-only or
+  oversized string fails these checks regardless of sanitization.
 * `FeatureFlagService` calls `InputSanitizer` directly before evaluation — ensuring
   consistent hashing and `HashSet` lookups regardless of caller whitespace behavior
 * All `400` responses use `ValidationProblemDetails` (RFC 9110 compliant)
@@ -153,13 +157,14 @@ The system follows a **layered architecture with strong separation of concerns**
 | `UserId` | 256 characters |
 | `UserRoles` | 50 entries, 100 characters per role |
 
-**Why a shared sanitizer, not just `.Transform()`:**
+**Why a shared sanitizer, not just validator-level sanitization:**
 
-FluentValidation's `.Transform()` sanitizes a value for validation purposes only — it
-does not mutate the DTO. Without the service-layer sanitization calls, `" Admin "`
-would pass validation after being trimmed but arrive at `RoleStrategy` unsanitized —
-causing silent `HashSet` lookup failures that deny legitimate users access.
-`InputSanitizer` is the single source of truth for both surfaces.
+FluentValidation v12 removed `.Transform()`. The v12 approach runs sanitization inside
+`Must()` lambdas, which validates the cleaned value but does not mutate the DTO.
+Without the service-layer sanitization calls, `" Admin "` would pass validation after
+being cleaned to `"Admin"` in the `Must()` check, but `RoleStrategy` would receive
+`" Admin "` — causing silent `HashSet` lookup failures that deny legitimate users
+access. `InputSanitizer` is the single source of truth for both surfaces.
 
 **Sanitization scope:**
 
@@ -314,7 +319,7 @@ This section summarizes the key decisions.
 
 | Threat | Mitigation |
 |---|---|
-| Malformed input | FluentValidation auto-validation — 400 before application logic runs |
+| Malformed input | FluentValidation manual `ValidateAsync()` — 400 before service logic runs |
 | Whitespace / control characters | `InputSanitizer` — HTTP boundary + service layer |
 | SQL injection | EF Core parameterized queries — `FromSqlRaw()` with concatenation prohibited |
 | Mass assignment | `sealed record` DTOs — deserializer only maps declared properties |
@@ -338,10 +343,10 @@ This section summarizes the key decisions.
 ## 🔄 Request Flow (Evaluation Example)
 
 1. Client sends `POST /api/evaluate` with `EvaluationRequest` DTO
-2. **FluentValidation auto-validation runs** — `EvaluationRequestValidator` checks all
-   fields; invalid request returns `400` before any application code runs
-3. `EvaluationController` receives valid request — constructs `FeatureEvaluationContext`
-4. Controller calls `IFeatureFlagService.IsEnabledAsync(flagName, context)`
+2. **`EvaluationController` calls `ValidateAsync()`** — `EvaluationRequestValidator`
+   checks all fields; invalid request returns `400` before any service code runs
+3. `EvaluationController` constructs `FeatureEvaluationContext` from the (still
+   unsanitized) DTO and calls `IFeatureFlagService.IsEnabledAsync`
 5. **`FeatureFlagService` applies `InputSanitizer`** to `UserId` and `UserRoles` in
    the context — ensures consistent hashing and HashSet lookups
 6. Service retrieves `Flag` entity from repository
@@ -357,9 +362,10 @@ This section summarizes the key decisions.
 ## 🔄 Request Flow (CRUD Example — Create)
 
 1. Client sends `POST /api/flags` with `CreateFlagRequest` DTO
-2. **FluentValidation auto-validation runs** — `CreateFlagRequestValidator` checks all
-   fields including StrategyConfig cross-field rules; invalid request returns `400`
-3. `FeatureFlagsController` receives valid request — passes DTO directly to service
+2. **`FeatureFlagsController` calls `ValidateAsync()`** — `CreateFlagRequestValidator`
+   checks all fields including StrategyConfig cross-field rules; invalid request
+   returns `400` before any service code runs
+3. `FeatureFlagsController` passes valid DTO directly to service
 4. **`FeatureFlagService` applies `InputSanitizer.Clean()`** to `Name`
 5. Service constructs `Flag` entity from sanitized values
 6. Service calls `IFeatureFlagRepository.AddAsync` and `SaveChangesAsync`

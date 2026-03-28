@@ -17,13 +17,13 @@
 
 ## 📍 Status Summary
 
-**Phase 0 — Foundation: ✅ Complete**  
-**Phase 1 — Architectural Cleanup: ✅ Complete**  
-**Phase 1 — Validation, Testing, Developer Experience: 🔄 In Progress**
+**Phase 0 — Foundation: ✅ Complete**
+**Phase 1 — Architectural Cleanup: ✅ Complete**
+**Phase 1 — Validation & Sanitization: ✅ Complete**
+**Phase 1 — Testing, Error Handling, Developer Experience: 🔄 In Progress**
 
-The full stack is implemented, smoke-tested, and verified. The service interface
-boundary has been cleaned up — domain entities no longer cross the service layer.
-The API is running against a local Postgres instance via Docker.
+FluentValidation v12 is implemented with manual controller validation. `InputSanitizer`
+is in place. The service layer sanitizes evaluation inputs. KI-003 is closed.
 
 **Product direction locked:** Azure-native, .NET-first, AI-assisted feature flag
 platform targeting .NET teams on Azure. Phase 1.5 introduces Key Vault, Application
@@ -41,98 +41,93 @@ Insights, and the AI analysis endpoint immediately after Phase 1 completes.
   immutable `IReadOnlyList<string>` roles, accepts `IEnumerable<string>` on construction
 - `RolloutStrategy` enum (None, Percentage, RoleBased)
 - `EnvironmentType` enum (None = 0 sentinel, Development, Staging, Production)
-- `IRolloutStrategy` interface — includes `StrategyType` property for registry dispatch
-- `IFeatureFlagRepository` interface — async signatures with `CancellationToken`
+- `IRolloutStrategy` interface — `StrategyType` property for registry dispatch
+- `IFeatureFlagRepository` interface — async, `CancellationToken` throughout
 
 ### Application Layer
 
-- `NoneStrategy` — passthrough, always returns true
-- `PercentageStrategy` — deterministic SHA256 hashing into buckets
-- `RoleStrategy` — config-driven, case-insensitive, fail-closed role matching
-- `FeatureEvaluator` — registry dispatch pattern, dictionary keyed by `RolloutStrategy`
-- `FeatureFlagService` — async, orchestrates repository + evaluator
-- `DependencyInjection.cs` — `AddApplication()` extension method
+- `NoneStrategy`, `PercentageStrategy`, `RoleStrategy` — all strategies implemented
+- `FeatureEvaluator` — registry dispatch pattern
+- `FeatureFlagService` — async, orchestrates repository + evaluator; sanitizes inputs
+  at two call sites (`IsEnabledAsync`, `CreateFlagAsync`)
 - DTOs: `CreateFlagRequest`, `UpdateFlagRequest`, `FlagResponse`, `EvaluationRequest`,
   `FlagMappings`
-- `IFeatureFlagService` — async signatures with `CancellationToken`, full CRUD +
-  evaluation
+- `IFeatureFlagService` — async, CancellationToken, full CRUD + evaluation
 
-### Service Interface Boundary (refactor/service-interface-dtos) ✅
+### Validation & Sanitization (PR #30) ✅
+
+- `InputSanitizer` — `internal static` helper in `FeatureFlag.Application/Validators/`;
+  trims whitespace and strips ASCII control characters; called by validators and
+  service layer
+- `CreateFlagRequestValidator` — Name allowlist regex (on cleaned value via `Must()`),
+  env sentinel guard, StrategyConfig cross-field rules, 2000-char limit
+- `UpdateFlagRequestValidator` — StrategyConfig cross-field rules, 2000-char limit
+- `EvaluationRequestValidator` — FlagName/UserId length + empty checks, UserRoles
+  null/count/per-role length, env sentinel guard
+- Validators registered explicitly via `AddScoped<IValidator<T>, TValidator>()` in
+  `DependencyInjection.cs`
+- `FeatureFlagsController` — manual `ValidateAsync` on POST and PUT
+- `EvaluationController` — manual `ValidateAsync` before `FeatureEvaluationContext`
+  is constructed
+- `FluentValidation.AspNetCore` not used — deprecated; manual validation is the v12
+  approach
+- Build: ✅ 0 warnings, 0 errors
+- Tests: ✅ 8/8 passing
+
+### Service Interface Boundary ✅
 
 - `IFeatureFlagService` — no `Flag` entity in any method signature
-- All signatures use DTOs: `FlagResponse`, `CreateFlagRequest`, `UpdateFlagRequest`
-- `Flag` construction moved from controller into `FeatureFlagService.CreateFlagAsync`
-- `UpdateFlagAsync` accepts `UpdateFlagRequest` DTO — not 5 primitive parameters
-- `ToResponse()` mapping consolidated inside `FeatureFlagService` — called in exactly
-  3 places
-- `FeatureFlagsController` — zero `.ToResponse()` calls, zero domain entity references
-- Smoke test verified: POST, GET, PUT, DELETE all return correct responses
+- `ToResponse()` mapping consolidated inside `FeatureFlagService`
+- `FeatureFlagsController` — zero domain entity references
 
 ### Infrastructure Layer
 
-- `FeatureFlagDbContext` — EF Core DbContext with `DbSet<Flag>`
-- `FlagConfiguration` — Fluent API: enums as strings, `jsonb` for StrategyConfig,
-  partial unique index on `(Name, Environment)` filtered to non-archived flags
-- `FeatureFlagDbContextFactory` — design-time factory for `dotnet ef` tooling
-- `FeatureFlagRepository` — async, `CancellationToken` on all EF Core calls
-- `DependencyInjection.cs` — `AddInfrastructure()` with Npgsql + DbContext + repository
+- `FeatureFlagDbContext`, `FlagConfiguration`, `FeatureFlagDbContextFactory`
+- `FeatureFlagRepository` — async, CancellationToken on all EF Core calls
 - `InitialCreate` migration — generated and applied
 
 ### API Layer
 
-- `FeatureFlagsController` — full CRUD: GET all, GET by name, POST, PUT, DELETE
-  (soft archive)
-- `EvaluationController` — POST `/api/evaluate`, returns 404 for unknown flags
+- `FeatureFlagsController` — full CRUD with manual validation on POST/PUT
+- `EvaluationController` — POST `/api/evaluate` with manual validation
 - `Program.cs` — `JsonStringEnumConverter` wired, root redirect to OpenAPI docs
-- Swagger/OpenAPI configured and accessible at `/openapi/v1.json`
+- Swagger/OpenAPI at `/openapi/v1.json`
 
 ### Documentation & Security
 
-- `Docs/architecture.md` — updated with product vision, validation/sanitization layer,
-  security model summary, Phase 1.5 future considerations
-- `Docs/roadmap.md` — updated with full product vision, Phase 1.5 through Phase 9,
-  .NET SDK as key product milestone
-- `Docs/Security/adr-input-security-model.md` — threat model, mitigations in place,
-  phase-gated deferred decisions
-- `Docs/Decisions/fluent-validation/spec.md` — Claude Code-ready implementation spec
+- `Docs/architecture.md` — updated to reflect v12 manual validation approach
+- `Docs/roadmap.md` — full product vision, Phase 1.5 through Phase 9
+- `Docs/Security/adr-input-security-model.md` — threat model, phase-gated decisions
+- `Docs/Decisions/fluent-validation - PR#30/spec.md` — implementation spec
+- `Docs/Decisions/fluent-validation - PR#30/implementation-notes.md` — deviations
+  documented (DEV-001, DEV-002, KI-NEW-001)
 
 ### Dev Environment
 
-- DevContainer: `devcontainers/base:ubuntu-24.04` + .NET 10 SDK via `dotnet` feature
-- Docker-outside-of-Docker configured: host socket mounted
-- `dotnet-ef` added to `.config/dotnet-tools.json`
-- `postStartCommand` joins `featureflagservice_default` Docker network on start
-- Connection string: `Host=postgres` (Docker Compose service name — not `localhost`)
-- `docker-compose.yml` at repo root — one-command local Postgres setup
+- DevContainer: `devcontainers/base:ubuntu-24.04` + .NET 10 SDK
+- Docker-outside-of-Docker configured
+- `dotnet-ef` in `.config/dotnet-tools.json`
+- Connection string: `Host=postgres`
+- `docker-compose.yml` at repo root
 - All five `.csproj` files targeting `net10.0`
 
 ### Tests
 
-- `FeatureEvaluationContextTests` — covers constructor guards, equality, hash code
+- `FeatureEvaluationContextTests` — 8/8 passing
 - Build: ✅ 0 warnings, 0 errors
-- Tests: ✅ 8/8 passing
 
 ---
 
 ## ❌ What Is Not Yet Built (Phase 1 Remaining)
 
-### Validation & Sanitization
+### Validation (remaining)
 
-- `InputSanitizer` — shared static helper in `FeatureFlag.Application/Validators/`;
-  trims whitespace and strips control characters; called by validators and service layer
-- `CreateFlagRequestValidator` — Name allowlist regex, env sentinel guard,
-  StrategyConfig cross-field rules, 2000-char limit — closes KI-003
-- `UpdateFlagRequestValidator` — StrategyConfig cross-field rules, 2000-char limit
-- `EvaluationRequestValidator` — UserId max 256, UserRoles max 50×100,
-  env sentinel guard
-- `AddFluentValidationAutoValidation()` wired in `Program.cs` (FluentValidation v11 API)
-- `InputSanitizer` called in `FeatureFlagService.IsEnabledAsync` and `CreateFlagAsync`
 - Name uniqueness check at the service layer before hitting the DB
 
 ### Error Handling
 
 - Global exception middleware — currently using per-controller try/catch
-- Standardized `ValidationProblemDetails` error response shape
+- Standardized error response shape for unhandled exceptions
 - Route parameter guard for `{name}` on GET and PUT — closes KI-008
 
 ### Testing
@@ -155,38 +150,27 @@ Insights, and the AI analysis endpoint immediately after Phase 1 completes.
 
 ### KI-002 — `FeatureEvaluator.Evaluate` Has an Implicit Precondition
 
-**Severity:** Low  
+**Severity:** Low
 **Status:** Documented — tracked for review when new callers are introduced
 
-Callers must check `Flag.IsEnabled` before calling `Evaluate`. This contract is
-documented via XML doc comment but not enforced by a guard clause.
-
-**Action required if:** A second caller of `FeatureEvaluator` is introduced anywhere
-in the codebase.
-
----
-
-### KI-003 — `StrategyConfig` Validation Deferred to Runtime
-
-**Severity:** Medium — misconfiguration fails silently at evaluation time  
-**Status:** Fix in progress — `Docs/Decisions/fluent-validation/spec.md` is the
-implementation spec. Closes when FluentValidation validators are implemented.
+Callers must check `Flag.IsEnabled` before calling `Evaluate`. Documented via XML
+doc comment, not enforced by a guard clause.
 
 ---
 
 ### KI-006 — `Microsoft.EntityFrameworkCore.Design` Required on Both Projects
 
-**Severity:** Low — spec gap, not a runtime issue  
-**Status:** Documented — handled during implementation
+**Severity:** Low — spec convention, not a runtime issue
+**Status:** Documented
 
-Any spec that includes EF Core migration steps must list this package on both
-Infrastructure and Api projects with `PrivateAssets=all`.
+Any spec with EF Core migration steps must list this package on both Infrastructure
+and Api projects with `PrivateAssets=all`.
 
 ---
 
 ### KI-007 — Devcontainer Networking Requires Postgres to Start First
 
-**Severity:** Low — inconvenience, not a bug  
+**Severity:** Low — inconvenience, not a bug
 **Status:** Mitigated — `postStartCommand` automates the network join
 
 **Workaround:** Run `docker compose up -d` before opening the devcontainer.
@@ -194,40 +178,52 @@ If devcontainer is already running:
 ```bash
 docker network connect featureflagservice_default $(cat /etc/hostname)
 ```
-**Longer-term fix:** Migrate to full docker-compose devcontainer setup. Deferred to
-Phase 8.
+**Longer-term fix:** Full docker-compose devcontainer setup. Deferred to Phase 8.
 
 ---
 
 ### KI-008 — Route Parameters on GET and PUT Lack Allowlist Validation
 
-**Severity:** Low  
+**Severity:** Low
 **Status:** Open — Phase 1 fix
 
-`GET /api/flags/{name}` and `PUT /api/flags/{name}/{environment}` accept a `name`
-route parameter with no character allowlist validation. Flag creation enforces
-`^[a-zA-Z0-9\-_]+$` on `Name`, but a caller can send arbitrary characters in the
-URL on GET and PUT. EF Core parameterized queries prevent SQL injection. The risk
-is unexpected characters reaching logs and repository method calls.
+`GET /api/flags/{name}` and `PUT /api/flags/{name}` accept a `name` route parameter
+with no character allowlist validation. EF Core parameterized queries prevent SQL
+injection. Risk is unexpected characters reaching logs and repository calls.
 
 **Planned fix:** Static `RouteParameterGuard.ValidateName(string name)` helper
-returning `400 Bad Request` for non-conforming values, called at the top of affected
-controller actions. See `Docs/Security/adr-input-security-model.md` DEFERRED-005.
+returning `400` for non-conforming values, called at top of affected controller
+actions.
+
+---
+
+### KI-NEW-001 — `BeValidPercentageConfig` / `BeValidRoleConfig` Duplicated
+
+**Severity:** Low — code quality, no runtime impact
+**Status:** Deferred — not a Phase 1 blocker
+
+`BeValidPercentageConfig` and `BeValidRoleConfig` are private static methods
+duplicated identically in both `CreateFlagRequestValidator` and
+`UpdateFlagRequestValidator`.
+
+**Candidate fix:** Extract to `StrategyConfigRules` internal static class in
+`FeatureFlag.Application/Validators/`. Both validators call the shared methods.
 
 ---
 
 ## 🎯 Current Focus
 
-**Phase 1 — MVP Completion (Validation, Testing, Developer Experience)**
+**Phase 1 — MVP Completion (Testing, Error Handling, Developer Experience)**
 
 ### Immediate Next Tasks
 
-1. Implement `InputSanitizer` and all three FluentValidation validators — closes KI-003
-2. Add global exception middleware and standardized error shape
-3. Add route parameter guard for `{name}` on GET/PUT — closes KI-008
-4. Unit tests for strategies, evaluator, and all three validators
-5. Integration tests for all endpoints
-6. Commit `.http` smoke test file
+1. Global exception middleware and standardized error shape
+2. Route parameter guard for `{name}` on GET/PUT — closes KI-008
+3. Unit tests for strategies, evaluator, and all three validators
+4. Integration tests for all endpoints
+5. Commit `.http` smoke test file
+6. Seed data for local development
+7. Evaluation decision logging
 
 ---
 
@@ -240,16 +236,18 @@ controller actions. See `Docs/Security/adr-input-security-model.md` DEFERRED-005
 - No AI analysis endpoint yet (Phase 1.5)
 - No UI work
 - Do not change `Host=postgres` back to `localhost` in connection string
-- Do not use `AddFluentValidation()` — that is the v9/v10 API; use
-  `AddFluentValidationAutoValidation()` (FluentValidation.AspNetCore v11)
+- Do not use `FluentValidation.AspNetCore` or `AddFluentValidationAutoValidation()` —
+  both are deprecated; use manual `ValidateAsync` in controllers
+- Do not use `.Transform()` — removed in FluentValidation v12
 
 ---
 
 ## 📌 Definition of Done — Phase 1
 
-- [ ] `InputSanitizer` implemented and called in validators and service layer
-- [ ] `FluentValidation` on all three request DTOs with all acceptance criteria passing
-- [ ] `AddFluentValidationAutoValidation()` wired in `Program.cs`
+- [x] `InputSanitizer` implemented and called in validators and service layer
+- [x] `FluentValidation` v12 on all three request DTOs
+- [x] Manual `ValidateAsync` in controllers (POST and PUT on flags; POST on evaluate)
+- [ ] Name uniqueness check at service layer
 - [ ] Global exception middleware in place
 - [ ] Route parameter guard on GET/PUT — closes KI-008
 - [ ] Unit tests for all three strategies
@@ -259,8 +257,8 @@ controller actions. See `Docs/Security/adr-input-security-model.md` DEFERRED-005
 - [ ] `.http` smoke test file committed
 - [ ] Seed data for local development
 - [ ] Evaluation logging in place
-- [ ] Build: 0 warnings, 0 errors
-- [ ] All tests passing
+- [x] Build: 0 warnings, 0 errors
+- [x] All existing tests passing
 
 ---
 
@@ -269,30 +267,32 @@ controller actions. See `Docs/Security/adr-input-security-model.md` DEFERRED-005
 ### Architecture
 - Follow Clean Architecture — dependencies point inward toward Domain
 - `IFeatureFlagService` speaks entirely in DTOs — never return `Flag` from the service
-- All evaluation logic must remain deterministic and isolated from persistence
-- `FeatureEvaluationContext` constructor signature: `(string userId, IEnumerable<string> userRoles, EnvironmentType environment)`
-- `appsettings.Development.json` is intentionally committed — local Docker defaults only
+- `FeatureEvaluationContext` constructor: `(string userId, IEnumerable<string> userRoles, EnvironmentType environment)`
 - Connection string uses `Host=postgres` — do not change to `localhost`
 - Both Infrastructure and Api projects require `Microsoft.EntityFrameworkCore.Design`
   with `PrivateAssets=all`
 
 ### Validation & Sanitization
-- FluentValidation v11 API: use `AddFluentValidationAutoValidation()` — not
-  `AddFluentValidation(config => ...)`
+- FluentValidation v12: manual `ValidateAsync` in controllers — no auto-validation
+  middleware, no `FluentValidation.AspNetCore`
+- Do not use `.Transform()` — removed in v12; use `Must()` with `InputSanitizer.Clean()`
 - `InputSanitizer` is `internal` to `FeatureFlag.Application` — accessible from
   `FeatureFlagService` in the same project, not from the Api project
 - Do not inline sanitization logic — always call `InputSanitizer.Clean()` or
   `CleanCollection()`
-- Do not sanitize `StrategyConfig` — it is JSON, stored verbatim; only length and
-  structure are validated
-- Any new `IRolloutStrategy` requires a corresponding validator rule before the API
-  will accept its configuration
+- Do not sanitize `StrategyConfig` — JSON, stored verbatim; only length and structure
+  validated
+- Any new `IRolloutStrategy` requires a corresponding validator rule
 
 ### Security
 - See `Docs/Security/adr-input-security-model.md` before modifying the security boundary
 - Raw SQL via `FromSqlRaw()` with string concatenation is prohibited
 
+### Known Issue Tracking
+- KI-003: **CLOSED** — StrategyConfig validated at write time
+- KI-NEW-001: duplicated private methods in validators — deferred cleanup
+
 ### Product Direction
-- This is an Azure-native, .NET-first, AI-assisted feature flag platform
-- Phase 1.5 immediately follows Phase 1 — do not skip or defer Azure/AI integration
-- See `Docs/roadmap.md` for the full phase plan and product vision
+- Azure-native, .NET-first, AI-assisted feature flag platform
+- Phase 1.5 immediately follows Phase 1 — do not skip Azure/AI integration
+- See `Docs/roadmap.md` for full phase plan
