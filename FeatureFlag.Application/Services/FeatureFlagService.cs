@@ -37,17 +37,24 @@ public sealed class FeatureFlagService : IFeatureFlagService
         CancellationToken ct = default
     )
     {
-        var flag = await _repository.GetByNameAsync(flagName, context.Environment, ct);
+        // Sanitize evaluation inputs. RuleFor lambdas in validators do not mutate the DTO.
+        // UserId and UserRoles must be cleaned here to ensure consistent SHA256 hashing
+        // in PercentageStrategy and HashSet lookups in RoleStrategy.
+        var sanitizedContext = new FeatureEvaluationContext(
+            userId: Validators.InputSanitizer.Clean(context.UserId) ?? context.UserId,
+            userRoles: Validators.InputSanitizer.CleanCollection(context.UserRoles),
+            environment: context.Environment
+        );
 
-        if (flag is null)
-            throw new KeyNotFoundException(
-                $"Flag '{flagName}' not found in {context.Environment}."
+        var flag = await _repository.GetByNameAsync(flagName, sanitizedContext.Environment, ct)
+            ?? throw new KeyNotFoundException(
+                $"Flag '{flagName}' not found in {sanitizedContext.Environment}."
             );
 
         if (!flag.IsEnabled)
             return false;
 
-        return _evaluator.Evaluate(flag, context);
+        return _evaluator.Evaluate(flag, sanitizedContext);
     }
 
     public async Task<IReadOnlyList<FlagResponse>> GetAllFlagsAsync(
@@ -64,8 +71,11 @@ public sealed class FeatureFlagService : IFeatureFlagService
         CancellationToken ct = default
     )
     {
+        // Sanitize Name so the stored value matches the validated form.
+        var sanitizedName = Validators.InputSanitizer.Clean(request.Name) ?? request.Name;
+
         var flag = new Flag(
-            request.Name,
+            sanitizedName,
             request.Environment,
             request.IsEnabled,
             request.StrategyType,
