@@ -24,7 +24,7 @@ public sealed class FeatureEvaluator
     ///
     /// This contract is intentionally not enforced here via a guard clause — the
     /// evaluator is a pure strategy dispatcher, not a policy enforcer. Policy lives
-    /// at the service boundary (<see cref="FeatureFlagService"/>).
+    /// at the service boundary (<see cref="Services.FeatureFlagService"/>).
     ///
     /// If this method is called from any context other than FeatureFlagService,
     /// revisit whether the IsEnabled check needs to be added back here.
