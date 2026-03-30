@@ -13,18 +13,19 @@ internal sealed class EnumSchemaTransformer : IOpenApiSchemaTransformer
     public Task TransformAsync(
         OpenApiSchema schema,
         OpenApiSchemaTransformerContext context,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
-        var type = context.JsonTypeInfo.Type;
+        Type type = context.JsonTypeInfo.Type;
 
         if (!type.IsEnum)
+        {
             return Task.CompletedTask;
+        }
 
         schema.Type = JsonSchemaType.String;
         schema.Format = null;
-        schema.Enum = Enum.GetNames(type)
-            .Select(name => (JsonNode)JsonValue.Create(name))
-            .ToList();
+        schema.Enum = Enum.GetNames(type).Select(name => (JsonNode)JsonValue.Create(name)).ToList();
 
         return Task.CompletedTask;
     }

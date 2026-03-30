@@ -12,10 +12,12 @@ public sealed class RoleStrategy : IRolloutStrategy
 
     public bool Evaluate(Flag flag, FeatureEvaluationContext context)
     {
-        var config = JsonSerializer.Deserialize<RoleConfig>(flag.StrategyConfig);
+        RoleConfig? config = JsonSerializer.Deserialize<RoleConfig>(flag.StrategyConfig);
 
         if (config is null || config.Roles is null || config.Roles.Count == 0)
+        {
             return false;
+        }
 
         var allowedRoles = new HashSet<string>(config.Roles, StringComparer.OrdinalIgnoreCase);
 

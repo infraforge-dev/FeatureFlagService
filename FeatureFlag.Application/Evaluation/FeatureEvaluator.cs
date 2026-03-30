@@ -31,9 +31,7 @@ public sealed class FeatureEvaluator
     /// </remarks>
     public bool Evaluate(Flag flag, FeatureEvaluationContext context)
     {
-        if (!_strategies.TryGetValue(flag.StrategyType, out var strategy))
-            return false;
-
-        return strategy.Evaluate(flag, context);
+        return _strategies.TryGetValue(flag.StrategyType, out IRolloutStrategy? strategy)
+            && strategy.Evaluate(flag, context);
     }
 }

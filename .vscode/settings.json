@@ -1,5 +1,11 @@
 {
   "git.defaultBranchName": "dev",
+  "files.eol": "\n",
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "csharpier.csharpier-vscode",
+  "[csharp]": {
+    "editor.defaultFormatter": "csharpier.csharpier-vscode"
+  },
   "cSpell.words": [
     "anthropics",
     "csdevkit",
@@ -7,6 +13,7 @@
     "eamodio",
     "humao",
     "Npgsql",
-    "usermod"
+    "usermod",
+    "warnaserror"
   ]
 }

@@ -16,12 +16,13 @@ internal static class InputSanitizer
     /// </summary>
     internal static string? Clean(string? value)
     {
-        if (value is null) return null;
+        if (value is null)
+        {
+            return null;
+        }
 
         // Strip control characters (0x00–0x1F) except tab (0x09)
-        var cleaned = new string(value
-            .Where(c => c == '\t' || c >= 0x20)
-            .ToArray());
+        string cleaned = new string(value.Where(c => c == '\t' || c >= 0x20).ToArray());
 
         return cleaned.Trim();
     }
@@ -32,11 +33,11 @@ internal static class InputSanitizer
     /// </summary>
     internal static IEnumerable<string> CleanCollection(IEnumerable<string>? values)
     {
-        if (values is null) return [];
+        if (values is null)
+        {
+            return [];
+        }
 
-        return values
-            .Select(Clean)
-            .Where(v => !string.IsNullOrEmpty(v))
-            .Cast<string>();
+        return values.Select(Clean).Where(v => !string.IsNullOrEmpty(v)).Cast<string>();
     }
 }

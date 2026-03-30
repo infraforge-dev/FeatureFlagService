@@ -2,8 +2,8 @@ using FeatureFlag.Application.Evaluation;
 using FeatureFlag.Application.Interfaces;
 using FeatureFlag.Application.Services;
 using FeatureFlag.Application.Strategies;
-using FeatureFlag.Domain.Interfaces;
 using FeatureFlag.Application.Validators;
+using FeatureFlag.Domain.Interfaces;
 using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
 
