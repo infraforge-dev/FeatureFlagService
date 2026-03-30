@@ -4,5 +4,5 @@ public enum RolloutStrategy
 {
     None,
     Percentage,
-    RoleBased
+    RoleBased,
 }

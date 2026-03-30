@@ -2,6 +2,7 @@ using FeatureFlag.Application.DTOs;
 using FeatureFlag.Application.Interfaces;
 using FeatureFlag.Domain.ValueObjects;
 using FluentValidation;
+using FluentValidation.Results;
 using Microsoft.AspNetCore.Mvc;
 
 namespace FeatureFlag.Api.Controllers;
@@ -13,7 +14,10 @@ public sealed class EvaluationController : ControllerBase
     private readonly IFeatureFlagService _service;
     private readonly IValidator<EvaluationRequest> _validator;
 
-    public EvaluationController(IFeatureFlagService service, IValidator<EvaluationRequest> validator)
+    public EvaluationController(
+        IFeatureFlagService service,
+        IValidator<EvaluationRequest> validator
+    )
     {
         _service = service;
         _validator = validator;
@@ -30,28 +34,38 @@ public sealed class EvaluationController : ControllerBase
     /// <response code="400">Validation failed. See the errors collection for details.</response>
     /// <response code="404">No flag found with the given name in the specified environment.</response>
     [HttpPost]
-    [ProducesResponseType<EvaluationResponse>(StatusCodes.Status200OK,
-        Description = "The evaluation result for the given user context.")]
-    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest,
-        Description = "One or more validation errors. See the errors field for details.")]
-    [ProducesResponseType(StatusCodes.Status404NotFound,
-        Description = "No flag found with the given name exists in the specified environment.")]
+    [ProducesResponseType<EvaluationResponse>(
+        StatusCodes.Status200OK,
+        Description = "The evaluation result for the given user context."
+    )]
+    [ProducesResponseType<ValidationProblemDetails>(
+        StatusCodes.Status400BadRequest,
+        Description = "One or more validation errors. See the errors field for details."
+    )]
+    [ProducesResponseType(
+        StatusCodes.Status404NotFound,
+        Description = "No flag found with the given name exists in the specified environment."
+    )]
     public async Task<IActionResult> Evaluate(
         [FromBody] EvaluationRequest request,
-        CancellationToken ct)
+        CancellationToken ct
+    )
     {
-        var validation = await _validator.ValidateAsync(request, ct);
+        ValidationResult validation = await _validator.ValidateAsync(request, ct);
         if (!validation.IsValid)
+        {
             return ValidationProblem(new ValidationProblemDetails(validation.ToDictionary()));
+        }
 
         try
         {
             var context = new FeatureEvaluationContext(
                 request.UserId,
                 request.UserRoles,
-                request.Environment);
+                request.Environment
+            );
 
-            var isEnabled = await _service.IsEnabledAsync(request.FlagName, context, ct);
+            bool isEnabled = await _service.IsEnabledAsync(request.FlagName, context, ct);
             return Ok(new EvaluationResponse(isEnabled));
         }
         catch (KeyNotFoundException e)

@@ -4,6 +4,7 @@ using FluentAssertions;
 
 namespace FeatureFlag.Tests.Domain.ValueObjects;
 
+[Trait("Category", "Unit")]
 public class FeatureEvaluationContextTests
 {
     private readonly List<string> _defaultRoles = ["admin", "user"];
@@ -63,7 +64,7 @@ public class FeatureEvaluationContextTests
         );
 
         // Act
-        var areEqual = context1.Equals(context2);
+        bool areEqual = context1.Equals(context2);
 
         // Assert
         areEqual.Should().BeTrue();
@@ -85,7 +86,7 @@ public class FeatureEvaluationContextTests
         );
 
         // Act
-        var areEqual = context1.Equals(context2);
+        bool areEqual = context1.Equals(context2);
 
         // Assert
         areEqual.Should().BeFalse();
@@ -107,8 +108,8 @@ public class FeatureEvaluationContextTests
         );
 
         // Act
-        var hashCode1 = context1.GetHashCode();
-        var hashCode2 = context2.GetHashCode();
+        int hashCode1 = context1.GetHashCode();
+        int hashCode2 = context2.GetHashCode();
 
         // Assert
         hashCode1.Should().Be(hashCode2);

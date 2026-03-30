@@ -15,13 +15,17 @@ public sealed class FeatureEvaluationContext : IEquatable<FeatureEvaluationConte
     )
     {
         if (string.IsNullOrWhiteSpace(userId))
+        {
             throw new ArgumentException("UserId cannot be empty.", nameof(userId));
+        }
 
         if (!Enum.IsDefined(environment) || environment == EnvironmentType.None)
+        {
             throw new ArgumentException(
                 "A valid environment must be specified.",
                 nameof(environment)
             );
+        }
 
         UserId = userId;
         UserRoles = (userRoles ?? Enumerable.Empty<string>()).ToList().AsReadOnly();
@@ -31,9 +35,14 @@ public sealed class FeatureEvaluationContext : IEquatable<FeatureEvaluationConte
     public bool Equals(FeatureEvaluationContext? other)
     {
         if (other is null)
+        {
             return false;
+        }
+
         if (ReferenceEquals(this, other))
+        {
             return true;
+        }
 
         return UserId == other.UserId
             && Environment == other.Environment
