@@ -56,7 +56,7 @@ Every phase of this roadmap builds toward that demo.
 
 ```
 Phase 0  ✅  Foundation — domain, strategies, persistence, API
-Phase 1  🔄  MVP Completion — validation, sanitization, testing, error handling
+Phase 1  🔄  MVP Completion — validation, sanitization, CI, testing, error handling
 Phase 1.5 🆕  Azure Foundation + AI — Key Vault, App Insights, AI analysis endpoint
 Phase 2      Testing & Reliability — full test coverage, contract tests
 Phase 3      Auth & Security — JWT, RBAC, rate limiting, audit trail
@@ -64,7 +64,7 @@ Phase 4      Observability — evaluation telemetry, debugging endpoint, dashboa
 Phase 5      Advanced Strategies — user targeting, time-based, gradual rollout
 Phase 6      Performance — caching, Redis, horizontal scaling
 Phase 7      .NET SDK — first-class SDK, NuGet package, SDK docs        ← key product milestone
-Phase 8      Production Readiness — CI/CD, AKS deployment, SLA baseline
+Phase 8      Production Readiness — CD to Azure, AKS deployment, SLA baseline
 Phase 9      Open Core Launch — public repo, self-hosted Docker image, hosted offering
 ```
 
@@ -80,256 +80,224 @@ Phase 9      Open Core Launch — public repo, self-hosted Docker image, hosted 
 * [x] Implement `FeatureEvaluationContext` value object
 * [x] Enforce encapsulation (private setters, explicit mutation methods)
 * [x] Clean Architecture project structure (Domain, Application, Infrastructure, Api, Tests)
-* [x] Dependency directions enforced
+* [x] Dependency directions enforced (Domain has no outward dependencies)
 
 ### Application Layer
 
-* [x] `IFeatureFlagService` interface — async, CancellationToken throughout
-* [x] `IRolloutStrategy` interface — StrategyType property for registry dispatch
-* [x] `FeatureEvaluator` — registry dispatch pattern
-* [x] `NoneStrategy`, `PercentageStrategy`, `RoleStrategy`
+* [x] Define `IFeatureFlagService` interface — async signatures with `CancellationToken`
+* [x] Define `IRolloutStrategy` interface — includes `StrategyType` property for registry dispatch
+* [x] Implement `FeatureEvaluator` — registry dispatch pattern, dictionary keyed by `RolloutStrategy`
+* [x] Separate evaluation logic from domain
+
+### Strategy Pattern
+
+* [x] Implement `NoneStrategy` — passthrough, always returns true
+* [x] Implement `PercentageStrategy` — deterministic SHA256 hashing into buckets
+* [x] Implement `RoleStrategy` — config-driven, case-insensitive, fail-closed role matching
+
+### Application Service & DTOs
+
 * [x] `FeatureFlagService` — async, orchestrates repository + evaluator
-* [x] DTOs: `CreateFlagRequest`, `UpdateFlagRequest`, `FlagResponse`,
-      `EvaluationRequest`, `FlagMappings`
+* [x] DTOs: `CreateFlagRequest`, `UpdateFlagRequest`, `FlagResponse`, `EvaluationRequest`, `FlagMappings`
 * [x] `DependencyInjection.cs` — `AddApplication()` extension method
 
-### Infrastructure & API
+### API Layer
 
-* [x] EF Core + Npgsql (Postgres)
-* [x] `FlagConfiguration` — Fluent API, jsonb for StrategyConfig
-* [x] Partial unique index on `(Name, Environment)` filtered to non-archived flags
-* [x] `FeatureFlagRepository` — async, CancellationToken on all EF Core calls
-* [x] `InitialCreate` migration — generated and applied
-* [x] `docker-compose.yml` — one-command local Postgres setup
-* [x] `FeatureFlagsController` — full CRUD
+* [x] `FeatureFlagsController` — full CRUD: GET all, GET by name, POST, PUT, DELETE (soft archive)
 * [x] `EvaluationController` — POST `/api/evaluate`
-* [x] Swagger/OpenAPI at `/openapi/v1.json`
-* [x] `JsonStringEnumConverter` wired — enums serialize as strings
+* [x] OpenAPI enrichment — Scalar UI, XML docs, `EnumSchemaTransformer`, `ApiInfoTransformer`
+
+### Infrastructure & Persistence
+
+* [x] EF Core + Npgsql setup — `FeatureFlagDbContext`
+* [x] `FeatureFlagRepository` — async, full CRUD with soft-delete
+* [x] Postgres `jsonb` for `StrategyConfig`
+* [x] Partial unique index on `Name` for soft-delete support
+* [x] EF Core migrations — initial schema
+* [x] `docker-compose.yml` — one-command local Postgres setup
+
+### Service Interface Boundary
+
+* [x] `IFeatureFlagService` — no `Flag` entity in any method signature
+* [x] All signatures use DTOs only
+* [x] `Flag` construction moved from controller into `FeatureFlagService.CreateFlagAsync`
 
 ### Dev Environment
 
-* [x] DevContainer: .NET 10 SDK on ubuntu-24.04
-* [x] Docker-outside-of-Docker
-* [x] `dotnet-ef` in `.config/dotnet-tools.json`
-* [x] Devcontainer networking — postStartCommand joins Docker Compose network
-
-### Tests
-
-* [x] `FeatureEvaluationContextTests` — 8/8 passing
-* [x] Build: 0 warnings, 0 errors
+* [x] DevContainer: `devcontainers/base:ubuntu-24.04` + .NET 10 SDK feature
+* [x] Docker-outside-of-Docker configured with `postStartCommand` network join
+* [x] `.config/dotnet-tools.json` — `dotnet-ef` tool manifest
 
 ---
 
-## 🚀 Phase 1 — MVP Completion 🔄 Current Focus
-
-### Architectural Cleanup ✅ Complete
-
-* [x] Refactor `IFeatureFlagService` — DTOs only, no `Flag` entity in signatures
-* [x] Mapping consolidated inside `FeatureFlagService`
-* [x] Smoke test verified: POST, GET, PUT, DELETE all return correct responses
+## 🔄 Phase 1 — MVP Completion (Current Focus)
 
 ### Validation & Sanitization ✅ Complete (PR #30)
 
-* [x] `InputSanitizer` — shared static helper, trims whitespace and strips control
-      characters; called by validators and service layer
-* [x] `CreateFlagRequestValidator` — Name allowlist regex (on cleaned value via `Must()`),
-      env sentinel guard, StrategyConfig cross-field rules, 2000-char limit
-* [x] `UpdateFlagRequestValidator` — StrategyConfig cross-field rules, 2000-char limit
-* [x] `EvaluationRequestValidator` — UserId max 256, UserRoles max 50×100,
-      env sentinel guard
-* [x] Manual `ValidateAsync()` in controllers — `FluentValidation.AspNetCore` is
-      deprecated and not used; validators injected as `IValidator<T>` and called
-      explicitly in POST and PUT actions
-* [x] `InputSanitizer` called in `FeatureFlagService.IsEnabledAsync` and
-      `CreateFlagAsync` — closes KI-003
+* [x] `InputSanitizer` — trims whitespace, strips ASCII control characters
+* [x] `CreateFlagRequestValidator` — name allowlist regex, env sentinel guard,
+      StrategyConfig cross-field rules (via `.Must()` — FluentValidation v12)
+* [x] `UpdateFlagRequestValidator` — StrategyConfig cross-field rules
+* [x] `EvaluationRequestValidator` — FlagName, UserId, Environment validation
+* [x] Manual `ValidateAsync` in controllers — no FluentValidation.AspNetCore
+
+### Code Style Foundation ✅ Complete (PR #33)
+
+* [x] `.editorconfig` — LF line endings, naming conventions, Roslyn diagnostic
+      severities, `generated_code = true` on Migrations
+* [x] `.gitattributes` — LF normalization for all source file types
+* [x] `.csharpierrc.json` — `printWidth: 100`
+* [x] `.csharpierignore` — excludes Migrations, bin, obj, generated files
+* [x] `.config/dotnet-tools.json` — CSharpier pinned to specific version
+* [x] `.vscode/settings.json` — `formatOnSave: true`, CSharpier as default formatter
+* [x] All existing test classes decorated with `[Trait("Category", "Unit")]`
+
+### CI Pipeline — Core Jobs ✅ Complete (PR #34)
+
+> **Note:** CI/CD was originally scoped to Phase 8. The foundation pipeline
+> (lint, format, build, test) was pulled forward to Phase 1 because enforcing
+> code quality during active development has higher value than waiting until
+> production readiness. CD (deployment to Azure) remains in Phase 8.
+
+* [x] `.github/workflows/ci.yml` — `lint-format` and `build-test` parallel jobs
+* [x] Triggers: push to branch prefixes; PR targeting `dev` or `main`
+* [x] `dotnet csharpier check .` — format gate in `lint-format` job
+* [x] `dotnet build -p:TreatWarningsAsErrors=true` — zero-warnings policy enforced
+* [x] `dotnet test --filter "Category!=Integration"` — unit tests only in Phase 1
+* [x] Concurrency group scoped to workflow + PR number
+* [x] Node 24 opt-in via `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24`
+* [x] `ai-review` job present as commented stub — activated in PR #35
+
+### CI Pipeline — AI Reviewer 🔄 In Progress (PR #35)
+
+* [ ] `spec-ai-reviewer.md` — spec document (forthcoming this session)
+* [ ] `.github/workflows/ci.yml` — uncomment and implement `ai-review` job
+* [ ] `.github/prompts/ai-review-system.md` — system prompt for Claude reviewer
+* [ ] `ANTHROPIC_API_KEY` secret added to GitHub repo
+
+### Validation (remaining)
+
 * [ ] Name uniqueness check at the service layer before hitting the DB
 
 ### Error Handling
 
-* [ ] Global exception middleware — replace per-controller try/catch blocks
-* [ ] Standardized `ValidationProblemDetails` error response shape
-* [ ] Route parameter guard for `{name}` on GET and PUT — closes KI-008
+* [ ] Global exception middleware — replace per-controller try/catch
+* [ ] Standardized `ProblemDetails` error response shape
+* [ ] Route parameter guard for `{name}` on GET/PUT — closes KI-008
 
 ### Testing
 
 * [ ] Unit tests for `PercentageStrategy`, `RoleStrategy`, `NoneStrategy`
 * [ ] Unit tests for `FeatureEvaluator` — dispatch, missing strategy fallback
-* [ ] Unit tests for all three validators — every acceptance criterion covered
-* [ ] Integration tests for all API endpoints (including `/api/evaluate`)
+* [ ] Unit tests for all three validators
+* [ ] Integration tests for all 6 endpoints (Phase 2 gate — Postgres service container)
 
 ### Developer Experience
 
-* [ ] Commit `.http` request file for smoke testing (`requests/smoke-test.http`)
-* [ ] Seed data for local development (dev/staging/prod flags)
+* [ ] `.http` smoke test request file committed to repo
+* [ ] Seed data for local development
 * [ ] Evaluation decision logging
-* [ ] Fix OpenAPI enum schema — enums currently render as `integer` in spec (cosmetic)
 
 ---
 
-## ☁️ Phase 1.5 — Azure Foundation + AI Integration 🆕
+## 🌩️ Phase 1.5 — Azure Foundation + AI Integration 🆕
 
-> **This phase is the product's first competitive differentiator.**
-> Azure-native and AI-assisted are not future features — they start here.
+> Begins immediately after Phase 1 DoD is met.
 
-### Azure Key Vault
-
-* [ ] Add `Azure.Extensions.AspNetCore.Configuration.Secrets` package
-* [ ] Wire Key Vault as a configuration provider in `Program.cs`
-* [ ] Move connection string and any future secrets out of `appsettings.json`
-* [ ] Document Key Vault setup in `docs/decisions/azure-key-vault.md`
-
-### Azure Application Insights
-
-* [ ] Add `Microsoft.ApplicationInsights.AspNetCore` package
-* [ ] Wire App Insights telemetry in `Program.cs`
-* [ ] Add structured custom events for flag evaluation decisions
-  * Event name: `FlagEvaluated`
-  * Properties: `FlagName`, `Environment`, `StrategyType`, `Result`, `UserId` (hashed)
-* [ ] Verify request telemetry, dependency tracking, and live metrics are active
-* [ ] Document telemetry schema in `docs/decisions/observability-telemetry-schema.md`
-
-### AI Analysis Endpoint
-
-* [ ] Introduce `IAiFlagAnalyzer` interface in `FeatureFlag.Application/Interfaces/`
-* [ ] Implement `AzureOpenAiFlagAnalyzer` in `FeatureFlag.Infrastructure/AI/`
-* [ ] Add `AIController` — `POST /api/flags/analyze`
-* [ ] Add `FlagAnalysisResponse` DTO:
-  * `StaleFlags` — flags enabled for > 90 days with no recent evaluation activity
-  * `RiskyConfigurations` — flags at 100% rollout with no role restriction, etc.
-  * `Recommendations` — plain-language cleanup and improvement suggestions
-* [ ] Semantic Kernel SDK wired in Infrastructure layer
-* [ ] System prompt engineered and documented in `docs/decisions/ai-analysis-prompt.md`
-* [ ] `IPromptSanitizer` interface — sanitizes string values before embedding in prompts
-  * Targets: newline injection, instruction override patterns, role confusion attacks
-  * Registered in DI, called by `AzureOpenAiFlagAnalyzer` before prompt construction
-* [ ] `IAiFlagAnalyzer` mock implementation for local dev (no Azure OpenAI key required)
-* [ ] Register `IAiFlagAnalyzer` in `DependencyInjection.cs` — swappable via config
-
-### Azure Container Apps — Initial Deployment
-
-* [ ] Add `Dockerfile` for the API project
-* [ ] Add `Dockerfile` for local dev parity
-* [ ] Deploy to Azure Container Apps (dev environment)
-* [ ] Wire App Insights connection string from Key Vault in deployed environment
-* [ ] Document deployment steps in `docs/decisions/azure-container-apps-deployment.md`
-* [ ] Live URL committed to README
+* [ ] Azure Key Vault integration — all secrets sourced from Key Vault at startup
+* [ ] Azure Application Insights — structured telemetry for API requests and evaluations
+* [ ] `IAiFlagAnalyzer` interface + `AzureOpenAiFlagAnalyzer` implementation
+      (Semantic Kernel, Azure OpenAI backend)
+* [ ] `IPromptSanitizer` — newline injection and instruction override defense
+      (complements `InputSanitizer` at the HTTP boundary)
+* [ ] `GET /api/flags/analysis` endpoint — natural language flag health queries
+* [ ] Azure OpenAI deployment provisioned (gpt-4o or equivalent)
 
 ---
 
 ## 🧪 Phase 2 — Testing & Reliability
 
-* [ ] Full unit test coverage for all strategies, evaluator, and validators
-* [ ] Integration tests with real Postgres (test containers or in-memory)
-* [ ] Contract tests for all API response shapes
-* [ ] Test coverage for `IAiFlagAnalyzer` — mock + integration
-* [ ] Handle invalid strategy configurations gracefully at evaluation time
-* [ ] Structured error responses for all failure modes
+* [ ] Integration tests for all API endpoints with Postgres service container in CI
+* [ ] NuGet caching in CI — `RestorePackagesWithLockFile=true` in `Directory.Build.props`,
+      `packages.lock.json` committed, `cache: true` on `setup-dotnet@v4`
+* [ ] Code coverage gate — Coverlet + ReportGenerator, 80% line coverage minimum
+* [ ] Contract tests for `IFeatureFlagService`
+* [ ] `StrategyConfigRules` internal static class — resolves KI-NEW-001 duplication
 
 ---
 
 ## 🔐 Phase 3 — Authentication, Authorization & Rate Limiting
 
-> **Phase 3 is a prerequisite for Phase 4 audit logging.**
-> Identity must exist before it can be recorded.
-
-### Auth Integration
-
-* [ ] JWT bearer token authentication — Azure AD / Entra ID as identity provider
-* [ ] Secure all flag management endpoints (`/api/flags`)
-* [ ] Evaluation endpoint (`/api/evaluate`) — configurable: authenticated or anonymous
-      depending on SDK integration requirements
-
-### Authorization
-
-* [ ] Role-based access:
-  * `FlagAdmin` — create, update, archive flags across all environments
-  * `FlagEditor` — create and update flags in non-Production environments
-  * `FlagReader` — read-only access
-* [ ] Environment-level access control — Production changes require elevated role
-
-### Rate Limiting
-
-* [ ] ASP.NET Core `AddRateLimiter` on `/api/evaluate` (hot path)
-* [ ] Rate limit keyed on authenticated caller identity (not IP)
-* [ ] Rate limit configuration in Key Vault
+* [ ] JWT bearer authentication on all management endpoints
+* [ ] Role-based access control — admin vs read-only roles
+* [ ] Rate limiting on `/api/evaluate` — `AddRateLimiter`, keyed on authenticated identity
+* [ ] Audit trail — structured log events on all flag mutations
+* [ ] Dependabot for NuGet packages
+* [ ] CodeQL security scanning (free for public repos)
 
 ---
 
-## 📊 Phase 4 — Observability & Debugging
+## 📡 Phase 4 — Observability & Debugging
 
-> **Phase 1.5 lays the App Insights foundation. Phase 4 builds the product layer on top.**
-
-### Evaluation Telemetry
-
-* [ ] Evaluation count by flag, environment, strategy
-* [ ] True/false distribution per flag
-* [ ] p99 evaluation latency tracking
-* [ ] Anomaly detection — flag suddenly flipping for large user cohort
-
-### Audit Trail
-
-* [ ] Log all flag mutations with caller identity (requires Phase 3)
-* [ ] Store: who, what, when, previous value, new value
-* [ ] Expose via `GET /api/flags/{name}/history`
-
-### Debugging Endpoint
-
-* [ ] `POST /api/flags/{name}/explain` — "Why was this flag ON/OFF for this user?"
-* [ ] Returns evaluation trace: strategy used, config applied, decision rationale
-* [ ] AI-enhanced explanation mode — natural language evaluation trace (stretch goal)
+* [ ] Evaluation telemetry pipeline — log every evaluation decision
+* [ ] Debugging endpoint — `GET /api/flags/{name}/trace` with evaluation reasoning
+* [ ] Anomaly detection — unusual evaluation patterns surfaced via AI analysis
+* [ ] Application Insights dashboard — evaluation rates, strategy distribution, stale flags
+* [ ] Return evaluation trace in evaluation response
 
 ---
 
 ## ⚙️ Phase 5 — Advanced Rollout Strategies
 
-* [ ] User targeting strategy — evaluate by specific user ID list
-* [ ] Time-based activation — enable flag on a schedule
-* [ ] Gradual rollout — increment percentage over time automatically
-* [ ] Each new strategy requires a corresponding FluentValidation rule before
-      the API accepts its configuration — mandatory by architectural convention
+* [ ] User targeting (by ID)
+* [ ] Time-based activation
+* [ ] Gradual rollout (time + percentage combined)
+* [ ] Dynamic strategy registration (DI-driven — Open/Closed compliant)
+* [ ] Smart rollout recommendations via AI analysis
 
 ---
 
-## ⚡ Phase 6 — Performance & Scaling
+## 🌐 Phase 6 — Performance & Scaling
 
-* [ ] In-memory caching of `Flag` entities in `FeatureFlagService`
-* [ ] Redis distributed cache — for multi-instance deployments on AKS
-* [ ] Cache invalidation on flag update and archive
-* [ ] Optimize evaluation path — target sub-5ms p99 for cached evaluations
-* [ ] Horizontal scaling validation — stateless API confirmed
+* [ ] Environment-specific flag overrides
+* [ ] Promotion workflow (dev → staging → prod)
+* [ ] In-memory caching layer with cache invalidation strategy
+* [ ] Redis for distributed caching (horizontal scaling readiness)
+* [ ] Optimize evaluation path for sub-millisecond hot path
 
 ---
 
-## 🛠️ Phase 7 — .NET SDK 🚨 Key Product Milestone
+## 📦 Phase 7 — .NET SDK ← Key Product Milestone
 
-> **This is what makes FeatureFlagService a product, not just a service.**
 > No enterprise team will adopt a flag service without a first-class SDK.
 
 * [ ] `FeatureFlag.Client` NuGet package
 * [ ] `IFeatureFlagClient` interface — `IsEnabledAsync(flagName, context)`
 * [ ] HTTP client backed by `/api/evaluate`
-* [ ] Local evaluation mode — SDK holds a cached copy of flag config, evaluates
-      without an HTTP call on the hot path
-* [ ] Fail-closed by default — SDK returns `false` if service is unreachable
-* [ ] `AddFeatureFlagClient()` extension method for ASP.NET Core DI
+* [ ] Local evaluation mode — cached flag config, evaluates without HTTP on hot path
+* [ ] Fail-closed by default — returns `false` if service is unreachable
+* [ ] `AddFeatureFlagClient()` extension for ASP.NET Core DI
+* [ ] Middleware extensions and action filter attributes
 * [ ] Full SDK documentation with quickstart guide
 * [ ] NuGet package published
-* [ ] README demo: flag service running + SDK integrated in a sample app,
-      AI analysis endpoint returning recommendations — under 15 minutes
+* [ ] Natural language flag creation — describe a flag in plain English, system creates it
 
 ---
 
 ## 🏭 Phase 8 — Production Readiness
 
-* [ ] Full CI/CD pipeline — GitHub Actions
-  * Build, test, lint on every PR
-  * Deploy to Azure Container Apps on merge to main
+> CI (lint, format, build, test) was pulled forward to Phase 1.
+> Phase 8 covers CD — automated deployment — and hardening.
+
+* [ ] CD pipeline — GitHub Actions deploy to Azure Container Apps on merge to `main`
 * [ ] AKS deployment manifests — for teams self-hosting on Kubernetes
-* [ ] Environment configuration management — all secrets in Key Vault
-* [ ] EF Core migration strategy for production upgrades
+* [ ] All secrets sourced from Key Vault (validates Phase 1.5 work at scale)
+* [ ] EF Core migration strategy for zero-downtime production upgrades
 * [ ] Backup and restore documentation for Postgres
-* [ ] Migrate devcontainer to full docker-compose devcontainer setup (resolves KI-007)
+* [ ] Migrate devcontainer to full docker-compose devcontainer setup — resolves KI-007
 * [ ] SLA baseline documented — target 99.9% uptime for hosted offering
+* [ ] AI reviewer fail-open → fail-closed hardening for PRs targeting `main`
+* [ ] Switch AI reviewer fail behavior: retry with backoff, fail-closed on `main` only
 
 ---
 
@@ -349,16 +317,18 @@ Phase 9      Open Core Launch — public repo, self-hosted Docker image, hosted 
 
 👉 **Phase 1 — MVP Completion**
 
-Validation & Sanitization is complete (PR #30). Immediate next tasks:
+Code style foundation and core CI pipeline are complete (PRs #33, #34).
+Immediate next tasks:
 
-1. Global exception middleware — replace per-controller try/catch
-2. Route parameter guard for `{name}` on GET/PUT — closes KI-008
-3. Name uniqueness check at the service layer
-4. Unit tests for strategies, evaluator, and all three validators
-5. Integration tests for all endpoints
-6. Commit `.http` smoke test file
-7. Seed data for local development
-8. Evaluation decision logging
+1. Write `spec-ai-reviewer.md` — AI reviewer job for PR #35
+2. Global exception middleware — replace per-controller try/catch
+3. Route parameter guard for `{name}` on GET/PUT — closes KI-008
+4. Name uniqueness check at the service layer
+5. Unit tests for strategies, evaluator, and all three validators
+6. Integration tests for all endpoints
+7. Commit `.http` smoke test file
+8. Seed data for local development
+9. Evaluation decision logging
 
 ---
 
@@ -368,59 +338,46 @@ Validation & Sanitization is complete (PR #30). Immediate next tasks:
 * This is an Azure-native, .NET-first, AI-assisted feature flag platform
 * Every architectural decision should be evaluated against: does this serve Azure
   deployment, .NET SDK ergonomics, or AI integration?
-* Phase 1.5 is the first major competitive differentiator — do not skip or defer it
 
-### Architecture Conventions
-* Architecture follows Clean Architecture: Controller → Service → Evaluator → Strategy → Repository
+### Architecture
+* Controller → Service → Evaluator → Strategy → Repository
 * `IFeatureFlagService` speaks entirely in DTOs — no `Flag` entity crosses the service boundary
 * Domain logic is intentionally strict (no public setters)
-* Strategy pattern is central to extensibility
+* Strategy pattern is central to extensibility — use registry dispatch, not switch statements
 * Evaluation must remain deterministic and testable
+
+### FluentValidation v12
+* No `.Transform()` — use `.Must()` lambda instead
+* No `AddValidatorsFromAssemblyContaining` — register validators explicitly with `AddScoped`
+* No `FluentValidation.AspNetCore` — use manual `ValidateAsync()` in controllers
+
+### Formatter conventions
+* CSharpier is the final formatting authority — always run last
+* `dotnet format` may precede CSharpier for Roslyn diagnostic fixes
+* CSharpier 1.x syntax: `dotnet csharpier check .` and `dotnet csharpier format .`
+* `**/Migrations/**` has `generated_code = true` — do not format or analyze
+
+### Infrastructure
 * Connection string uses `Host=postgres` — do not change to `localhost`
 * Both Infrastructure and Api projects require `Microsoft.EntityFrameworkCore.Design`
   with `PrivateAssets=all`
+* `appsettings.Development.json` is intentionally committed — local Docker defaults only
+* NuGet caching in CI requires `packages.lock.json` — deferred to Phase 2
 
-### Validation & Sanitization Conventions
-* FluentValidation v12 — manual `ValidateAsync()` in controllers; no auto-validation
-  middleware; `FluentValidation.AspNetCore` is deprecated and not used
-* Do not use `.Transform()` — removed in v12; use `Must()` with `InputSanitizer.Clean()`
-  for sanitization-aware rules
-* `InputSanitizer` is the single source of truth for string sanitization — never inline
-  equivalent logic
-* Any non-HTTP input surface (CLI, seed data, test helpers) must call `InputSanitizer`
-  independently
-* Any new `IRolloutStrategy` implementation requires a corresponding validator rule in
-  `CreateFlagRequestValidator` and `UpdateFlagRequestValidator`
-* Do not sanitize `StrategyConfig` content — JSON stored verbatim; only length and
-  structure are validated
-
-### Security Conventions
-* See `Docs/Security/adr-input-security-model-v1.1.md` before modifying the security
-  boundary — this is the current version of the security ADR
-* `IPromptSanitizer` (Phase 1.5) is a separate concern from `InputSanitizer` — HTTP
-  boundary sanitization does not substitute for prompt injection defense
-* Raw SQL via `FromSqlRaw()` with string concatenation is prohibited — use
-  `FromSqlInterpolated()` if raw SQL becomes necessary
-
-### Known Issues
-* KI-002 — `FeatureEvaluator.Evaluate` has an implicit precondition (documented,
-  not enforced; see architecture.md)
-* KI-003 — **CLOSED** — StrategyConfig validated at write time via FluentValidation (PR #30)
-* KI-007 — Devcontainer networking requires Postgres to start first (mitigated,
-  deferred to Phase 8)
-* KI-008 — Route parameters on GET/PUT lack allowlist validation (Phase 1 fix)
-* KI-NEW-001 — `BeValidPercentageConfig` / `BeValidRoleConfig` duplicated across
-  Create and Update validators — deferred cleanup, not a blocker
+### What not to do
+* No auth yet (Phase 3)
+* No caching layer yet (Phase 6)
+* No advanced strategies yet (Phase 5)
+* No App Insights yet (Phase 1.5)
+* No CD to Azure yet (Phase 8)
+* No UI work
 
 ---
 
 ## 🗺️ Long-Term Vision
 
-Turn FeatureFlagService into a **full Observability + Experimentation Platform**
-for .NET teams on Azure:
-
-* A/B testing and experiment analysis
-* Real-time flag evaluation dashboards in App Insights
-* Natural language querying of flag history and evaluation patterns
-* SDK ecosystem: .NET, Python, JavaScript — in that order
-* Salesforce integration — feature flags for Apex and Flow (future workstream)
+* Full **Observability + Experimentation Platform** for .NET teams on Azure
+* A/B testing capabilities with statistical significance reporting
+* AI-powered flag lifecycle management — creation, health analysis, rollout recommendations
+* Real-time evaluation dashboards
+* Open core + managed hosting business model

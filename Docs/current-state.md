@@ -20,10 +20,14 @@
 **Phase 0 — Foundation: ✅ Complete**
 **Phase 1 — Architectural Cleanup: ✅ Complete**
 **Phase 1 — Validation & Sanitization: ✅ Complete**
+**Phase 1 — CI/CD Foundation (PRs #33, #34): ✅ Complete**
 **Phase 1 — Testing, Error Handling, Developer Experience: 🔄 In Progress**
 
 FluentValidation v12 is implemented with manual controller validation. `InputSanitizer`
 is in place. The service layer sanitizes evaluation inputs. KI-003 is closed.
+
+GitHub Actions CI pipeline is live with parallel `lint-format` and `build-test` jobs.
+CSharpier is the formatting source of truth. `ai-review` job is stubbed for PR #35.
 
 **Product direction locked:** Azure-native, .NET-first, AI-assisted feature flag
 platform targeting .NET teams on Azure. Phase 1.5 introduces Key Vault, Application
@@ -54,95 +58,95 @@ Insights, and the AI analysis endpoint immediately after Phase 1 completes.
   `FlagMappings`
 - `IFeatureFlagService` — async, CancellationToken, full CRUD + evaluation
 
+### Infrastructure & API Layer
+
+- `FeatureFlagRepository` — full EF Core implementation with Postgres + `jsonb`
+- `FeatureFlagsController` — full CRUD (GET all, GET by name, POST, PUT, DELETE soft-archive)
+- `EvaluationController` — POST `/api/evaluate`
+- OpenAPI enrichment — Scalar UI, `EvaluationResponse` DTO, XML docs,
+  `EnumSchemaTransformer`, `ApiInfoTransformer`
+- `GenerateDocumentationFile=true` + `<NoWarn>1591</NoWarn>` in `Directory.Build.props`
+
 ### Validation & Sanitization (PR #30) ✅
 
 - `InputSanitizer` — `internal static` helper in `FeatureFlag.Application/Validators/`;
-  trims whitespace and strips ASCII control characters; called by validators and
-  service layer
+  trims whitespace and strips ASCII control characters; called by validators and service layer
 - `CreateFlagRequestValidator` — Name allowlist regex (on cleaned value via `Must()`),
   env sentinel guard, StrategyConfig cross-field rules, 2000-char limit
 - `UpdateFlagRequestValidator` — StrategyConfig cross-field rules, 2000-char limit
-- `EvaluationRequestValidator` — FlagName/UserId length + empty checks, UserRoles
-  null/count/per-role length, env sentinel guard
-- Validators registered explicitly via `AddScoped<IValidator<T>, TValidator>()` in
-  `DependencyInjection.cs`
-- `FeatureFlagsController` — manual `ValidateAsync` on POST and PUT
-- `EvaluationController` — manual `ValidateAsync` before `FeatureEvaluationContext`
-  is constructed
-- `FluentValidation.AspNetCore` not used — deprecated; manual validation is the v12
-  approach
-- Build: ✅ 0 warnings, 0 errors
-- Tests: ✅ 8/8 passing
+- `EvaluationRequestValidator` — FlagName, UserId, Environment validation
 
-### Service Interface Boundary ✅
+### CI/CD Foundation (PRs #33, #34) ✅
 
-- `IFeatureFlagService` — no `Flag` entity in any method signature
-- `ToResponse()` mapping consolidated inside `FeatureFlagService`
-- `FeatureFlagsController` — zero domain entity references
+**PR #33 — Code Style Foundation (`feature/code-style-foundation`)**
+- `.editorconfig` — LF line endings, indent rules, naming conventions, Roslyn diagnostic
+  severities, `generated_code = true` on `**/Migrations/**`
+- `.gitattributes` — LF normalization for all source files
+- `.csharpierrc.json` — `printWidth: 100`
+- `.csharpierignore` — excludes `Migrations/`, `bin/`, `obj/`, `*.g.cs`
+- `.config/dotnet-tools.json` — CSharpier pinned to specific version
+- `.vscode/settings.json` — `formatOnSave: true`, CSharpier as default C# formatter
+- `[Trait("Category", "Unit")]` added to all existing test classes
 
-### Infrastructure Layer
+**PR #34 — Core CI Pipeline (`feature/ci-core-pipeline`)**
+- `.github/workflows/ci.yml` — `lint-format` and `build-test` jobs running in parallel
+- Triggers: push to `feature/**`, `fix/**`, `refactor/**`, `docs/**`, `test/**`;
+  PR targeting `dev` or `main`
+- Concurrency group scoped by workflow name + PR number
+- `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true` — opts into Node 24 ahead of 2026-06-02
+  retirement of Node 20 actions
+- `ai-review` job present as commented stub — ready for PR #35
 
-- `FeatureFlagDbContext`, `FlagConfiguration`, `FeatureFlagDbContextFactory`
-- `FeatureFlagRepository` — async, CancellationToken on all EF Core calls
-- `InitialCreate` migration — generated and applied
-
-### API Layer
-
-- `FeatureFlagsController` — full CRUD with manual validation on POST/PUT
-- `EvaluationController` — POST `/api/evaluate` with manual validation
-- `Program.cs` — `JsonStringEnumConverter` wired, root redirect to OpenAPI docs
-- Swagger/OpenAPI at `/openapi/v1.json`
-
-### Documentation & Security
-
-- `Docs/architecture.md` — updated to reflect v12 manual validation approach
-- `Docs/roadmap.md` — full product vision, Phase 1.5 through Phase 9
-- `Docs/Security/adr-input-security-model.md` — threat model, phase-gated decisions
-- `Docs/Decisions/fluent-validation - PR#30/spec.md` — implementation spec
-- `Docs/Decisions/fluent-validation - PR#30/implementation-notes.md` — deviations
-  documented (DEV-001, DEV-002, KI-NEW-001)
+**Implementation deviations documented (see `implementation-notes.md`):**
+- `cache: 'nuget'` is invalid syntax for `setup-dotnet@v4` — NuGet caching deferred
+  to Phase 2 (requires `packages.lock.json`)
+- CSharpier 1.x uses subcommand syntax: `dotnet csharpier check .` not `--check`
+- `dotnet format` and CSharpier can produce conflicting whitespace — run `dotnet format`
+  first for Roslyn fixes, then CSharpier as final authority
 
 ### Dev Environment
 
 - DevContainer: `devcontainers/base:ubuntu-24.04` + .NET 10 SDK
 - Docker-outside-of-Docker configured
-- `dotnet-ef` in `.config/dotnet-tools.json`
+- `dotnet-ef` and `csharpier` in `.config/dotnet-tools.json`
 - Connection string: `Host=postgres`
 - `docker-compose.yml` at repo root
 - All five `.csproj` files targeting `net10.0`
 
 ### Tests
 
-- `FeatureEvaluationContextTests` — 8/8 passing
+- `FeatureEvaluationContextTests` — 8/8 passing, decorated `[Trait("Category", "Unit")]`
 - Build: ✅ 0 warnings, 0 errors
+- CSharpier: ✅ 41 files checked, 0 violations
 
 ---
 
 ## ❌ What Is Not Yet Built (Phase 1 Remaining)
 
 ### Validation (remaining)
-
 - Name uniqueness check at the service layer before hitting the DB
 
 ### Error Handling
-
 - Global exception middleware — currently using per-controller try/catch
 - Standardized error response shape for unhandled exceptions
 - Route parameter guard for `{name}` on GET and PUT — closes KI-008
 
 ### Testing
-
 - Unit tests for `PercentageStrategy`, `RoleStrategy`, `NoneStrategy`
 - Unit tests for `FeatureEvaluator` — dispatch, missing strategy fallback
 - Unit tests for all three validators — every acceptance criterion covered
 - Integration tests for all API endpoints including `/api/evaluate`
 
 ### Developer Experience
-
 - `.http` smoke test request file committed to repo (`requests/smoke-test.http`)
 - Seed data for development/staging flags
 - Evaluation decision logging
-- OpenAPI enum schema fix — enums currently render as `integer` in spec (cosmetic)
+
+### CI/CD (remaining Phase 1)
+- PR #35 — AI reviewer job (`feature/ci-ai-reviewer`)
+  - Spec: `Docs/Decisions/spec-ai-reviewer.md` (forthcoming)
+  - Implements the commented stub in `ci.yml`
+  - Requires `ANTHROPIC_API_KEY` repo secret
 
 ---
 
@@ -192,8 +196,7 @@ with no character allowlist validation. EF Core parameterized queries prevent SQ
 injection. Risk is unexpected characters reaching logs and repository calls.
 
 **Planned fix:** Static `RouteParameterGuard.ValidateName(string name)` helper
-returning `400` for non-conforming values, called at top of affected controller
-actions.
+returning `400` for non-conforming values, called at top of affected controller actions.
 
 ---
 
@@ -217,13 +220,14 @@ duplicated identically in both `CreateFlagRequestValidator` and
 
 ### Immediate Next Tasks
 
-1. Global exception middleware and standardized error shape
-2. Route parameter guard for `{name}` on GET/PUT — closes KI-008
-3. Unit tests for strategies, evaluator, and all three validators
-4. Integration tests for all endpoints
-5. Commit `.http` smoke test file
-6. Seed data for local development
-7. Evaluation decision logging
+1. Write `spec-ai-reviewer.md` — AI reviewer job for PR #35
+2. Global exception middleware and standardized error shape
+3. Route parameter guard for `{name}` on GET/PUT — closes KI-008
+4. Unit tests for strategies, evaluator, and all three validators
+5. Integration tests for all endpoints
+6. Commit `.http` smoke test file
+7. Seed data for local development
+8. Evaluation decision logging
 
 ---
 
@@ -239,6 +243,8 @@ duplicated identically in both `CreateFlagRequestValidator` and
 - Do not use `FluentValidation.AspNetCore` or `AddFluentValidationAutoValidation()` —
   both are deprecated; use manual `ValidateAsync` in controllers
 - Do not use `.Transform()` — removed in FluentValidation v12
+- Do not run `dotnet format` without following up with `dotnet csharpier format .` —
+  CSharpier is the final formatting authority
 
 ---
 
@@ -247,52 +253,45 @@ duplicated identically in both `CreateFlagRequestValidator` and
 - [x] `InputSanitizer` implemented and called in validators and service layer
 - [x] `FluentValidation` v12 on all three request DTOs
 - [x] Manual `ValidateAsync` in controllers (POST and PUT on flags; POST on evaluate)
+- [x] CSharpier formatting enforced — CI blocks on violations
+- [x] Build CI pipeline live — `lint-format` and `build-test` running in parallel
+- [ ] AI reviewer job — PR #35 (`spec-ai-reviewer.md` forthcoming)
 - [ ] Name uniqueness check at service layer
 - [ ] Global exception middleware in place
 - [ ] Route parameter guard on GET/PUT — closes KI-008
-- [ ] Unit tests for all three strategies
-- [ ] Unit tests for `FeatureEvaluator`
+- [ ] Unit tests for all strategies and evaluator
 - [ ] Unit tests for all three validators
 - [ ] Integration tests for all 6 endpoints
 - [ ] `.http` smoke test file committed
 - [ ] Seed data for local development
-- [ ] Evaluation logging in place
-- [x] Build: 0 warnings, 0 errors
-- [x] All existing tests passing
+- [ ] Evaluation decision logging
 
 ---
 
 ## 🧩 Notes for AI Assistants
 
-### Architecture
+- The system is not production-ready
+- Prioritize correctness over feature expansion
 - Follow Clean Architecture — dependencies point inward toward Domain
+- Work within the established layer boundaries (Api → Application → Domain ← Infrastructure)
 - `IFeatureFlagService` speaks entirely in DTOs — never return `Flag` from the service
-- `FeatureEvaluationContext` constructor: `(string userId, IEnumerable<string> userRoles, EnvironmentType environment)`
+- All evaluation logic must remain deterministic and isolated from persistence
+- See Known Issues above before modifying `FeatureEvaluator` or adding new callers
+- `appsettings.Development.json` is intentionally committed — local Docker defaults only
 - Connection string uses `Host=postgres` — do not change to `localhost`
 - Both Infrastructure and Api projects require `Microsoft.EntityFrameworkCore.Design`
   with `PrivateAssets=all`
 
-### Validation & Sanitization
-- FluentValidation v12: manual `ValidateAsync` in controllers — no auto-validation
-  middleware, no `FluentValidation.AspNetCore`
-- Do not use `.Transform()` — removed in v12; use `Must()` with `InputSanitizer.Clean()`
-- `InputSanitizer` is `internal` to `FeatureFlag.Application` — accessible from
-  `FeatureFlagService` in the same project, not from the Api project
-- Do not inline sanitization logic — always call `InputSanitizer.Clean()` or
-  `CleanCollection()`
-- Do not sanitize `StrategyConfig` — JSON, stored verbatim; only length and structure
-  validated
-- Any new `IRolloutStrategy` requires a corresponding validator rule
+### Formatter conventions
+- CSharpier is the formatting source of truth — run `dotnet csharpier format .` last
+- `dotnet format` may be used for Roslyn diagnostic fixes but must always be followed
+  by CSharpier
+- CSharpier 1.x uses subcommand syntax: `dotnet csharpier check .` and
+  `dotnet csharpier format .` — not `--check` or `--write`
+- `**/Migrations/**` has `generated_code = true` in `.editorconfig` — do not apply
+  Roslyn rules or CSharpier to migration files
 
-### Security
-- See `Docs/Security/adr-input-security-model.md` before modifying the security boundary
-- Raw SQL via `FromSqlRaw()` with string concatenation is prohibited
-
-### Known Issue Tracking
-- KI-003: **CLOSED** — StrategyConfig validated at write time
-- KI-NEW-001: duplicated private methods in validators — deferred cleanup
-
-### Product Direction
-- Azure-native, .NET-first, AI-assisted feature flag platform
-- Phase 1.5 immediately follows Phase 1 — do not skip Azure/AI integration
-- See `Docs/roadmap.md` for full phase plan
+### FluentValidation v12
+- No `.Transform()` — removed in v12; use `.Must()` lambda instead
+- No `AddValidatorsFromAssemblyContaining` — register validators explicitly with `AddScoped`
+- No `FluentValidation.AspNetCore` — use manual `ValidateAsync()` in controllers
