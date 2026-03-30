@@ -50,9 +50,11 @@ jobs:
         with:
           dotnet-version: '10.x'
           # Caches the global NuGet package store between runs.
-          # Cache key is derived from *.csproj file hashes (no lockfile configured).
-          # Typically saves 30-60 seconds on subsequent runs.
+          # cache-dependency-path keys the cache off *.csproj file hashes —
+          # no packages.lock.json required. Typically saves 30-60 seconds on
+          # subsequent runs.
           cache: true
+          cache-dependency-path: '**/*.csproj'
 
       - name: Restore dotnet tools
         # Installs CSharpier from .config/dotnet-tools.json.
