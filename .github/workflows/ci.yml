@@ -1,0 +1,127 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - 'feature/**'
+      - 'fix/**'
+      - 'refactor/**'
+      - 'docs/**'
+      - 'test/**'
+
+  pull_request:
+    branches:
+      - dev
+      - main
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - labeled
+
+# Cancel in-progress runs for the same PR or branch when a new run is triggered.
+# Groups by workflow name + PR number (for PRs) or ref (for pushes) to avoid
+# cross-workflow cancellation if a second workflow file is added later.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+# actions/checkout@v4 and actions/setup-dotnet@v4 currently run on Node.js 20.
+# This opts into Node.js 24 ahead of the forced migration on 2026-06-02.
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  # ============================================================
+  # Job 1: Lint and Format
+  # Enforces CSharpier formatting and zero-warning builds.
+  # Runs in parallel with build-test — no needs: dependency.
+  # ============================================================
+  lint-format:
+    name: Lint and Format
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.x'
+          # NuGet caching deferred to Phase 2 — requires packages.lock.json.
+          # Enable with cache: true + RestorePackagesWithLockFile in Directory.Build.props.
+
+      - name: Restore dotnet tools
+        # Installs CSharpier from .config/dotnet-tools.json.
+        # Must run before the format check step — CSharpier is not part of the SDK.
+        run: dotnet tool restore
+
+      - name: Restore packages
+        run: dotnet restore FeatureFlagService.sln
+
+      - name: Check formatting
+        # CSharpier 1.x uses subcommand syntax: `check <path>` (not `--check <path>`).
+        # Exits non-zero if any file would be reformatted. Does not modify files.
+        run: dotnet csharpier check .
+
+      - name: Build
+        # -p:TreatWarningsAsErrors=true is the correct cross-platform MSBuild property.
+        # Do not use -warnaserror — it is not documented in the dotnet build CLI reference.
+        # --no-incremental forces a full rebuild, preventing stale artifact false positives.
+        run: >
+          dotnet build FeatureFlagService.sln
+          --no-restore
+          --no-incremental
+          -p:TreatWarningsAsErrors=true
+
+  # ============================================================
+  # Job 2: Build and Test
+  # Runs the unit test suite independently of the lint job.
+  # Running in parallel means a test failure and a format failure
+  # are both surfaced at the same time, not sequentially.
+  # ============================================================
+  build-test:
+    name: Build and Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.x'
+          # NuGet caching deferred to Phase 2 — requires packages.lock.json.
+          # Enable with cache: true + RestorePackagesWithLockFile in Directory.Build.props.
+
+      - name: Restore packages
+        run: dotnet restore FeatureFlagService.sln
+
+      - name: Run unit tests
+        # --filter "Category!=Integration" runs all tests except those explicitly
+        # tagged [Trait("Category", "Integration")]. Undecorated tests run by default —
+        # a test is only excluded if it carries the Integration trait.
+        # Integration tests require a Postgres service container — added in Phase 2.
+        # --logger "console;verbosity=normal" surfaces test names and failure messages
+        # directly in the Actions log without requiring a separate artifact download.
+        run: >
+          dotnet test FeatureFlagService.sln
+          --no-restore
+          --filter "Category!=Integration"
+          --logger "console;verbosity=normal"
+
+  # ============================================================
+  # Job 3: AI Code Review (stub — not active in PR 2)
+  # Uncomment and implement when spec-ai-reviewer.md is ready.
+  # Requires: ANTHROPIC_API_KEY secret + pull-requests: write permission.
+  # ============================================================
+
+  # ai-review:
+  #   name: AI Code Review
+  #   runs-on: ubuntu-latest
+  #   needs: [lint-format, build-test]
+  #   # Implementation: see docs/decisions/spec-ai-reviewer.md
+  #   # Conditions: pull_request event + 'ai-review' label present
+  #   # Permissions: pull-requests: write
