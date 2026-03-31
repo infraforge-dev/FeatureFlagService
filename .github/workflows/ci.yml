@@ -113,15 +113,277 @@ jobs:
           --logger "console;verbosity=normal"
 
   # ============================================================
-  # Job 3: AI Code Review (stub — not active in PR 2)
-  # Uncomment and implement when spec-ai-reviewer.md is ready.
-  # Requires: ANTHROPIC_API_KEY secret + pull-requests: write permission.
+  # Job 3: AI Code Review
+  # Calls Claude API with the PR diff and a project-specific system prompt.
+  # Posts a structured PR comment and submits REQUEST_CHANGES or APPROVE.
+  # Runs only on pull_request events when the 'ai-review' label is present.
+  # Fail-open: API failures post an advisory comment and exit 0 (PR stays mergeable).
+  # Spec: Docs/Decisions/ci-ai-reviewer - PR#35/spec-v2.md
   # ============================================================
+  ai-review:
+    name: AI Code Review
+    runs-on: ubuntu-latest
+    needs: [lint-format, build-test]
+    if: >
+      github.event_name == 'pull_request' &&
+      contains(github.event.pull_request.labels.*.name, 'ai-review')
+    permissions:
+      contents: read
+      pull-requests: write
 
-  # ai-review:
-  #   name: AI Code Review
-  #   runs-on: ubuntu-latest
-  #   needs: [lint-format, build-test]
-  #   # Implementation: see docs/decisions/spec-ai-reviewer.md
-  #   # Conditions: pull_request event + 'ai-review' label present
-  #   # Permissions: pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Step 2: Dismiss any previous REQUEST_CHANGES review from the bot.
+      # This prevents stale blocking reviews from accumulating across re-runs.
+      - name: Dismiss previous bot review
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const reviews = await github.rest.pulls.listReviews({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.payload.pull_request.number,
+              per_page: 100,
+            });
+            const botLogin = 'github-actions[bot]';
+            for (const review of reviews.data) {
+              if (
+                review.user.login === botLogin &&
+                review.state === 'CHANGES_REQUESTED'
+              ) {
+                await github.rest.pulls.dismissReview({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  pull_number: context.payload.pull_request.number,
+                  review_id: review.id,
+                  message: 'Dismissed — re-reviewing updated diff.',
+                });
+              }
+            }
+
+      # Step 3: Fetch the canonical PR diff from GitHub and truncate to ~12k tokens.
+      # Using the GitHub API (not git diff) ensures the diff matches the Files Changed tab.
+      # JS substring handles UTF-8 correctly; bash head -c does not split on char boundaries.
+      - name: Fetch and truncate PR diff
+        uses: actions/github-script@v7
+        id: get-diff
+        with:
+          script: |
+            const response = await github.request(
+              'GET /repos/{owner}/{repo}/pulls/{pull_number}',
+              {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: context.payload.pull_request.number,
+                headers: {
+                  accept: 'application/vnd.github.v3.diff',
+                },
+              }
+            );
+            const diff = String(response.data);
+            const truncated = diff.length > 48000
+              ? diff.substring(0, 48000) + '\n\n[diff truncated at 48,000 characters]'
+              : diff;
+            core.setOutput('diff', truncated);
+
+      # Step 4: Read the system prompt from the versioned file.
+      # Random hex delimiter prevents EOF collision if the prompt ever contains
+      # a bare "EOF" line (latent fragility in the fixed-delimiter pattern).
+      - name: Read system prompt
+        id: read-prompt
+        run: |
+          DELIM=$(openssl rand -hex 16)
+          echo "prompt<<$DELIM" >> $GITHUB_OUTPUT
+          cat .github/prompts/ai-review-system.md >> $GITHUB_OUTPUT
+          echo "$DELIM" >> $GITHUB_OUTPUT
+
+      # Step 5: Build the JSON request body with jq and call the Claude API.
+      #
+      # CRITICAL — why jq instead of shell interpolation:
+      # Shell interpolation bakes raw text into the JSON string before bash runs.
+      # Any " or \ in the diff corrupts the JSON body and fails the API call.
+      # jq --arg passes values as properly escaped JSON strings — injection-safe.
+      #
+      # CRITICAL — why || RESPONSE="":
+      # curl exits non-zero on timeout (exit 77) or connection error.
+      # Without || RESPONSE="", a non-zero exit fails this step and GitHub Actions
+      # skips all downstream steps — the job fails red and blocks the PR.
+      # || RESPONSE="" swallows the exit code and routes to the fail-open path in Step 6.
+      - name: Call Claude API
+        id: claude-review
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          DIFF: ${{ steps.get-diff.outputs.diff }}
+          SYSTEM_PROMPT: ${{ steps.read-prompt.outputs.prompt }}
+        run: |
+          BODY=$(jq -n \
+            --arg system "$SYSTEM_PROMPT" \
+            --arg diff "$DIFF" \
+            --argjson max_tokens 2048 \
+            '{
+              model: "claude-sonnet-4-6",
+              max_tokens: $max_tokens,
+              system: $system,
+              messages: [{
+                role: "user",
+                content: ("Review the following pull request diff:\n\n<diff>\n" + $diff + "\n</diff>")
+              }]
+            }')
+
+          RESPONSE=$(curl -s --max-time 60 --connect-timeout 10 -X POST https://api.anthropic.com/v1/messages \
+            -H "x-api-key: $ANTHROPIC_API_KEY" \
+            -H "anthropic-version: 2023-06-01" \
+            -H "content-type: application/json" \
+            --data-binary "$BODY") || RESPONSE=""
+
+          DELIM=$(openssl rand -hex 16)
+          echo "response<<$DELIM" >> $GITHUB_OUTPUT
+          echo "$RESPONSE" >> $GITHUB_OUTPUT
+          echo "$DELIM" >> $GITHUB_OUTPUT
+
+      # Step 6: Validate the response schema.
+      # If RESPONSE is empty (curl failed/timed out) or JSON is malformed or missing
+      # required fields, set valid=false to route to the fail-open path.
+      - name: Validate and parse response
+        id: parse
+        env:
+          RESPONSE: ${{ steps.claude-review.outputs.response }}
+        run: |
+          # Extract the text content block from Claude's response envelope
+          CONTENT=$(echo "$RESPONSE" | jq -r '.content[0].text // empty' 2>/dev/null || true)
+
+          # Strip markdown code fences if Claude wrapped the JSON (e.g. ```json ... ```)
+          # Pattern matches only fence-marker lines (``` or ```json etc.) — not lines that
+          # merely contain backticks, avoiding false deletion of content inside JSON strings.
+          CONTENT=$(echo "$CONTENT" | sed '/^```[a-zA-Z]*[[:space:]]*$/d')
+
+          if [ -z "$CONTENT" ]; then
+            echo "valid=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # Validate required fields are present
+          # approved is intentionally excluded — it is ignored by the workflow (derived in Step 8)
+          HAS_SUMMARY=$(echo "$CONTENT" | jq 'has("summary")' 2>/dev/null || echo "false")
+          HAS_ISSUES=$(echo "$CONTENT" | jq 'has("issues")' 2>/dev/null || echo "false")
+
+          if [ "$HAS_SUMMARY" = "true" ] && [ "$HAS_ISSUES" = "true" ]; then
+            DELIM=$(openssl rand -hex 16)
+            echo "valid=true" >> $GITHUB_OUTPUT
+            echo "content<<$DELIM" >> $GITHUB_OUTPUT
+            echo "$CONTENT" >> $GITHUB_OUTPUT
+            echo "$DELIM" >> $GITHUB_OUTPUT
+          else
+            echo "valid=false" >> $GITHUB_OUTPUT
+          fi
+
+      # Step 7a (fail-open path): Post advisory comment when API or parsing failed.
+      # Job exits 0 — PR remains mergeable.
+      - name: Post unavailability notice
+        if: steps.parse.outputs.valid == 'false'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+              body: `## AI Code Review — Unavailable\n\nThe AI reviewer could not complete this review (API error or unexpected response format).\n\nThis check is advisory. The PR remains mergeable — proceed with human review.`,
+            });
+
+      # Step 7b (success path): Post structured review comment.
+      - name: Post PR review comment
+        if: steps.parse.outputs.valid == 'true'
+        uses: actions/github-script@v7
+        env:
+          REVIEW_CONTENT: ${{ steps.parse.outputs.content }}
+        with:
+          script: |
+            let content;
+            try {
+              content = JSON.parse(process.env.REVIEW_CONTENT);
+            } catch {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.payload.pull_request.number,
+                body: `## AI Code Review — Unavailable\n\nThe AI reviewer could not complete this review (response parse error).\n\nThis check is advisory. The PR remains mergeable — proceed with human review.`,
+              });
+              return;
+            }
+            const { summary, issues } = content;
+
+            const severityIcon = (s) => {
+              if (s === 'error') return '🔴';
+              if (s === 'warning') return '🟡';
+              return '🔵';
+            };
+
+            // Escape pipe chars and collapse newlines so Claude's output cannot
+            // break Markdown table column alignment or inject extra rows.
+            const escapeCell = (s) => String(s).replace(/\|/g, '\\|').replace(/\r?\n/g, ' ');
+
+            let body = `## AI Code Review\n\n**Summary:** ${summary}\n\n---\n\n`;
+
+            if (issues.length === 0) {
+              body += `✅ No issues found.\n`;
+            } else {
+              body += `### Issues Found\n\n`;
+              body += `| Severity | File | Line | Comment |\n`;
+              body += `|---|---|---|---|\n`;
+              for (const issue of issues) {
+                body += `| ${severityIcon(issue.severity)} ${issue.severity} | \`${escapeCell(issue.file)}\` | ${issue.line} | ${escapeCell(issue.comment)} |\n`;
+              }
+            }
+
+            body += `\n---\n_Reviewed by Claude \`claude-sonnet-4-6\` · Dismiss this review in the GitHub UI to override_`;
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+              body,
+            });
+
+      # Step 8: Submit the formal GitHub review state.
+      #
+      # CRITICAL — approved is DERIVED here, not taken from Claude's response field.
+      # Claude's approved field is ignored entirely. A PR is approved if and only if
+      # it has zero error or warning issues. suggestion-only PRs are approved.
+      # This prevents contradictory states (approved: true with non-empty issues, etc.)
+      - name: Submit GitHub review
+        if: steps.parse.outputs.valid == 'true'
+        uses: actions/github-script@v7
+        env:
+          REVIEW_CONTENT: ${{ steps.parse.outputs.content }}
+        with:
+          script: |
+            let content;
+            try {
+              content = JSON.parse(process.env.REVIEW_CONTENT);
+            } catch {
+              core.warning('Step 8: failed to parse REVIEW_CONTENT — skipping review submission');
+              return;
+            }
+            const { issues } = content;
+
+            // Derive approved — do not trust content.approved
+            const approved = !issues.some(
+              i => i.severity === 'error' || i.severity === 'warning'
+            );
+
+            const event = approved ? 'APPROVE' : 'REQUEST_CHANGES';
+            const body = approved
+              ? 'AI review passed. No errors or warnings found.'
+              : 'AI review found errors or warnings. See the comment above for details. Dismiss this review to override.';
+
+            await github.rest.pulls.createReview({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.payload.pull_request.number,
+              commit_id: context.payload.pull_request.head.sha,
+              event,
+              body,
+            });
