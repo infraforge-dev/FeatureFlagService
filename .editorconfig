@@ -414,7 +414,7 @@ dotnet_diagnostic.CA3076.severity = error
 # Gives warning when there are stale Using statements
 dotnet_diagnostic.IDE0005.severity = warning
 
-dotnet_diagnostic.IDE0046.severity = warning
+dotnet_diagnostic.IDE0046.severity = none
 
 
 # ============================================================

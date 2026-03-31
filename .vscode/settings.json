@@ -6,14 +6,11 @@
   "[csharp]": {
     "editor.defaultFormatter": "csharpier.csharpier-vscode"
   },
+  "cSpell.ignorePaths": [
+    "**/*.cs"
+  ],
   "cSpell.words": [
-    "anthropics",
-    "csdevkit",
-    "dtos",
-    "eamodio",
-    "humao",
-    "Npgsql",
-    "usermod",
-    "warnaserror"
+    "accessibilities",
+    "Allman"
   ]
 }

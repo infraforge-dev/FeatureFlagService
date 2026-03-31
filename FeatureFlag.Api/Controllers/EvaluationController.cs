@@ -46,7 +46,7 @@ public sealed class EvaluationController : ControllerBase
         StatusCodes.Status404NotFound,
         Description = "No flag found with the given name exists in the specified environment."
     )]
-    public async Task<IActionResult> Evaluate(
+    public async Task<IActionResult> EvaluateAsync(
         [FromBody] EvaluationRequest request,
         CancellationToken ct
     )
