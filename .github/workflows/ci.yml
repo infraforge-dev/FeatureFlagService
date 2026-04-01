@@ -26,6 +26,11 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
+# actions/checkout@v4 and actions/setup-dotnet@v4 currently run on Node.js 20.
+# This opts into Node.js 24 ahead of the forced migration on 2026-06-02.
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   # ============================================================
   # Job 1: Lint and Format
@@ -47,7 +52,7 @@ jobs:
           # Caches the global NuGet package store between runs.
           # Cache key is derived from *.csproj file hashes (no lockfile configured).
           # Typically saves 30-60 seconds on subsequent runs.
-          cache: 'nuget'
+          cache: true
 
       - name: Restore dotnet tools
         # Installs CSharpier from .config/dotnet-tools.json.
@@ -90,7 +95,7 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.x'
-          cache: 'nuget'
+          cache: true
 
       - name: Restore packages
         run: dotnet restore FeatureFlagService.sln
