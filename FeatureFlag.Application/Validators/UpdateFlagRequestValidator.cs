@@ -1,3 +1,4 @@
+using System.Text.Json;
 using FeatureFlag.Application.DTOs;
 using FeatureFlag.Domain.Enums;
 using FluentValidation;
@@ -49,14 +50,23 @@ public sealed class UpdateFlagRequestValidator : AbstractValidator<UpdateFlagReq
     private static bool BeValidPercentageConfig(string? config)
     {
         if (string.IsNullOrWhiteSpace(config))
+        {
             return false;
+        }
+
         try
         {
             var doc = System.Text.Json.JsonDocument.Parse(config);
-            if (!doc.RootElement.TryGetProperty("percentage", out var prop))
+            if (!doc.RootElement.TryGetProperty("percentage", out JsonElement prop))
+            {
                 return false;
-            if (!prop.TryGetInt32(out var percentage))
+            }
+
+            if (!prop.TryGetInt32(out int percentage))
+            {
                 return false;
+            }
+
             return percentage >= 1 && percentage <= 100;
         }
         catch (System.Text.Json.JsonException)
@@ -68,14 +78,23 @@ public sealed class UpdateFlagRequestValidator : AbstractValidator<UpdateFlagReq
     private static bool BeValidRoleConfig(string? config)
     {
         if (string.IsNullOrWhiteSpace(config))
+        {
             return false;
+        }
+
         try
         {
             var doc = System.Text.Json.JsonDocument.Parse(config);
-            if (!doc.RootElement.TryGetProperty("roles", out var prop))
+            if (!doc.RootElement.TryGetProperty("roles", out JsonElement prop))
+            {
                 return false;
+            }
+
             if (prop.ValueKind != System.Text.Json.JsonValueKind.Array)
+            {
                 return false;
+            }
+
             return prop.GetArrayLength() > 0;
         }
         catch (System.Text.Json.JsonException)
