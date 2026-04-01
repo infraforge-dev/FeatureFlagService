@@ -37,7 +37,7 @@ public sealed class FeatureFlagsController : ControllerBase
         StatusCodes.Status200OK,
         Description = "The list of feature flags for the specified environment."
     )]
-    public async Task<IActionResult> GetAll(
+    public async Task<IActionResult> GetAllAsync(
         [FromQuery] EnvironmentType environment,
         CancellationToken ct
     )
@@ -63,7 +63,7 @@ public sealed class FeatureFlagsController : ControllerBase
         StatusCodes.Status404NotFound,
         Description = "No flag with the given name exists in the specified environment."
     )]
-    public async Task<IActionResult> GetByName(
+    public async Task<IActionResult> GetByNameAsync(
         string name,
         [FromQuery] EnvironmentType environment,
         CancellationToken ct
@@ -96,7 +96,7 @@ public sealed class FeatureFlagsController : ControllerBase
         StatusCodes.Status400BadRequest,
         Description = "One or more validation errors. See the errors field for details."
     )]
-    public async Task<IActionResult> Create(
+    public async Task<IActionResult> CreateAsync(
         [FromBody] CreateFlagRequest request,
         CancellationToken ct
     )
@@ -109,7 +109,7 @@ public sealed class FeatureFlagsController : ControllerBase
 
         FlagResponse created = await _service.CreateFlagAsync(request, ct);
         return CreatedAtAction(
-            nameof(GetByName),
+            nameof(GetByNameAsync),
             new { name = created.Name, environment = created.Environment },
             created
         );
@@ -138,7 +138,7 @@ public sealed class FeatureFlagsController : ControllerBase
         StatusCodes.Status404NotFound,
         Description = "No flag with the given name exists in the specified environment."
     )]
-    public async Task<IActionResult> Update(
+    public async Task<IActionResult> UpdateAsync(
         string name,
         [FromQuery] EnvironmentType environment,
         [FromBody] UpdateFlagRequest request,
@@ -180,7 +180,7 @@ public sealed class FeatureFlagsController : ControllerBase
         StatusCodes.Status404NotFound,
         Description = "No flag with the given name exists in the specified environment."
     )]
-    public async Task<IActionResult> Archive(
+    public async Task<IActionResult> ArchiveAsync(
         string name,
         [FromQuery] EnvironmentType environment,
         CancellationToken ct
