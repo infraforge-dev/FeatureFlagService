@@ -1,6 +1,6 @@
 {
   "name": "Feature Flag Service",
-  "image": "mcr.microsoft.com/devcontainers/dotnet:9.0",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu-24.04",
   "features": {
     "ghcr.io/anthropics/devcontainer-features/claude-code:1.0": {},
     // Node is required at runtime by Claude Code
