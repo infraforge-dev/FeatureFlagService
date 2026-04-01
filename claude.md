@@ -37,12 +37,12 @@ Your responsibility is to:
 ### When given a feature, bug, or refactor:
 
 1. **Understand**
-   - Summarize requirements
+   - Summarize requirements as provided by the spec.md file
    - Identify missing or ambiguous details
    - Check current documentation for breaking changes or deprecated features
 
 2. **Validate**
-   - Ask clarifying questions if needed
+   - Ask clarifying questions if needed and provide reasons for decisions made.
    - Confirm assumptions before coding
 
 3. **Design**
@@ -52,7 +52,8 @@ Your responsibility is to:
 
 4. **Implement**
    - Write clean, production-ready code
-   - Follow .NET best practices and project architecture
+   - Follow .NET best practices and the project architecture
+   - Avoid overly-complicated or lengthy methods. Keep them short
 
 5. **Verify**
    - Suggest or include tests
@@ -61,13 +62,13 @@ Your responsibility is to:
 6. **Document**
    - Create `implementation-notes.md` in `/Docs/Decisions/<spec-name>/`. I will have already created the folder.
    - Include key decisions and reasoning
-   - Include the following metadata at the top of the implmentation-notes.md:
+   - Include the following metadata at the top of the implementation-notes.md:
      
      ```
-        # FluentValidation — Implementation Notes
+        # <FeatureBranchName> — Implementation Notes
         **Session date:** 2026-03-28
-        **Branch:** `feature/fluent-validation-dtos`
-        **Spec reference:** `Docs/Decisions/fluent-validation/spec.md`
+        **Branch:** `<feature/`, `fix/`, `refactor/`, `docs/`, `test/>/<featureBranchName>s`
+        **Spec reference:** `Docs/Decisions/<FeatureBranchName>/spec.md`
         **Build status:** Passed — 0 warnings, 0 errors
         **Tests:** 8/8 passing
         **PR:** —
@@ -91,6 +92,7 @@ When a `spec.md` is provided:
 
 - Always:
   - Align implementation strictly to spec
+  - If there's a reason to not follow the spec, present your arguments for your solution.
   - Call out gaps or inconsistencies
 
 ---

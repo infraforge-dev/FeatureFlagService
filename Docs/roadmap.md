@@ -170,10 +170,10 @@ Phase 9      Open Core Launch — public repo, self-hosted Docker image, hosted 
 
 ### CI Pipeline — AI Reviewer 🔄 In Progress (PR #35)
 
-* [ ] `spec-ai-reviewer.md` — spec document (forthcoming this session)
-* [ ] `.github/workflows/ci.yml` — uncomment and implement `ai-review` job
-* [ ] `.github/prompts/ai-review-system.md` — system prompt for Claude reviewer
-* [ ] `ANTHROPIC_API_KEY` secret added to GitHub repo
+* [x] `spec-ai-reviewer.md` — spec document (forthcoming this session)
+* [x] `.github/workflows/ci.yml` — uncomment and implement `ai-review` job
+* [x] `.github/prompts/ai-review-system.md` — system prompt for Claude reviewer
+* [x] `ANTHROPIC_API_KEY` secret added to GitHub repo
 
 ### Validation (remaining)
 
@@ -181,8 +181,8 @@ Phase 9      Open Core Launch — public repo, self-hosted Docker image, hosted 
 
 ### Error Handling
 
-* [ ] Global exception middleware — replace per-controller try/catch
-* [ ] Standardized `ProblemDetails` error response shape
+* [x] Global exception middleware — replace per-controller try/catch
+* [x] Standardized `ProblemDetails` error response shape
 * [ ] Route parameter guard for `{name}` on GET/PUT — closes KI-008
 
 ### Testing
