@@ -14,14 +14,18 @@ public sealed class PercentageStrategy : IRolloutStrategy
 
     public bool Evaluate(Flag flag, FeatureEvaluationContext context)
     {
-        var config = JsonSerializer.Deserialize<PercentageConfig>(flag.StrategyConfig);
+        PercentageConfig? config = JsonSerializer.Deserialize<PercentageConfig>(
+            flag.StrategyConfig
+        );
 
         if (config is null || config.Percentage is < 0 or > 100)
+        {
             return false;
+        }
 
-        var input = $"{context.UserId}:{flag.Name}";
-        var hashBytes = SHA256.HashData(Encoding.UTF8.GetBytes(input));
-        var bucket = BitConverter.ToUInt32(hashBytes, 0) % 100;
+        string input = $"{context.UserId}:{flag.Name}";
+        byte[] hashBytes = SHA256.HashData(Encoding.UTF8.GetBytes(input));
+        uint bucket = BitConverter.ToUInt32(hashBytes, 0) % 100;
 
         return bucket < (uint)config.Percentage;
     }

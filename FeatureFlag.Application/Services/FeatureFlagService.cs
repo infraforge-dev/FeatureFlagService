@@ -25,7 +25,8 @@ public sealed class FeatureFlagService : IFeatureFlagService
         CancellationToken ct = default
     )
     {
-        var flag = await _repository.GetByNameAsync(name, environment, ct)
+        Flag flag =
+            await _repository.GetByNameAsync(name, environment, ct)
             ?? throw new KeyNotFoundException($"Flag '{name}' not found in {environment}.");
 
         return flag.ToResponse();
@@ -46,13 +47,16 @@ public sealed class FeatureFlagService : IFeatureFlagService
             environment: context.Environment
         );
 
-        var flag = await _repository.GetByNameAsync(flagName, sanitizedContext.Environment, ct)
+        Flag flag =
+            await _repository.GetByNameAsync(flagName, sanitizedContext.Environment, ct)
             ?? throw new KeyNotFoundException(
                 $"Flag '{flagName}' not found in {sanitizedContext.Environment}."
             );
 
         if (!flag.IsEnabled)
+        {
             return false;
+        }
 
         return _evaluator.Evaluate(flag, sanitizedContext);
     }
@@ -62,7 +66,7 @@ public sealed class FeatureFlagService : IFeatureFlagService
         CancellationToken ct = default
     )
     {
-        var flags = await _repository.GetAllAsync(environment, ct);
+        IReadOnlyList<Flag> flags = await _repository.GetAllAsync(environment, ct);
         return flags.Select(f => f.ToResponse()).ToList();
     }
 
@@ -72,14 +76,15 @@ public sealed class FeatureFlagService : IFeatureFlagService
     )
     {
         // Sanitize Name so the stored value matches the validated form.
-        var sanitizedName = Validators.InputSanitizer.Clean(request.Name) ?? request.Name;
+        string sanitizedName = Validators.InputSanitizer.Clean(request.Name) ?? request.Name;
 
         var flag = new Flag(
             sanitizedName,
             request.Environment,
             request.IsEnabled,
             request.StrategyType,
-            request.StrategyConfig);
+            request.StrategyConfig
+        );
 
         await _repository.AddAsync(flag, ct);
         await _repository.SaveChangesAsync(ct);
@@ -93,7 +98,7 @@ public sealed class FeatureFlagService : IFeatureFlagService
         CancellationToken ct = default
     )
     {
-        var flag =
+        Flag flag =
             await _repository.GetByNameAsync(name, environment, ct)
             ?? throw new KeyNotFoundException($"Flag '{name}' not found in {environment}.");
 
@@ -108,7 +113,7 @@ public sealed class FeatureFlagService : IFeatureFlagService
         CancellationToken ct = default
     )
     {
-        var flag =
+        Flag flag =
             await _repository.GetByNameAsync(name, environment, ct)
             ?? throw new KeyNotFoundException($"Flag '{name}' not found in {environment}.");
 

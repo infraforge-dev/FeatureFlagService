@@ -1,5 +1,4 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
-
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
@@ -21,5 +20,4 @@
     <ProjectReference Include="..\FeatureFlag.Application\FeatureFlag.Application.csproj" />
     <ProjectReference Include="..\FeatureFlag.Infrastructure\FeatureFlag.Infrastructure.csproj" />
   </ItemGroup>
-
 </Project>

@@ -9,21 +9,29 @@ public sealed class EvaluationRequestValidator : AbstractValidator<EvaluationReq
     public EvaluationRequestValidator()
     {
         RuleFor(x => x.FlagName)
-            .NotEmpty().WithMessage("FlagName is required.")
-            .MaximumLength(100).WithMessage("FlagName must not exceed 100 characters.");
+            .NotEmpty()
+            .WithMessage("FlagName is required.")
+            .MaximumLength(100)
+            .WithMessage("FlagName must not exceed 100 characters.");
 
         RuleFor(x => x.UserId)
-            .NotEmpty().WithMessage("UserId is required.")
-            .MaximumLength(256).WithMessage("UserId must not exceed 256 characters.");
+            .NotEmpty()
+            .WithMessage("UserId is required.")
+            .MaximumLength(256)
+            .WithMessage("UserId must not exceed 256 characters.");
 
         RuleFor(x => x.Environment)
             .NotEqual(EnvironmentType.None)
-            .WithMessage("A valid environment must be specified (Development, Staging, or Production).");
+            .WithMessage(
+                "A valid environment must be specified (Development, Staging, or Production)."
+            );
 
         // UserRoles: not null, max 50 entries, each role max 100 chars after sanitization
         RuleFor(x => x.UserRoles)
             .NotNull()
-            .WithMessage("UserRoles must not be null. Pass an empty array if the user has no roles.");
+            .WithMessage(
+                "UserRoles must not be null. Pass an empty array if the user has no roles."
+            );
 
         // .Take(51).Count() > 50 short-circuits at 51 — avoids enumerating the full collection
         RuleFor(x => x.UserRoles)

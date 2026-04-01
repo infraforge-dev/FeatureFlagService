@@ -2,6 +2,7 @@ using FeatureFlag.Application.DTOs;
 using FeatureFlag.Application.Interfaces;
 using FeatureFlag.Domain.Enums;
 using FluentValidation;
+using FluentValidation.Results;
 using Microsoft.AspNetCore.Mvc;
 
 namespace FeatureFlag.Api.Controllers;
@@ -32,13 +33,16 @@ public sealed class FeatureFlagsController : ControllerBase
     /// <param name="ct">Cancellation token.</param>
     /// <response code="200">Returns the list of feature flags.</response>
     [HttpGet]
-    [ProducesResponseType<IEnumerable<FlagResponse>>(StatusCodes.Status200OK,
-        Description = "The list of feature flags for the specified environment.")]
+    [ProducesResponseType<IEnumerable<FlagResponse>>(
+        StatusCodes.Status200OK,
+        Description = "The list of feature flags for the specified environment."
+    )]
     public async Task<IActionResult> GetAll(
         [FromQuery] EnvironmentType environment,
-        CancellationToken ct)
+        CancellationToken ct
+    )
     {
-        var flags = await _service.GetAllFlagsAsync(environment, ct);
+        IReadOnlyList<FlagResponse> flags = await _service.GetAllFlagsAsync(environment, ct);
         return Ok(flags);
     }
 
@@ -51,18 +55,23 @@ public sealed class FeatureFlagsController : ControllerBase
     /// <response code="200">Returns the feature flag.</response>
     /// <response code="404">No flag found with the given name in the specified environment.</response>
     [HttpGet("{name}")]
-    [ProducesResponseType<FlagResponse>(StatusCodes.Status200OK,
-        Description = "The requested feature flag.")]
-    [ProducesResponseType(StatusCodes.Status404NotFound,
-        Description = "No flag with the given name exists in the specified environment.")]
+    [ProducesResponseType<FlagResponse>(
+        StatusCodes.Status200OK,
+        Description = "The requested feature flag."
+    )]
+    [ProducesResponseType(
+        StatusCodes.Status404NotFound,
+        Description = "No flag with the given name exists in the specified environment."
+    )]
     public async Task<IActionResult> GetByName(
         string name,
         [FromQuery] EnvironmentType environment,
-        CancellationToken ct)
+        CancellationToken ct
+    )
     {
         try
         {
-            var flag = await _service.GetFlagAsync(name, environment, ct);
+            FlagResponse flag = await _service.GetFlagAsync(name, environment, ct);
             return Ok(flag);
         }
         catch (KeyNotFoundException)
@@ -79,23 +88,31 @@ public sealed class FeatureFlagsController : ControllerBase
     /// <response code="201">Flag created successfully. Returns the created flag.</response>
     /// <response code="400">Validation failed. See the errors collection for details.</response>
     [HttpPost]
-    [ProducesResponseType<FlagResponse>(StatusCodes.Status201Created,
-        Description = "The newly created feature flag.")]
-    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest,
-        Description = "One or more validation errors. See the errors field for details.")]
+    [ProducesResponseType<FlagResponse>(
+        StatusCodes.Status201Created,
+        Description = "The newly created feature flag."
+    )]
+    [ProducesResponseType<ValidationProblemDetails>(
+        StatusCodes.Status400BadRequest,
+        Description = "One or more validation errors. See the errors field for details."
+    )]
     public async Task<IActionResult> Create(
         [FromBody] CreateFlagRequest request,
-        CancellationToken ct)
+        CancellationToken ct
+    )
     {
-        var validation = await _createValidator.ValidateAsync(request, ct);
+        ValidationResult validation = await _createValidator.ValidateAsync(request, ct);
         if (!validation.IsValid)
+        {
             return ValidationProblem(new ValidationProblemDetails(validation.ToDictionary()));
+        }
 
-        var created = await _service.CreateFlagAsync(request, ct);
+        FlagResponse created = await _service.CreateFlagAsync(request, ct);
         return CreatedAtAction(
             nameof(GetByName),
             new { name = created.Name, environment = created.Environment },
-            created);
+            created
+        );
     }
 
     /// <summary>
@@ -109,21 +126,30 @@ public sealed class FeatureFlagsController : ControllerBase
     /// <response code="400">Validation failed. See the errors collection for details.</response>
     /// <response code="404">No flag found with the given name in the specified environment.</response>
     [HttpPut("{name}")]
-    [ProducesResponseType(StatusCodes.Status204NoContent,
-        Description = "Flag updated successfully.")]
-    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest,
-        Description = "One or more validation errors. See the errors field for details.")]
-    [ProducesResponseType(StatusCodes.Status404NotFound,
-        Description = "No flag with the given name exists in the specified environment.")]
+    [ProducesResponseType(
+        StatusCodes.Status204NoContent,
+        Description = "Flag updated successfully."
+    )]
+    [ProducesResponseType<ValidationProblemDetails>(
+        StatusCodes.Status400BadRequest,
+        Description = "One or more validation errors. See the errors field for details."
+    )]
+    [ProducesResponseType(
+        StatusCodes.Status404NotFound,
+        Description = "No flag with the given name exists in the specified environment."
+    )]
     public async Task<IActionResult> Update(
         string name,
         [FromQuery] EnvironmentType environment,
         [FromBody] UpdateFlagRequest request,
-        CancellationToken ct)
+        CancellationToken ct
+    )
     {
-        var validation = await _updateValidator.ValidateAsync(request, ct);
+        ValidationResult validation = await _updateValidator.ValidateAsync(request, ct);
         if (!validation.IsValid)
+        {
             return ValidationProblem(new ValidationProblemDetails(validation.ToDictionary()));
+        }
 
         try
         {
@@ -146,14 +172,19 @@ public sealed class FeatureFlagsController : ControllerBase
     /// <response code="204">Flag archived successfully.</response>
     /// <response code="404">No flag found with the given name in the specified environment.</response>
     [HttpDelete("{name}")]
-    [ProducesResponseType(StatusCodes.Status204NoContent,
-        Description = "Flag archived successfully.")]
-    [ProducesResponseType(StatusCodes.Status404NotFound,
-        Description = "No flag with the given name exists in the specified environment.")]
+    [ProducesResponseType(
+        StatusCodes.Status204NoContent,
+        Description = "Flag archived successfully."
+    )]
+    [ProducesResponseType(
+        StatusCodes.Status404NotFound,
+        Description = "No flag with the given name exists in the specified environment."
+    )]
     public async Task<IActionResult> Archive(
         string name,
         [FromQuery] EnvironmentType environment,
-        CancellationToken ct)
+        CancellationToken ct
+    )
     {
         try
         {
