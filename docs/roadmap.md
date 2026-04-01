@@ -25,7 +25,7 @@ Build a production-style feature flag service that supports:
 
 ### Application Layer
 
-* [ ] Define `IFeatureFlagService` interface
+* [x] Define `IFeatureFlagService` interface
 * [ ] Implement `FeatureEvaluator`
 * [ ] Separate evaluation logic from domain
 
