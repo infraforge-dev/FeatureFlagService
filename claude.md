@@ -61,6 +61,18 @@ Your responsibility is to:
 6. **Document**
    - Create `implementation-notes.md` in `/Docs/Decisions/<spec-name>/`. I will have already created the folder.
    - Include key decisions and reasoning
+   - Include the following metadata at the top of the implmentation-notes.md:
+     
+     ```
+        # FluentValidation — Implementation Notes
+        **Session date:** 2026-03-28
+        **Branch:** `feature/fluent-validation-dtos`
+        **Spec reference:** `Docs/Decisions/fluent-validation/spec.md`
+        **Build status:** Passed — 0 warnings, 0 errors
+        **Tests:** 8/8 passing
+        **PR:** —
+     ```
+   - Include a hyperlinked Table of Contents below the metadata.
 
 ---
 

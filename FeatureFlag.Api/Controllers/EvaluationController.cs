@@ -19,7 +19,23 @@ public sealed class EvaluationController : ControllerBase
         _validator = validator;
     }
 
+    /// <summary>
+    /// Evaluates whether a feature flag is enabled for a given user context.
+    /// Evaluation is deterministic — the same user will always receive the same result
+    /// for a given flag and strategy configuration.
+    /// </summary>
+    /// <param name="request">The evaluation context including user identity, roles, and environment.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <response code="200">Returns the evaluation result.</response>
+    /// <response code="400">Validation failed. See the errors collection for details.</response>
+    /// <response code="404">No flag found with the given name in the specified environment.</response>
     [HttpPost]
+    [ProducesResponseType<EvaluationResponse>(StatusCodes.Status200OK,
+        Description = "The evaluation result for the given user context.")]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest,
+        Description = "One or more validation errors. See the errors field for details.")]
+    [ProducesResponseType(StatusCodes.Status404NotFound,
+        Description = "No flag found with the given name exists in the specified environment.")]
     public async Task<IActionResult> Evaluate(
         [FromBody] EvaluationRequest request,
         CancellationToken ct)
@@ -36,7 +52,7 @@ public sealed class EvaluationController : ControllerBase
                 request.Environment);
 
             var isEnabled = await _service.IsEnabledAsync(request.FlagName, context, ct);
-            return Ok(new { isEnabled });
+            return Ok(new EvaluationResponse(isEnabled));
         }
         catch (KeyNotFoundException e)
         {
