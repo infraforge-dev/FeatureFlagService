@@ -4,7 +4,9 @@
 `refactor/service-interface-dtos`
 
 **Implementation notes:** `docs/Decisions/refactor-service-interface-dtos/implementation-notes.md`
-**PR:** —
+
+[Pull Request #24](https://github.com/amodelandme/FeatureFlagService/pull/24)
+
 
 ## Problem
 

@@ -5,7 +5,8 @@
 **Status:** Ready for implementation
 **Revision:** v2 — updated after Senior Engineer code review
 **Implementation notes:** `docs/Decisions/persistence-and-controllers/implementation-notes.md`
-**PR:** —
+
+[Pull Request #24](https://github.com/amodelandme/FeatureFlagService/pull/24)
 
 ---
 
