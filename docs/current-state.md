@@ -2,180 +2,127 @@
 
 ## 📍 Status Summary
 
-The project is currently in **Phase 1 — MVP Completion**.
+The project is currently in **Phase 0 — Foundation (In Progress)**.
 
-Core architecture and foundational components are in place. The system is functional at a structural level but requires completion of core features, validation, and testing before it can be considered production-ready.
+The domain layer and project structure are in place. The remaining Phase 0 work — interfaces, evaluation engine, strategies, persistence, and controllers — has not yet been implemented.
 
 ---
 
 ## ✅ What Is Completed
 
-### Domain & Core Design
+### Domain Layer
 
-* `FeatureFlag` entity with controlled mutation (private setters)
-* `FeatureEvaluationContext` implemented
-* `RolloutStrategy` enum defined (None, Percentage, RoleBased)
-* `EnvironmentType` enum defined
-
----
-
-### Architecture & Patterns
-
-* Migrated to **Clean Architecture** with four dedicated projects:
-
-  * `FeatureFlag.Domain` — entities, enums, value objects, interfaces
-  * `FeatureFlag.Application` — use cases, service interfaces, DTOs
-  * `FeatureFlag.Infrastructure` — EF Core, repository implementations
-  * `FeatureFlag.Api` — controllers, middleware, DI composition root
-* `FeatureFlag.Tests` project scaffolded
-* Dependency rule enforced: Domain has no outward dependencies
-
----
-
-### Domain Layer (in new structure)
-
-* `FeatureFlag` entity (exists in `FeatureFlag.Domain/Entities`)
+* `FeatureFlag` entity with controlled mutation (private setters, explicit update methods)
 * `FeatureEvaluationContext` value object
-* `RolloutStrategy` and `EnvironmentType` enums
-* `Interfaces/` folder scaffolded
+* `RolloutStrategy` enum (None, Percentage, RoleBased)
+* `EnvironmentType` enum (Development, Staging, Production)
+
+### Project Structure
+
+* Clean Architecture solution with four dedicated projects:
+
+  * `FeatureFlag.Domain` — entities, enums, value objects
+  * `FeatureFlag.Application` — project scaffolded, not yet populated
+  * `FeatureFlag.Infrastructure` — project scaffolded, not yet populated
+  * `FeatureFlag.Api` — project scaffolded, minimal bootstrap only
+* `FeatureFlag.Tests` — project scaffolded, no tests written yet
+* Dependency rule enforced: Domain has no outward dependencies
+* DevContainer configured with .NET 9, Claude Code, GitHub CLI, and VS Code extensions
 
 ---
 
-## 🚧 What Is In Progress
+## ❌ What Is Not Yet Built (Remaining Phase 0)
 
-* Migrating existing implementations into Clean Architecture layer projects
-* `FeatureFlag.Application` — service interfaces and use cases not yet populated
-* `FeatureFlag.Infrastructure` — EF Core and repository not yet migrated
+### Application Layer
 
----
+* `IFeatureFlagService` interface
+* `FeatureEvaluator` — evaluation engine
+* Use cases and DTOs
 
-## ❌ What Is Missing (Blocking MVP)
+### Strategy Layer
 
-### Core Functionality
+* `IRolloutStrategy` interface
+* `PercentageStrategy` implementation
+* `RoleStrategy` implementation
 
-* Deterministic percentage rollout (consistent hashing)
-* Complete CRUD operations with validation
-* Proper handling of invalid or missing evaluation context
+### Infrastructure Layer
 
----
+* EF Core setup and DbContext
+* Entity configuration and enum mapping
+* Repository pattern implementation
 
-### Testing
+### API Layer
 
-* Unit tests for:
-
-  * `FeatureEvaluator`
-  * All rollout strategies
-* Integration tests for API endpoints
-
----
-
-### Reliability
-
-* Structured error handling
-* Logging of evaluation decisions
+* Feature flag controllers
+* Swagger/OpenAPI configuration
+* Dependency injection wiring (`AddApplication`, `AddInfrastructure`)
 
 ---
 
-## ⚠️ Known Gaps / Risks
+## ⚠️ Known Issues
 
-### Non-Deterministic Behavior
+### FeatureEvaluationContext
 
-If percentage rollout is not based on consistent hashing, results may vary between requests.
+* Missing `IEquatable<T>` implementation — two contexts with identical values are not considered equal
+* `EnvironmentType` has no guard against invalid enum values
+* Inline namespace qualifier (`Enums.EnvironmentType`) should be replaced with a proper `using` statement
 
----
+### EnvironmentType Enum
 
-### Lack of Validation
+* Default value is `Development` (implicit zero) — a misconfigured context silently evaluates as Development
+* Consider adding `None = 0` as an explicit invalid sentinel
 
-Invalid configurations (e.g., malformed strategy config) may cause runtime issues.
+### roadmap.md (now resolved)
 
----
-
-### No Observability
-
-Currently no insight into:
-
-* Why a flag evaluated to ON/OFF
-* How often flags are evaluated
-
----
-
-### Minimal Security
-
-No authentication or authorization is implemented yet.
+* Previously marked Phase 0 items as complete that were not yet implemented — corrected in this update
 
 ---
 
 ## 🎯 Current Focus
 
-Primary goal: **Complete MVP (Phase 1)**
+Complete the remaining Phase 0 work before moving into Phase 1.
 
 ### Immediate Next Tasks
 
-1. Populate `FeatureFlag.Application` — service interfaces, use cases, DTOs
-2. Populate `FeatureFlag.Infrastructure` — EF Core, repository implementations
-3. Wire up controllers in `FeatureFlag.Api`
-4. Implement deterministic hashing for percentage rollout
-5. Finalize CRUD endpoints with validation
-6. Add unit tests for evaluation logic
-7. Introduce basic logging for feature evaluation
-
----
-
-## 🧪 Suggested Next Implementation (Detailed)
-
-### Deterministic Percentage Rollout
-
-* Use a stable hashing algorithm (e.g., userId → hash → modulo 100)
-* Ensure:
-
-  * Same user always gets same result
-  * Even distribution across users
+1. Fix `FeatureEvaluationContext` — add `IEquatable`, guard clauses, clean up namespace
+2. Update `EnvironmentType` to add `None = 0`
+3. Define `IFeatureFlagService` and `IRolloutStrategy` interfaces
+4. Implement `FeatureEvaluator`
+5. Implement `PercentageStrategy` (deterministic hashing) and `RoleStrategy`
+6. Set up EF Core, DbContext, and repository
+7. Wire up controllers and Swagger in `Program.cs`
 
 ---
 
 ## 🧭 What Not To Do Right Now
 
-Avoid working on:
+* No UI work
+* No authentication or authorization yet
+* No advanced rollout strategies
+* No observability pipeline
+* No performance optimization
 
-* UI
-* Advanced rollout strategies
-* Microservices decomposition
-* Premature performance optimizations
+Focus strictly on **finishing Phase 0**.
 
-Focus strictly on **MVP completion**.
+---
+
+## 📌 Definition of "Phase 0 Complete"
+
+Phase 0 is complete when:
+
+* All interfaces are defined
+* `FeatureEvaluator` dispatches to the correct strategy
+* Both strategies are implemented and return deterministic results
+* EF Core and repository are functional
+* Controllers are wired up and returning responses
+* Swagger is configured
 
 ---
 
 ## 🧩 Notes for AI Assistants
 
-* The system is not production-ready yet
+* The system is not production-ready
 * Prioritize correctness over feature expansion
 * Follow Clean Architecture — dependencies point inward toward Domain
 * Work within the established layer boundaries (Api → Application → Domain ← Infrastructure)
-* Ensure all evaluation logic remains deterministic
-
----
-
-## 📌 Definition of “MVP Complete”
-
-The project will be considered MVP-complete when:
-
-* Feature flags can be created, updated, and deleted
-* Evaluation is deterministic and reliable
-* All strategies are tested
-* API returns consistent and validated responses
-* Basic logging is in place
-
----
-
-## 🧠 Reality Check
-
-This project has strong architectural bones.
-
-What remains is not “figuring things out,” but:
-
-* tightening correctness
-* proving reliability
-* finishing execution
-
-Stay disciplined and finish the core.
+* All evaluation logic must remain deterministic and isolated from persistence

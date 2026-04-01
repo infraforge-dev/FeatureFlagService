@@ -11,44 +11,44 @@ Build a production-style feature flag service that supports:
 
 ---
 
-## 🧱 Phase 0 — Foundation (Completed / In Progress)
+## 🧱 Phase 0 — Foundation
 
 ### Core Domain & Architecture
 
 * [x] Define `FeatureFlag` domain entity
 * [x] Define `RolloutStrategy` enum (None, Percentage, RoleBased)
 * [x] Define `EnvironmentType` enum
-* [x] Implement `FeatureEvaluationContext`
+* [x] Implement `FeatureEvaluationContext` value object
 * [x] Enforce encapsulation (private setters, explicit mutation methods)
+* [x] Clean Architecture project structure (Domain, Application, Infrastructure, Api, Tests)
+* [x] Dependency directions enforced (Domain has no outward dependencies)
 
 ### Application Layer
 
-* [x] Implement `IFeatureFlagService`
-* [x] Separate evaluation logic from domain
-* [x] Implement `FeatureEvaluator`
+* [ ] Define `IFeatureFlagService` interface
+* [ ] Implement `FeatureEvaluator`
+* [ ] Separate evaluation logic from domain
 
 ### Strategy Pattern
 
-* [x] Create `IRolloutStrategy` interface
-* [x] Implement:
-
-  * [x] PercentageStrategy
-  * [x] RoleStrategy
+* [ ] Create `IRolloutStrategy` interface
+* [ ] Implement `PercentageStrategy`
+* [ ] Implement `RoleStrategy`
 
 ### API Layer
 
-* [x] Create controllers for feature flags
-* [x] Add Swagger/OpenAPI documentation
+* [ ] Create controllers for feature flags
+* [ ] Configure Swagger/OpenAPI
 
 ### Persistence
 
-* [x] Setup EF Core
-* [x] Map enums appropriately (string for Environment)
-* [x] Implement repository pattern
+* [ ] Set up EF Core
+* [ ] Map enums appropriately (string for EnvironmentType)
+* [ ] Implement repository pattern
 
 ---
 
-## 🚀 Phase 1 — MVP Completion (High Priority)
+## 🚀 Phase 1 — MVP Completion (Current Focus)
 
 ### Feature Management
 
@@ -125,7 +125,7 @@ Build a production-style feature flag service that supports:
 
 ### Debugging Tools
 
-* [ ] Add endpoint: “Why was this flag ON/OFF?”
+* [ ] Add endpoint: "Why was this flag ON/OFF?"
 * [ ] Return evaluation trace
 
 ---
@@ -183,7 +183,7 @@ Build a production-style feature flag service that supports:
 ### DevOps
 
 * [ ] Dockerize application
-* [ ] Setup CI/CD pipeline
+* [ ] Set up CI/CD pipeline
 * [ ] Environment configuration management
 
 ### Data & Safety
@@ -210,14 +210,16 @@ Build a production-style feature flag service that supports:
 
 ## 📌 Current Focus
 
-👉 **Phase 1 — MVP Completion**
+👉 **Complete Phase 0, then move into Phase 1**
 
 Next recommended tasks:
 
-1. Implement deterministic percentage rollout (hashing)
-2. Add full unit test coverage for strategies
-3. Complete CRUD + validation
-4. Add evaluation logging
+1. Define `IFeatureFlagService` and `IRolloutStrategy` interfaces
+2. Implement `FeatureEvaluator` with strategy dispatch
+3. Implement `PercentageStrategy` (deterministic hashing)
+4. Implement `RoleStrategy`
+5. Set up EF Core and repository
+6. Wire up controllers and Swagger
 
 ---
 
