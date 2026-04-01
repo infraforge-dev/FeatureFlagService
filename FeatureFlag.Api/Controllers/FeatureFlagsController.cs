@@ -69,15 +69,8 @@ public sealed class FeatureFlagsController : ControllerBase
         CancellationToken ct
     )
     {
-        try
-        {
-            FlagResponse flag = await _service.GetFlagAsync(name, environment, ct);
-            return Ok(flag);
-        }
-        catch (KeyNotFoundException)
-        {
-            return NotFound();
-        }
+        FlagResponse flag = await _service.GetFlagAsync(name, environment, ct);
+        return Ok(flag);
     }
 
     /// <summary>
@@ -151,15 +144,8 @@ public sealed class FeatureFlagsController : ControllerBase
             return ValidationProblem(new ValidationProblemDetails(validation.ToDictionary()));
         }
 
-        try
-        {
-            await _service.UpdateFlagAsync(name, environment, request, ct);
-            return NoContent();
-        }
-        catch (KeyNotFoundException)
-        {
-            return NotFound();
-        }
+        await _service.UpdateFlagAsync(name, environment, request, ct);
+        return NoContent();
     }
 
     /// <summary>
@@ -186,14 +172,7 @@ public sealed class FeatureFlagsController : ControllerBase
         CancellationToken ct
     )
     {
-        try
-        {
-            await _service.ArchiveFlagAsync(name, environment, ct);
-            return NoContent();
-        }
-        catch (KeyNotFoundException)
-        {
-            return NotFound();
-        }
+        await _service.ArchiveFlagAsync(name, environment, ct);
+        return NoContent();
     }
 }

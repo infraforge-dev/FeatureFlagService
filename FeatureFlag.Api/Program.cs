@@ -25,6 +25,9 @@ builder.Services.AddInfrastructure(builder.Configuration);
 
 WebApplication app = builder.Build();
 
+// Must be first — wraps the entire pipeline
+app.UseMiddleware<FeatureFlag.Api.Middleware.GlobalExceptionMiddleware>();
+
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
