@@ -62,6 +62,18 @@ public class Flag
         UpdatedAt = DateTime.UtcNow;
     }
 
+    /// <summary>
+    /// Atomically updates the enabled state and rollout strategy in a single
+    /// operation, setting UpdatedAt exactly once.
+    /// </summary>
+    public void Update(bool isEnabled, RolloutStrategy strategyType, string strategyConfig)
+    {
+        IsEnabled = isEnabled;
+        StrategyType = strategyType;
+        StrategyConfig = strategyConfig ?? "{}";
+        UpdatedAt = DateTime.UtcNow;
+    }
+
     public void Archive()
     {
         IsArchived = true;
