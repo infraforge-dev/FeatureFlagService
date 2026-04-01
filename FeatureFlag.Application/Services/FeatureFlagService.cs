@@ -3,6 +3,7 @@ using FeatureFlag.Application.Evaluation;
 using FeatureFlag.Application.Interfaces;
 using FeatureFlag.Domain.Entities;
 using FeatureFlag.Domain.Enums;
+using FeatureFlag.Domain.Exceptions;
 using FeatureFlag.Domain.Interfaces;
 using FeatureFlag.Domain.ValueObjects;
 
@@ -27,7 +28,7 @@ public sealed class FeatureFlagService : IFeatureFlagService
     {
         Flag flag =
             await _repository.GetByNameAsync(name, environment, ct)
-            ?? throw new KeyNotFoundException($"Flag '{name}' not found in {environment}.");
+            ?? throw new FlagNotFoundException(name);
 
         return flag.ToResponse();
     }
@@ -49,9 +50,7 @@ public sealed class FeatureFlagService : IFeatureFlagService
 
         Flag flag =
             await _repository.GetByNameAsync(flagName, sanitizedContext.Environment, ct)
-            ?? throw new KeyNotFoundException(
-                $"Flag '{flagName}' not found in {sanitizedContext.Environment}."
-            );
+            ?? throw new FlagNotFoundException(flagName);
 
         if (!flag.IsEnabled)
         {
@@ -100,7 +99,7 @@ public sealed class FeatureFlagService : IFeatureFlagService
     {
         Flag flag =
             await _repository.GetByNameAsync(name, environment, ct)
-            ?? throw new KeyNotFoundException($"Flag '{name}' not found in {environment}.");
+            ?? throw new FlagNotFoundException(name);
 
         // Single atomic update — sets UpdatedAt exactly once
         flag.Update(request.IsEnabled, request.StrategyType, request.StrategyConfig);
@@ -115,7 +114,7 @@ public sealed class FeatureFlagService : IFeatureFlagService
     {
         Flag flag =
             await _repository.GetByNameAsync(name, environment, ct)
-            ?? throw new KeyNotFoundException($"Flag '{name}' not found in {environment}.");
+            ?? throw new FlagNotFoundException(name);
 
         flag.Archive();
         await _repository.SaveChangesAsync(ct);

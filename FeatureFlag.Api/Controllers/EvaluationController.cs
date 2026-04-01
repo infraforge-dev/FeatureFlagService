@@ -57,20 +57,13 @@ public sealed class EvaluationController : ControllerBase
             return ValidationProblem(new ValidationProblemDetails(validation.ToDictionary()));
         }
 
-        try
-        {
-            var context = new FeatureEvaluationContext(
-                request.UserId,
-                request.UserRoles,
-                request.Environment
-            );
+        var context = new FeatureEvaluationContext(
+            request.UserId,
+            request.UserRoles,
+            request.Environment
+        );
 
-            bool isEnabled = await _service.IsEnabledAsync(request.FlagName, context, ct);
-            return Ok(new EvaluationResponse(isEnabled));
-        }
-        catch (KeyNotFoundException e)
-        {
-            return NotFound(new { error = e.Message });
-        }
+        bool isEnabled = await _service.IsEnabledAsync(request.FlagName, context, ct);
+        return Ok(new EvaluationResponse(isEnabled));
     }
 }

@@ -24,9 +24,11 @@ Rules to enforce:
    repository calls and external service calls.
 7. Evaluation logic must remain deterministic and isolated from persistence.
    Do not suggest mixing evaluation logic with repository calls.
-8. A global exception middleware is being added in Phase 1 (it may not yet be present in
-   the codebase). Until it is confirmed in place: do not add new try/catch blocks in
-   controllers, and do not flag existing try/catch blocks as violations.
+8. `GlobalExceptionMiddleware` is registered as the first middleware in `Program.cs` and
+   handles all unhandled exceptions. Controllers must contain only the happy path — no
+   try/catch blocks. Flag any try/catch in a controller as an error. Domain exceptions
+   (`FeatureFlagException` subclasses) are thrown by the service layer and caught by the
+   middleware; controllers must not catch them.
 9. Naming conventions: interfaces prefixed with `I`, async methods suffixed with `Async`,
    no abbreviations in public member names.
 10. Zero warnings policy: do not suggest suppressing warnings with `#pragma warning disable`
