@@ -18,18 +18,17 @@ with AI-assisted flag analysis and a first-class .NET SDK as core product featur
 
 - [Why This Exists](#-why-this-exists)
 - [What Makes This Different](#-what-makes-this-different)
-- [Architecture](#-architecture)
+- [Architecture](#️-architecture)
 - [Key Design Decisions](#-key-design-decisions)
 - [Features](#-features)
 - [Getting Started](#-getting-started)
 - [API Overview](#-api-overview)
-- [Error Handling](#-error-handling)
+- [Error Handling](#️-error-handling)
 - [AI-Assisted Development Workflow](#-ai-assisted-development-workflow)
 - [Planned AI Features](#-planned-ai-features)
-- [Tech Stack](#-tech-stack)
-- [Roadmap](#-roadmap)
+- [Tech Stack](#️-tech-stack)
+- [Roadmap](#️-roadmap)
 - [Contributing](#-contributing)
-
 ---
 
 ## 🎯 Why This Exists
