@@ -8,6 +8,19 @@
 
 ---
 
+## Table of Contents
+
+- [Context](#context)
+- [Assets We Are Protecting](#assets-we-are-protecting)
+- [Threat Actors](#threat-actors)
+- [Attack Surface — Endpoint Analysis](#attack-surface--endpoint-analysis)
+- [Mitigations In Place — Phase 1](#mitigations-in-place--phase-1)
+- [Consciously Deferred Decisions](#consciously-deferred-decisions)
+- [New Known Issue Created by This ADR](#new-known-issue-created-by-this-adr)
+- [Consequences of This Decision](#consequences-of-this-decision)
+
+---
+
 ## Context
 
 FeatureFlagService exposes a REST API that accepts untrusted input across four
