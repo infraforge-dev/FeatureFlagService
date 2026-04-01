@@ -128,17 +128,19 @@ Phase 9      Open Core Launch — public repo, self-hosted Docker image, hosted 
 * [x] Mapping consolidated inside `FeatureFlagService`
 * [x] Smoke test verified: POST, GET, PUT, DELETE all return correct responses
 
-### Validation & Sanitization
+### Validation & Sanitization ✅ Complete (PR #30)
 
-* [ ] `InputSanitizer` — shared static helper, trims whitespace and strips control
+* [x] `InputSanitizer` — shared static helper, trims whitespace and strips control
       characters; called by validators and service layer
-* [ ] `CreateFlagRequestValidator` — Name allowlist regex, env sentinel guard,
-      StrategyConfig cross-field rules, 2000-char limit
-* [ ] `UpdateFlagRequestValidator` — StrategyConfig cross-field rules, 2000-char limit
-* [ ] `EvaluationRequestValidator` — UserId max 256, UserRoles max 50×100,
+* [x] `CreateFlagRequestValidator` — Name allowlist regex (on cleaned value via `Must()`),
+      env sentinel guard, StrategyConfig cross-field rules, 2000-char limit
+* [x] `UpdateFlagRequestValidator` — StrategyConfig cross-field rules, 2000-char limit
+* [x] `EvaluationRequestValidator` — UserId max 256, UserRoles max 50×100,
       env sentinel guard
-* [ ] `FluentValidation.AspNetCore` auto-validation wired in `Program.cs`
-* [ ] `InputSanitizer` called in `FeatureFlagService.IsEnabledAsync` and
+* [x] Manual `ValidateAsync()` in controllers — `FluentValidation.AspNetCore` is
+      deprecated and not used; validators injected as `IValidator<T>` and called
+      explicitly in POST and PUT actions
+* [x] `InputSanitizer` called in `FeatureFlagService.IsEnabledAsync` and
       `CreateFlagAsync` — closes KI-003
 * [ ] Name uniqueness check at the service layer before hitting the DB
 
@@ -347,14 +349,16 @@ Phase 9      Open Core Launch — public repo, self-hosted Docker image, hosted 
 
 👉 **Phase 1 — MVP Completion**
 
-Immediate next tasks:
+Validation & Sanitization is complete (PR #30). Immediate next tasks:
 
-1. Implement `InputSanitizer` and all three FluentValidation validators — closes KI-003
-2. Add global exception middleware
-3. Add route parameter guard for `{name}` on GET/PUT — closes KI-008
-4. Unit tests for strategies, evaluator, and validators
+1. Global exception middleware — replace per-controller try/catch
+2. Route parameter guard for `{name}` on GET/PUT — closes KI-008
+3. Name uniqueness check at the service layer
+4. Unit tests for strategies, evaluator, and all three validators
 5. Integration tests for all endpoints
 6. Commit `.http` smoke test file
+7. Seed data for local development
+8. Evaluation decision logging
 
 ---
 
@@ -377,8 +381,10 @@ Immediate next tasks:
   with `PrivateAssets=all`
 
 ### Validation & Sanitization Conventions
-* FluentValidation auto-validation runs at the HTTP boundary — controllers never see
-  invalid requests
+* FluentValidation v12 — manual `ValidateAsync()` in controllers; no auto-validation
+  middleware; `FluentValidation.AspNetCore` is deprecated and not used
+* Do not use `.Transform()` — removed in v12; use `Must()` with `InputSanitizer.Clean()`
+  for sanitization-aware rules
 * `InputSanitizer` is the single source of truth for string sanitization — never inline
   equivalent logic
 * Any non-HTTP input surface (CLI, seed data, test helpers) must call `InputSanitizer`
@@ -389,7 +395,8 @@ Immediate next tasks:
   structure are validated
 
 ### Security Conventions
-* See `docs/decisions/adr-input-security-model.md` before modifying the security boundary
+* See `Docs/Security/adr-input-security-model-v1.1.md` before modifying the security
+  boundary — this is the current version of the security ADR
 * `IPromptSanitizer` (Phase 1.5) is a separate concern from `InputSanitizer` — HTTP
   boundary sanitization does not substitute for prompt injection defense
 * Raw SQL via `FromSqlRaw()` with string concatenation is prohibited — use
@@ -398,9 +405,12 @@ Immediate next tasks:
 ### Known Issues
 * KI-002 — `FeatureEvaluator.Evaluate` has an implicit precondition (documented,
   not enforced; see architecture.md)
+* KI-003 — **CLOSED** — StrategyConfig validated at write time via FluentValidation (PR #30)
 * KI-007 — Devcontainer networking requires Postgres to start first (mitigated,
   deferred to Phase 8)
 * KI-008 — Route parameters on GET/PUT lack allowlist validation (Phase 1 fix)
+* KI-NEW-001 — `BeValidPercentageConfig` / `BeValidRoleConfig` duplicated across
+  Create and Update validators — deferred cleanup, not a blocker
 
 ---
 
