@@ -3,6 +3,9 @@
 ## Branch
 `refactor/service-interface-dtos`
 
+**Implementation notes:** `docs/Decisions/refactor-service-interface-dtos/implementation-notes.md`
+**PR:** —
+
 ## Problem
 
 `IFeatureFlagService` currently:

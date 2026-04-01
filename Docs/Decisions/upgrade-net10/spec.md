@@ -4,6 +4,8 @@
 **Phase:** 0 — Pre-Phase 1 housekeeping  
 **Status:** Ready for implementation  
 **Estimated scope:** Small — two files changed, five `.csproj` files updated
+**Implementation notes:** `docs/Decisions/upgrade-net10/implementation-notes.md`
+**PR:** —
 
 ---
 

@@ -2,8 +2,9 @@
  
 **Session date:** 2026-03-24  
 **Branch:** `feature/evaluation-engine`  
-**Spec reference:** `docs/decisions/evaluation-engine.md`  
+**Spec reference:** `docs/Decisions/evaluation-engine/spec.md`  
 **Build status:** Passed — 0 warnings, 0 errors
+**PR:** —
  
 ---
  

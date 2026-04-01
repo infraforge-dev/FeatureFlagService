@@ -3,6 +3,8 @@
 **Branch:** `feature/evaluation-engine`  
 **Phase:** 0 — Foundation  
 **Status:** Ready for implementation
+**Implementation notes:** `docs/Decisions/evaluation-engine/implementation-notes.md`
+**PR:** —
 
 ---
 

@@ -2,9 +2,10 @@
 
 **Session date:** 2026-03-25
 **Branch:** `feature/persistence-and-controllers`
-**Spec reference:** `docs/decisions/persistence-and-controllers-v2.md`
+**Spec reference:** `docs/Decisions/persistence-and-controllers/spec.md`
 **Build status:** Passed — 0 warnings, 0 errors
 **Tests:** 8/8 passing
+**PR:** —
 
 ---
 
