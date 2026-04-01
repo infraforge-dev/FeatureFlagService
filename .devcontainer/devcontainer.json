@@ -48,8 +48,9 @@
   "remoteUser": "vscode",
   "containerUser": "vscode",
   "postCreateCommand": "sudo groupadd -f docker && sudo usermod -aG docker vscode && dotnet restore FeatureFlagService.sln && dotnet tool restore",
-  // Git 2.35+ throws ownership warnings in containers — this silences them
-  "postStartCommand": "git config --global --add safe.directory ${containerWorkspaceFolder}",
+  // Git safe.directory + join the Postgres network so "postgres" resolves as the DB host.
+  // The network connect is idempotent (|| true) — safe if already connected or network not yet up.
+  "postStartCommand": "git config --global --add safe.directory ${containerWorkspaceFolder} && docker network connect featureflagservice_default $(cat /etc/hostname) 2>/dev/null || true",
   "customizations": {
     "vscode": {
       "extensions": [
