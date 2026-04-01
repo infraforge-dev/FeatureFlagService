@@ -1,17 +1,65 @@
 {
   "name": "Feature Flag Service",
-  "image": "mcr.microsoft.com/devcontainers/dotnet:10.0",
+  "image": "mcr.microsoft.com/devcontainers/dotnet:9.0",
   "features": {
-    "ghcr.io/devcontainers/features/git:1": {}
+    "ghcr.io/anthropics/devcontainer-features/claude-code:1.0": {},
+    // Node is required at runtime by Claude Code
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "lts"
+    }
   },
-  "postCreateCommand": "dotnet restore",
+  "forwardPorts": [
+    5000,
+    5001,
+    10000
+  ],
+  "portsAttributes": {
+    "5000": {
+      "label": "HTTP",
+      "onAutoForward": "notify"
+    },
+    "5001": {
+      "label": "HTTPS",
+      "onAutoForward": "notify"
+    },
+    "10000": {
+      "label": "Claude Auth",
+      "onAutoForward": "silent"
+    }
+  },
+  // Keeps Claude auth + config between container rebuilds
+  "mounts": [
+    // Bind from host instead of an isolated volume
+    "source=${localEnv:HOME}/.claude,target=/home/vscode/.claude,type=bind",
+    "source=${localEnv:HOME}/.claude.json,target=/home/vscode/.claude.json,type=bind"
+  ],
+  "containerEnv": {
+    "CLAUDE_CONFIG_DIR": "/home/vscode/.claude",
+    "ASPNETCORE_ENVIRONMENT": "Development"
+  },
+  // Both must match to avoid file permission issues
+  "remoteUser": "vscode",
+  "containerUser": "vscode",
+  "postCreateCommand": "dotnet restore FeatureFlagService.sln && dotnet tool restore",
+  // Git 2.35+ throws ownership warnings in containers — this silences them
+  "postStartCommand": "git config --global --add safe.directory ${containerWorkspaceFolder}",
   "customizations": {
     "vscode": {
       "extensions": [
         "ms-dotnettools.csharp",
         "ms-dotnettools.csdevkit",
-        "eamodio.gitlens"
-      ]
+        "humao.rest-client",
+        "eamodio.gitlens",
+        "editorconfig.editorconfig",
+        "streetsidesoftware.code-spell-checker"
+      ],
+      "settings": {
+        "editor.formatOnSave": true,
+        "editor.insertSpaces": true,
+        "editor.tabSize": 4,
+        "files.eol": "\n",
+        "dotnet.defaultSolution": "FeatureFlagService.sln"
+      }
     }
   }
 }
