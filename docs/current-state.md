@@ -12,7 +12,7 @@ The domain layer and project structure are in place. The remaining Phase 0 work 
 
 ### Domain Layer
 
-* `FeatureFlag` entity with controlled mutation (private setters, explicit update methods)
+* `Flag` entity with controlled mutation (private setters, explicit update methods)
 * `FeatureEvaluationContext` value object
 * `RolloutStrategy` enum (None, Percentage, RoleBased)
 * `EnvironmentType` enum (Development, Staging, Production)
