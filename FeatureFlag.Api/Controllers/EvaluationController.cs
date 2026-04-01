@@ -1,6 +1,7 @@
 using FeatureFlag.Application.DTOs;
 using FeatureFlag.Application.Interfaces;
 using FeatureFlag.Domain.ValueObjects;
+using FluentValidation;
 using Microsoft.AspNetCore.Mvc;
 
 namespace FeatureFlag.Api.Controllers;
@@ -10,10 +11,12 @@ namespace FeatureFlag.Api.Controllers;
 public sealed class EvaluationController : ControllerBase
 {
     private readonly IFeatureFlagService _service;
+    private readonly IValidator<EvaluationRequest> _validator;
 
-    public EvaluationController(IFeatureFlagService service)
+    public EvaluationController(IFeatureFlagService service, IValidator<EvaluationRequest> validator)
     {
         _service = service;
+        _validator = validator;
     }
 
     [HttpPost]
@@ -21,6 +24,10 @@ public sealed class EvaluationController : ControllerBase
         [FromBody] EvaluationRequest request,
         CancellationToken ct)
     {
+        var validation = await _validator.ValidateAsync(request, ct);
+        if (!validation.IsValid)
+            return ValidationProblem(new ValidationProblemDetails(validation.ToDictionary()));
+
         try
         {
             var context = new FeatureEvaluationContext(

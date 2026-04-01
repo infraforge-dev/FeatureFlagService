@@ -1,6 +1,7 @@
 using FeatureFlag.Application.DTOs;
 using FeatureFlag.Application.Interfaces;
 using FeatureFlag.Domain.Enums;
+using FluentValidation;
 using Microsoft.AspNetCore.Mvc;
 
 namespace FeatureFlag.Api.Controllers;
@@ -10,10 +11,18 @@ namespace FeatureFlag.Api.Controllers;
 public sealed class FeatureFlagsController : ControllerBase
 {
     private readonly IFeatureFlagService _service;
+    private readonly IValidator<CreateFlagRequest> _createValidator;
+    private readonly IValidator<UpdateFlagRequest> _updateValidator;
 
-    public FeatureFlagsController(IFeatureFlagService service)
+    public FeatureFlagsController(
+        IFeatureFlagService service,
+        IValidator<CreateFlagRequest> createValidator,
+        IValidator<UpdateFlagRequest> updateValidator
+    )
     {
         _service = service;
+        _createValidator = createValidator;
+        _updateValidator = updateValidator;
     }
 
     [HttpGet]
@@ -47,6 +56,10 @@ public sealed class FeatureFlagsController : ControllerBase
         [FromBody] CreateFlagRequest request,
         CancellationToken ct)
     {
+        var validation = await _createValidator.ValidateAsync(request, ct);
+        if (!validation.IsValid)
+            return ValidationProblem(new ValidationProblemDetails(validation.ToDictionary()));
+
         var created = await _service.CreateFlagAsync(request, ct);
         return CreatedAtAction(
             nameof(GetByName),
@@ -61,6 +74,10 @@ public sealed class FeatureFlagsController : ControllerBase
         [FromBody] UpdateFlagRequest request,
         CancellationToken ct)
     {
+        var validation = await _updateValidator.ValidateAsync(request, ct);
+        if (!validation.IsValid)
+            return ValidationProblem(new ValidationProblemDetails(validation.ToDictionary()));
+
         try
         {
             await _service.UpdateFlagAsync(name, environment, request, ct);

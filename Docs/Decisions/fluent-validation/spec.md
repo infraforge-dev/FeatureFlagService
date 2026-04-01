@@ -39,17 +39,38 @@ This spec adds two things:
    DTOs, wired into the ASP.NET Core pipeline via auto-validation so invalid requests
    are rejected at the HTTP boundary with a structured `400 Bad Request`.
 
-### Important: Why a Shared Sanitizer, Not Just `.Transform()`
+### Important: Why a Shared Sanitizer, Not Just Validator-Level Sanitization
 
-FluentValidation's `.Transform()` sanitizes a value *for the purpose of validation
-only* — it does not mutate the DTO. The service layer receives the original,
-unsanitized value. This matters: `" Admin "` (with spaces) would pass validation
-after being trimmed to `"Admin"`, but `RoleStrategy` would receive `" Admin "` and
-the `HashSet` comparison would silently fail — a legitimate user denied access.
+FluentValidation v12 removed `.Transform()`. The v12 pattern for sanitization-aware
+validation is to validate structural constraints on the raw property and run the cleaned
+value through `Must()` for rules where sanitization changes the outcome:
 
-The fix: `InputSanitizer` is a shared static helper. Validators call it via
-`.Transform()`. The service layer calls it directly before using string values in
-evaluation logic. Same rules, one source of truth.
+```csharp
+RuleFor(x => x.Name)
+    .NotEmpty().WithMessage("Flag name is required.")
+    .MaximumLength(100).WithMessage("Flag name must not exceed 100 characters.")
+    .Must(name => Regex.IsMatch(
+        InputSanitizer.Clean(name) ?? string.Empty,
+        @"^[a-zA-Z0-9\-_]+$"))
+    .WithMessage("Flag name may only contain letters, numbers, hyphens, and underscores.");
+```
+
+`NotEmpty` and `MaximumLength` run on the raw value — a 101-character string with spaces
+is still too long after trimming, and whitespace-only strings are treated as empty by
+FluentValidation. The `Must()` lambda runs the sanitized value through the regex — the
+only check where sanitization actually changes the outcome.
+
+**Note:** `RuleFor(x => InputSanitizer.Clean(x.Name)).OverridePropertyName("Name")` hits
+a type inference limitation in v12 when a static method is used in the lambda. Use the
+`Must()` pattern above instead for all sanitization-aware rules.
+
+This still does not mutate the DTO — the service layer receives the original, raw value. This matters: `" Admin "` (with spaces) would pass validation after being cleaned
+to `"Admin"`, but `RoleStrategy` would receive `" Admin "` and the `HashSet` comparison
+would silently fail — a legitimate user denied access.
+
+The fix is unchanged: `InputSanitizer` is a shared static helper. Validators call it
+inside `Must()` lambdas. The service layer calls it directly before using string values
+in evaluation logic. Same rules, one source of truth.
 
 ---
 
@@ -57,17 +78,14 @@ evaluation logic. Same rules, one source of truth.
 
 ### `FeatureFlag.Application/FeatureFlag.Application.csproj`
 ```xml
-<PackageReference Include="FluentValidation" Version="11.*" />
+<PackageReference Include="FluentValidation" Version="12.*" />
 ```
 
-### `FeatureFlag.Api/FeatureFlag.Api.csproj`
-```xml
-<PackageReference Include="FluentValidation.AspNetCore" Version="11.*" />
-```
-
-> **Note:** `FluentValidation` (core rules) belongs in Application — that layer owns
-> validation logic. `FluentValidation.AspNetCore` (auto-validation middleware) belongs
-> in Api — that layer plugs into the HTTP pipeline.
+> **Note:** `FluentValidation.AspNetCore` is **deprecated** as of v11 and should not
+> be added. Validation is wired manually in controllers using injected `IValidator<T>`
+> instances. `AddValidatorsFromAssemblyContaining` lives in the separate
+> `FluentValidation.DependencyInjectionExtensions` package — do not add it. Register
+> validators explicitly in `DependencyInjection.cs` instead (see Files to Modify).
 
 ---
 
@@ -79,7 +97,7 @@ All new files go in: `FeatureFlag.Application/Validators/`
 
 ### 1. `InputSanitizer.cs`
 
-Shared sanitization logic. Used by validators (via `.Transform()`) and by
+Shared sanitization logic. Used by validators (via `Must()` lambdas) and by
 `FeatureFlagService` directly. Any future input surface (CLI, seed data) must also
 call this helper — do not inline equivalent logic elsewhere.
 
@@ -143,9 +161,10 @@ public sealed class CreateFlagRequestValidator : AbstractValidator<CreateFlagReq
 {
     public CreateFlagRequestValidator()
     {
-        // Sanitize then validate Name
-        RuleFor(x => x.Name)
-            .Transform(name => InputSanitizer.Clean(name))
+        // Sanitize inside the RuleFor lambda (v12: .Transform() removed).
+        // OverridePropertyName required — property name cannot be inferred from a lambda.
+        RuleFor(x => InputSanitizer.Clean(x.Name))
+            .OverridePropertyName("Name")
             .NotEmpty().WithMessage("Flag name is required.")
             .MaximumLength(100).WithMessage("Flag name must not exceed 100 characters.")
             .Matches(@"^[a-zA-Z0-9\-_]+$")
@@ -311,15 +330,14 @@ public sealed class EvaluationRequestValidator : AbstractValidator<EvaluationReq
 {
     public EvaluationRequestValidator()
     {
-        // Sanitize then validate FlagName
-        RuleFor(x => x.FlagName)
-            .Transform(name => InputSanitizer.Clean(name))
+        // Sanitize inside the RuleFor lambda (v12: .Transform() removed).
+        RuleFor(x => InputSanitizer.Clean(x.FlagName))
+            .OverridePropertyName("FlagName")
             .NotEmpty().WithMessage("FlagName is required.")
             .MaximumLength(100).WithMessage("FlagName must not exceed 100 characters.");
 
-        // Sanitize then validate UserId
-        RuleFor(x => x.UserId)
-            .Transform(id => InputSanitizer.Clean(id))
+        RuleFor(x => InputSanitizer.Clean(x.UserId))
+            .OverridePropertyName("UserId")
             .NotEmpty().WithMessage("UserId is required.")
             .MaximumLength(256).WithMessage("UserId must not exceed 256 characters.");
 
@@ -337,9 +355,9 @@ public sealed class EvaluationRequestValidator : AbstractValidator<EvaluationReq
             .WithMessage("UserRoles must not exceed 50 entries.")
             .When(x => x.UserRoles is not null);
 
+        // Validate cleaned length per role — consistent with service-layer sanitization behavior
         RuleForEach(x => x.UserRoles)
-            .Transform(role => InputSanitizer.Clean(role))
-            .MaximumLength(100)
+            .Must(role => (InputSanitizer.Clean(role)?.Length ?? 0) <= 100)
             .WithMessage("Each role must not exceed 100 characters.")
             .When(x => x.UserRoles is not null);
     }
@@ -359,6 +377,7 @@ using FeatureFlag.Application.Evaluation;
 using FeatureFlag.Application.Interfaces;
 using FeatureFlag.Application.Services;
 using FeatureFlag.Application.Strategies;
+using FeatureFlag.Application.Validators;
 using FeatureFlag.Domain.Interfaces;
 using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
@@ -369,8 +388,12 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddApplication(this IServiceCollection services)
     {
-        // Validators — scans entire Application assembly; registers all AbstractValidator<T> types
-        services.AddValidatorsFromAssemblyContaining<Validators.CreateFlagRequestValidator>();
+        // Validators — registered explicitly; IValidator<T> injected into controllers.
+        // AddValidatorsFromAssemblyContaining lives in FluentValidation.DependencyInjectionExtensions
+        // (separate package) — do not use it. Explicit registration is clearer for 3 validators.
+        services.AddScoped<IValidator<DTOs.CreateFlagRequest>, CreateFlagRequestValidator>();
+        services.AddScoped<IValidator<DTOs.UpdateFlagRequest>, UpdateFlagRequestValidator>();
+        services.AddScoped<IValidator<DTOs.EvaluationRequest>, EvaluationRequestValidator>();
 
         // Strategies — Singleton: stateless, safe to share across requests
         services.AddSingleton<IRolloutStrategy, NoneStrategy>();
@@ -392,27 +415,9 @@ public static class DependencyInjection
 
 ### `FeatureFlag.Api/Program.cs`
 
-Replace the `.AddControllers()` chain with:
-
-```csharp
-builder.Services
-    .AddControllers()
-    .AddJsonOptions(options =>
-    {
-        options.JsonSerializerOptions.Converters.Add(
-            new System.Text.Json.Serialization.JsonStringEnumConverter()
-        );
-    })
-    .AddFluentValidation(config =>
-    {
-        // Reject invalid requests at the HTTP boundary before controller actions execute.
-        // Returns 400 Bad Request with ValidationProblemDetails shape.
-        config.AutomaticValidationEnabled = true;
-    });
-```
-
-> `AddFluentValidation()` must be chained onto `AddControllers()` — it is an extension
-> method from `FluentValidation.AspNetCore`, not a standalone `services.Add...()` call.
+No changes required. `AddControllers()` stays exactly as-is. Do not add
+`AddFluentValidationAutoValidation()` — `FluentValidation.AspNetCore` is deprecated
+and not installed. Validation is handled manually in each controller action.
 
 ---
 
@@ -432,9 +437,10 @@ public async Task<bool> IsEnabledAsync(
     // Sanitize evaluation inputs. .Transform() in validators does not mutate the DTO.
     // UserId and UserRoles must be cleaned here to ensure consistent SHA256 hashing
     // in PercentageStrategy and HashSet lookups in RoleStrategy.
+    // Note: FeatureEvaluationContext constructor accepts IEnumerable<string> for userRoles.
     var sanitizedContext = new FeatureEvaluationContext(
         userId: Validators.InputSanitizer.Clean(context.UserId) ?? context.UserId,
-        roles: Validators.InputSanitizer.CleanCollection(context.UserRoles),
+        userRoles: Validators.InputSanitizer.CleanCollection(context.UserRoles),
         environment: context.Environment
     );
 
@@ -474,12 +480,75 @@ public async Task<FlagResponse> CreateFlagAsync(
 }
 ```
 
-> **Note on `FeatureEvaluationContext`:** Check whether its constructor accepts
-> `IEnumerable<string>` for roles. If it requires a specific immutable collection type,
-> wrap `InputSanitizer.CleanCollection()` output accordingly. Do not change the
-> `FeatureEvaluationContext` constructor signature.
+---
+
+### `FeatureFlag.Api/Controllers/FeatureFlagsController.cs`
+
+Inject `IValidator<CreateFlagRequest>` and `IValidator<UpdateFlagRequest>` and validate
+manually at the top of each mutating action. Read operations (GET) require no changes.
+
+Add constructor parameters:
+
+```csharp
+private readonly IFeatureFlagService _service;
+private readonly IValidator<CreateFlagRequest> _createValidator;
+private readonly IValidator<UpdateFlagRequest> _updateValidator;
+
+public FeatureFlagsController(
+    IFeatureFlagService service,
+    IValidator<CreateFlagRequest> createValidator,
+    IValidator<UpdateFlagRequest> updateValidator)
+{
+    _service = service;
+    _createValidator = createValidator;
+    _updateValidator = updateValidator;
+}
+```
+
+Add validation at the top of the `POST` action:
+
+```csharp
+var validation = await _createValidator.ValidateAsync(request, ct);
+if (!validation.IsValid)
+    return ValidationProblem(new ValidationProblemDetails(validation.ToDictionary()));
+```
+
+Add validation at the top of the `PUT` action:
+
+```csharp
+var validation = await _updateValidator.ValidateAsync(request, ct);
+if (!validation.IsValid)
+    return ValidationProblem(new ValidationProblemDetails(validation.ToDictionary()));
+```
 
 ---
+
+### `FeatureFlag.Api/Controllers/EvaluationController.cs`
+
+Inject `IValidator<EvaluationRequest>` and validate manually before constructing the
+context.
+
+Add constructor parameter:
+
+```csharp
+private readonly IFeatureFlagService _service;
+private readonly IValidator<EvaluationRequest> _validator;
+
+public EvaluationController(IFeatureFlagService service, IValidator<EvaluationRequest> validator)
+{
+    _service = service;
+    _validator = validator;
+}
+```
+
+Add validation at the top of the `POST` action, before the `FeatureEvaluationContext`
+is constructed:
+
+```csharp
+var validation = await _validator.ValidateAsync(request, ct);
+if (!validation.IsValid)
+    return ValidationProblem(new ValidationProblemDetails(validation.ToDictionary()));
+```
 
 ## Acceptance Criteria
 
@@ -538,9 +607,12 @@ All `400` responses return `ValidationProblemDetails`:
 }
 ```
 
-### AC-8: No controller changes required
-- `FeatureFlagsController` and `EvaluationController` require no modifications
-- Invalid requests never reach controller action methods
+### AC-8: Controller validation wiring
+- `FeatureFlagsController` POST and PUT actions return `400` with
+  `ValidationProblemDetails` shape before any service layer code runs
+- `EvaluationController` POST action returns `400` before `FeatureEvaluationContext`
+  is constructed
+- GET and DELETE actions in `FeatureFlagsController` require no changes
 
 ### AC-9: Build integrity
 - `dotnet build` passes with 0 warnings and 0 errors
@@ -551,19 +623,31 @@ All `400` responses return `ValidationProblemDetails`:
 ## What NOT to Do
 
 - Do not add `[Required]` data annotations to DTOs — FluentValidation replaces that
-- Do not add validation logic inside `FeatureFlagService` beyond the sanitization calls described above
+- Do not add `FluentValidation.AspNetCore` — it is deprecated; use manual validation
+  in controllers instead
+- Do not use `.Transform()` — removed in FluentValidation v12; use `RuleFor(x =>
+  InputSanitizer.Clean(x.Field)).OverridePropertyName("Field")` instead
+- Do not add validation logic inside `FeatureFlagService` beyond the sanitization
+  calls described above
 - Do not sanitize `StrategyConfig` content — it is JSON and must be stored verbatim;
   only its length and structure are validated
 - Do not modify the `Flag` domain entity
 - Do not modify `IFeatureFlagService`
 - Do not change `StrategyConfig` from `string` to `JsonDocument`
-- Do not inline sanitization logic — always call `InputSanitizer.Clean()` or `CleanCollection()`
+- Do not inline sanitization logic — always call `InputSanitizer.Clean()` or
+  `CleanCollection()`
 
 ---
 
 ## Folder Structure After This Change
 
 ```
+FeatureFlag.Api/
+├── Controllers/
+│   ├── FeatureFlagsController.cs    ← MODIFIED (POST + PUT manual validation)
+│   └── EvaluationController.cs      ← MODIFIED (POST manual validation)
+└── Program.cs                        ← NO CHANGES
+
 FeatureFlag.Application/
 ├── DTOs/
 │   ├── CreateFlagRequest.cs
@@ -576,15 +660,15 @@ FeatureFlag.Application/
 ├── Interfaces/
 │   └── IFeatureFlagService.cs
 ├── Services/
-│   └── FeatureFlagService.cs    ← MODIFIED
+│   └── FeatureFlagService.cs        ← MODIFIED (sanitization calls added)
 ├── Strategies/
 │   ├── NoneStrategy.cs
 │   ├── PercentageStrategy.cs
 │   └── RoleStrategy.cs
-├── Validators/                  ← NEW FOLDER
-│   ├── InputSanitizer.cs        ← NEW
+├── Validators/                       ← NEW FOLDER
+│   ├── InputSanitizer.cs             ← NEW
 │   ├── CreateFlagRequestValidator.cs
 │   ├── UpdateFlagRequestValidator.cs
 │   └── EvaluationRequestValidator.cs
-└── DependencyInjection.cs       ← MODIFIED
+└── DependencyInjection.cs            ← MODIFIED
 ```
