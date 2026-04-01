@@ -5,6 +5,7 @@
     "csdevkit",
     "eamodio",
     "humao",
-    "Npgsql"
+    "Npgsql",
+    "usermod"
   ]
 }
