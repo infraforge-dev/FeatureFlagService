@@ -10,12 +10,11 @@ public sealed class FeatureFlagDbContextFactory : IDesignTimeDbContextFactory<Fe
 {
     public FeatureFlagDbContext CreateDbContext(string[] args)
     {
-        DbContextOptions<FeatureFlagDbContext> options =
-            new DbContextOptionsBuilder<FeatureFlagDbContext>()
-                .UseNpgsql(
-                    "Host=localhost;Port=5432;Database=featureflags;Username=postgres;Password=postgres"
-                )
-                .Options;
+        var options = new DbContextOptionsBuilder<FeatureFlagDbContext>()
+            .UseNpgsql(
+                "Host=localhost;Port=5432;Database=featureflags;Username=postgres;Password=postgres"
+            )
+            .Options;
 
         return new FeatureFlagDbContext(options);
     }
