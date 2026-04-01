@@ -33,8 +33,9 @@ CSharpier is the formatting source of truth. AI reviewer job is live — activat
 the `ai-review` label on any PR.
 
 Global exception middleware is in place. All controllers contain only the happy path.
-All error responses return a consistent `ProblemDetails` shape. KI-003 closed.
-AI reviewer system prompt updated to enforce the no-try/catch-in-controllers rule.
+All error responses return a consistent `ProblemDetails` shape with
+`Content-Type: application/problem+json`. AI reviewer system prompt updated to enforce
+the no-try/catch-in-controllers rule.
 
 **Product direction locked:** Azure-native, .NET-first, AI-assisted feature flag
 platform targeting .NET teams on Azure. Phase 1.5 introduces Key Vault, Application
@@ -78,50 +79,43 @@ Insights, and the AI analysis endpoint immediately after Phase 1 completes.
 
 - `InputSanitizer` — `internal static` helper in `FeatureFlag.Application/Validators/`;
   trims whitespace and strips ASCII control characters; called by validators and service layer
-- `CreateFlagRequestValidator` — Name allowlist regex (on cleaned value via `Must()`),
-  env sentinel guard, StrategyConfig cross-field rules, 2000-char limit
-- `UpdateFlagRequestValidator` — StrategyConfig cross-field rules, 2000-char limit
-- `EvaluationRequestValidator` — FlagName, UserId, Environment validation
+- `CreateFlagRequestValidator`, `UpdateFlagRequestValidator`, `EvaluationRequestValidator`
+  — FluentValidation v12, `.Must()` pattern, no `.Transform()`
+- Manual `ValidateAsync` in controllers — no `FluentValidation.AspNetCore`
 
-### CI/CD Foundation (PRs #33, #34) ✅
+### CI/CD — Core Pipeline (PRs #33, #34) ✅
 
-**PR #33 — Code Style Foundation (`feature/code-style-foundation`)**
-- `.editorconfig` — LF line endings, indent rules, naming conventions, Roslyn diagnostic
-  severities, `generated_code = true` on `**/Migrations/**`
-- `.gitattributes` — LF normalization for all source files
-- `.csharpierrc.json` — `printWidth: 100`
-- `.csharpierignore` — excludes `Migrations/`, `bin/`, `obj/`, `*.g.cs`
-- `.config/dotnet-tools.json` — CSharpier pinned to specific version
-- `.vscode/settings.json` — `formatOnSave: true`, CSharpier as default C# formatter
-- `[Trait("Category", "Unit")]` added to all existing test classes
+- `.editorconfig`, `.gitattributes`, `.csharpierrc.json`, `.csharpierignore`
+- `.github/workflows/ci.yml` — `lint-format` and `build-test` parallel jobs
+- `dotnet csharpier check .` — format gate
+- `dotnet build -p:TreatWarningsAsErrors=true` — zero-warnings policy
+- `dotnet test --filter "Category!=Integration"` — unit tests only in Phase 1
+- All existing tests decorated `[Trait("Category", "Unit")]`
 
-**PR #34 — Core CI Pipeline (`feature/ci-core-pipeline`)**
-- `.github/workflows/ci.yml` — `lint-format` and `build-test` jobs running in parallel
-- Triggers: push to `feature/**`, `fix/**`, `refactor/**`, `docs/**`, `test/**`;
-  PR targeting `dev` or `main`
-- Concurrency group scoped by workflow name + PR number
-- `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true` — opts into Node 24 ahead of 2026-06-02
-  retirement of Node 20 actions
-- `ai-review` job present as commented stub — ready for PR #35
+### CI/CD — AI Reviewer (PR #35) ✅
 
-**Implementation deviations documented (see `implementation-notes.md`):**
-- `cache: 'nuget'` is invalid syntax for `setup-dotnet@v4` — NuGet caching deferred
-  to Phase 2 (requires `packages.lock.json`)
-- CSharpier 1.x uses subcommand syntax: `dotnet csharpier check .` not `--check`
-- `dotnet format` and CSharpier can produce conflicting whitespace — run `dotnet format`
-  first for Roslyn fixes, then CSharpier as final authority
+- `.github/workflows/ci.yml` — `ai-review` job fully implemented
+- `.github/prompts/ai-review-system.md` — system prompt in repo, read at runtime
+- Activated by `ai-review` label on any PR
+- Fail-open — transient API failures do not block merge
+- `ANTHROPIC_API_KEY` secret added to GitHub repo
+- `ai-review` label created in GitHub repo
 
 ### Error Handling (PR #36) ✅
 
-- `FeatureFlagException` abstract base class — carries `StatusCode`, lives in `Domain/Exceptions/`
+- `FeatureFlagException` — abstract base class in `Domain/Exceptions/`, carries `StatusCode`
 - `FlagNotFoundException` — 404, `sealed`, thrown by service layer on null flag lookup
-- `DuplicateFlagNameException` — 409, `sealed`, defined but not yet thrown (name uniqueness is a separate task)
-- `GlobalExceptionMiddleware` — single catch-all in `Api/Middleware/`; domain exceptions → named 4xx; unexpected exceptions → `LogError` + safe 500
-- `FrameworkReference` to `Microsoft.AspNetCore.App` added to `FeatureFlag.Domain.csproj` for `StatusCodes` constants
+- `DuplicateFlagNameException` — 409, `sealed`, defined but not yet thrown
+  (name uniqueness check is a separate task)
+- `GlobalExceptionMiddleware` — single catch-all in `Api/Middleware/`;
+  domain exceptions → named 4xx; unexpected exceptions → `LogError` + safe 500
+- `FrameworkReference` to `Microsoft.AspNetCore.App` added to `FeatureFlag.Domain.csproj`
 - Middleware registered first in `Program.cs` — wraps entire pipeline
-- `FeatureFlagService` throws `FlagNotFoundException` — no `KeyNotFoundException` references remain in Application layer
+- `FeatureFlagService` throws `FlagNotFoundException` — no `KeyNotFoundException`
+  references remain in Application layer
 - `FeatureFlagsController` and `EvaluationController` contain zero `try/catch` blocks
-- AI reviewer system prompt Rule 8 updated — any `try/catch` in a controller is now a reviewable error
+- AI reviewer system prompt Rule 8 updated — `try/catch` in a controller is a
+  reviewable error
 
 ### Dev Environment
 
@@ -145,7 +139,7 @@ Insights, and the AI analysis endpoint immediately after Phase 1 completes.
 ### Validation (remaining)
 - Name uniqueness check at the service layer before hitting the DB
 
-### Error Handling
+### Error Handling (remaining)
 - Route parameter guard for `{name}` on GET and PUT — closes KI-008
 
 ### Testing
@@ -158,12 +152,6 @@ Insights, and the AI analysis endpoint immediately after Phase 1 completes.
 - `.http` smoke test request file committed to repo (`requests/smoke-test.http`)
 - Seed data for development/staging flags
 - Evaluation decision logging
-
-### CI/CD (remaining Phase 1)
-- PR #35 — AI reviewer job (`feature/ci-ai-reviewer`)
-  - Spec: `Docs/Decisions/spec-ai-reviewer.md` (forthcoming)
-  - Implements the commented stub in `ci.yml`
-  - Requires `ANTHROPIC_API_KEY` repo secret
 
 ---
 
@@ -231,9 +219,21 @@ duplicated identically in both `CreateFlagRequestValidator` and
 
 ---
 
+### Spec Writing — Lessons Learned
+
+**Audit all service methods in AC-6-style tasks:** When a spec instructs updating
+methods that throw or return null, explicitly list every affected method. In PR #36,
+`IsEnabledAsync` was omitted from AC-6 but caught by the implementer via the DoD.
+
+**ProblemDetails responses require `application/problem+json`:** RFC 9457 §8.1 defines
+a dedicated MIME type. Do not use `MediaTypeNames.Application.Json` for `ProblemDetails`
+responses. Future specs must specify `"application/problem+json"` explicitly.
+
+---
+
 ## 🎯 Current Focus
 
-**Phase 1 — MVP Completion (Testing, Error Handling, Developer Experience)**
+**Phase 1 — MVP Completion (Testing & Developer Experience)**
 
 ### Immediate Next Tasks
 
@@ -263,6 +263,8 @@ duplicated identically in both `CreateFlagRequestValidator` and
 - Do not use `.Transform()` — removed in FluentValidation v12
 - Do not run `dotnet format` without following up with `dotnet csharpier format .` —
   CSharpier is the final formatting authority
+- Do not add `try/catch` blocks to controllers — `GlobalExceptionMiddleware` handles
+  all exceptions; controllers contain only the happy path
 
 ---
 
@@ -272,13 +274,16 @@ duplicated identically in both `CreateFlagRequestValidator` and
 - [x] `FluentValidation` v12 on all three request DTOs
 - [x] Manual `ValidateAsync` in controllers (POST and PUT on flags; POST on evaluate)
 - [x] CSharpier formatting enforced — CI blocks on violations
-- [x] Build CI pipeline live — `lint-format` and `build-test` running in parallel
-- [x] AI reviewer job — PR #35 (`spec-ai-reviewer.md` forthcoming)
-- [ ] Name uniqueness check at service layer
+- [x] `.github/workflows/ci.yml` — `lint-format` and `build-test` parallel jobs live
+- [x] AI reviewer job live (PR #35) — activated by `ai-review` label
+- [x] `ANTHROPIC_API_KEY` secret added to GitHub repo
+- [x] `ai-review` label created in GitHub repo
 - [x] Global exception middleware in place
 - [x] Standardized `ProblemDetails` error response shape
-- [ ] Route parameter guard on GET/PUT — closes KI-008
-- [ ] Unit tests for all strategies and evaluator
+- [ ] Name uniqueness check at the service layer
+- [ ] Route parameter guard for `{name}` on GET/PUT — closes KI-008
+- [ ] Unit tests for `PercentageStrategy`, `RoleStrategy`, `NoneStrategy`
+- [ ] Unit tests for `FeatureEvaluator` — dispatch, missing strategy fallback
 - [ ] Unit tests for all three validators
 - [ ] Integration tests for all 6 endpoints
 - [ ] `.http` smoke test file committed
@@ -295,40 +300,17 @@ duplicated identically in both `CreateFlagRequestValidator` and
 - Work within the established layer boundaries (Api → Application → Domain ← Infrastructure)
 - `IFeatureFlagService` speaks entirely in DTOs — never return `Flag` from the service
 - All evaluation logic must remain deterministic and isolated from persistence
-- See Known Issues above before modifying `FeatureEvaluator` or adding new callers
-- `appsettings.Development.json` is intentionally committed — local Docker defaults only
-- Connection string uses `Host=postgres` — do not change to `localhost`
-- Both Infrastructure and Api projects require `Microsoft.EntityFrameworkCore.Design`
-  with `PrivateAssets=all`
-- `GlobalExceptionMiddleware` is registered first in `Program.cs` — it wraps the entire pipeline
+- `GlobalExceptionMiddleware` is registered first in `Program.cs` — wraps entire pipeline
 - Controllers contain only the happy path — zero `try/catch` blocks anywhere in `FeatureFlag.Api`
 - All error responses return `ProblemDetails` with `Content-Type: application/problem+json`
 - `ProblemDetails.Type` is set to `"about:blank"` — RFC 9457 recommendation for standard HTTP errors
 - Custom `type` URIs pointing to FeatureFlagService documentation will be introduced in Phase 1.5
 - `FlagNotFoundException` and `DuplicateFlagNameException` live in `FeatureFlag.Domain/Exceptions/`
 - `DuplicateFlagNameException` is defined but not yet thrown — name uniqueness check is a separate task
-
-### Formatter conventions
-- CSharpier is the formatting source of truth — run `dotnet csharpier format .` last
-- `dotnet format` may be used for Roslyn diagnostic fixes but must always be followed
-  by CSharpier
-- CSharpier 1.x uses subcommand syntax: `dotnet csharpier check .` and
-  `dotnet csharpier format .` — not `--check` or `--write`
-- `**/Migrations/**` has `generated_code = true` in `.editorconfig` — do not apply
-  Roslyn rules or CSharpier to migration files
-
-### FluentValidation v12
-- No `.Transform()` — removed in v12; use `.Must()` lambda instead
-- No `AddValidatorsFromAssemblyContaining` — register validators explicitly with `AddScoped`
-- No `FluentValidation.AspNetCore` — use manual `ValidateAsync()` in controllers
-
-### Spec Writing — Lessons Learned
-
-**Audit all service methods in AC-6-style tasks:** When a spec instructs updating
-methods that throw or return null, explicitly list every affected method. In PR #36,
-`IsEnabledAsync` was omitted from AC-6 but was caught by the implementer via the DoD.
-
-**ProblemDetails responses require `application/problem+json`:** RFC 9457 §8.1 defines
-a dedicated MIME type. Do not use `MediaTypeNames.Application.Json` (`application/json`)
-for `ProblemDetails` responses — they are not the same thing. Future specs must specify
-`"application/problem+json"` explicitly.
+- `appsettings.Development.json` is intentionally committed — local Docker defaults only
+- Connection string uses `Host=postgres` — do not change to `localhost`
+- Both Infrastructure and Api projects require `Microsoft.EntityFrameworkCore.Design`
+  with `PrivateAssets=all`
+- Do not use `FluentValidation.AspNetCore` or `.Transform()` — see FluentValidation v12 notes above
+- Any spec referencing ProblemDetails must specify `application/problem+json`, not `application/json`
+- Any spec with AC-6-style service method updates must explicitly list every affected method

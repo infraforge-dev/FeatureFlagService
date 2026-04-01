@@ -143,8 +143,7 @@ Phase 9      Open Core Launch — public repo, self-hosted Docker image, hosted 
 
 ### Code Style Foundation ✅ Complete (PR #33)
 
-* [x] `.editorconfig` — LF line endings, naming conventions, Roslyn diagnostic
-      severities, `generated_code = true` on Migrations
+* [x] `.editorconfig` — LF line endings, naming conventions, Roslyn diagnostic severities
 * [x] `.gitattributes` — LF normalization for all source file types
 * [x] `.csharpierrc.json` — `printWidth: 100`
 * [x] `.csharpierignore` — excludes Migrations, bin, obj, generated files
@@ -166,23 +165,34 @@ Phase 9      Open Core Launch — public repo, self-hosted Docker image, hosted 
 * [x] `dotnet test --filter "Category!=Integration"` — unit tests only in Phase 1
 * [x] Concurrency group scoped to workflow + PR number
 * [x] Node 24 opt-in via `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24`
-* [x] `ai-review` job present as commented stub — activated in PR #35
 
-### CI Pipeline — AI Reviewer 🔄 In Progress (PR #35)
+### CI Pipeline — AI Reviewer ✅ Complete (PR #35)
 
-* [x] `spec-ai-reviewer.md` — spec document (forthcoming this session)
-* [x] `.github/workflows/ci.yml` — uncomment and implement `ai-review` job
-* [x] `.github/prompts/ai-review-system.md` — system prompt for Claude reviewer
+* [x] `Docs/Decisions/spec-ai-reviewer.md` — spec document complete
+* [x] `.github/workflows/ci.yml` — `ai-review` job fully implemented
+* [x] `.github/prompts/ai-review-system.md` — system prompt in repo, read at runtime
 * [x] `ANTHROPIC_API_KEY` secret added to GitHub repo
+* [x] `ai-review` label created in GitHub repo
+* [x] Fail-open behavior verified — transient API failures do not block merge
+
+### Error Handling ✅ Complete (PR #36)
+
+* [x] `FeatureFlagException` abstract base class in `Domain/Exceptions/`
+* [x] `FlagNotFoundException` — 404, thrown by service layer on null flag lookup
+* [x] `DuplicateFlagNameException` — 409, defined (not yet thrown — see name uniqueness)
+* [x] `GlobalExceptionMiddleware` — single catch-all; domain exceptions → named 4xx;
+      unexpected → `LogError` + safe 500
+* [x] Middleware registered first in `Program.cs`
+* [x] All controllers cleaned — zero `try/catch` blocks
+* [x] All error responses return `ProblemDetails` with `Content-Type: application/problem+json`
+* [x] AI reviewer system prompt Rule 8 updated — `try/catch` in controllers is reviewable error
 
 ### Validation (remaining)
 
 * [ ] Name uniqueness check at the service layer before hitting the DB
 
-### Error Handling
+### Error Handling (remaining)
 
-* [x] Global exception middleware — replace per-controller try/catch
-* [x] Standardized `ProblemDetails` error response shape
 * [ ] Route parameter guard for `{name}` on GET/PUT — closes KI-008
 
 ### Testing
@@ -194,7 +204,7 @@ Phase 9      Open Core Launch — public repo, self-hosted Docker image, hosted 
 
 ### Developer Experience
 
-* [ ] `.http` smoke test request file committed to repo
+* [ ] `.http` smoke test request file committed to repo (`requests/smoke-test.http`)
 * [ ] Seed data for local development
 * [ ] Evaluation decision logging
 
