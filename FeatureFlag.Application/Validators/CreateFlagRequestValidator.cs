@@ -1,4 +1,3 @@
-using System.Text.Json;
 using FeatureFlag.Application.DTOs;
 using FeatureFlag.Domain.Enums;
 using FluentValidation;
@@ -52,7 +51,7 @@ public sealed class CreateFlagRequestValidator : AbstractValidator<CreateFlagReq
         RuleFor(x => x.StrategyConfig)
             .NotEmpty()
             .WithMessage("StrategyConfig is required for Percentage strategy.")
-            .Must(BeValidPercentageConfig)
+            .Must(StrategyConfigRules.BeValidPercentageConfig)
             .WithMessage(
                 "StrategyConfig for Percentage strategy must be valid JSON with "
                     + "a 'percentage' field between 1 and 100."
@@ -63,67 +62,11 @@ public sealed class CreateFlagRequestValidator : AbstractValidator<CreateFlagReq
         RuleFor(x => x.StrategyConfig)
             .NotEmpty()
             .WithMessage("StrategyConfig is required for RoleBased strategy.")
-            .Must(BeValidRoleConfig)
+            .Must(StrategyConfigRules.BeValidRoleConfig)
             .WithMessage(
                 "StrategyConfig for RoleBased strategy must be valid JSON with "
                     + "a non-empty 'roles' array."
             )
             .When(x => x.StrategyType == RolloutStrategy.RoleBased);
-    }
-
-    private static bool BeValidPercentageConfig(string? config)
-    {
-        if (string.IsNullOrWhiteSpace(config))
-        {
-            return false;
-        }
-
-        try
-        {
-            var doc = System.Text.Json.JsonDocument.Parse(config);
-            if (!doc.RootElement.TryGetProperty("percentage", out JsonElement prop))
-            {
-                return false;
-            }
-
-            if (!prop.TryGetInt32(out int percentage))
-            {
-                return false;
-            }
-
-            return percentage >= 1 && percentage <= 100;
-        }
-        catch (System.Text.Json.JsonException)
-        {
-            return false;
-        }
-    }
-
-    private static bool BeValidRoleConfig(string? config)
-    {
-        if (string.IsNullOrWhiteSpace(config))
-        {
-            return false;
-        }
-
-        try
-        {
-            var doc = System.Text.Json.JsonDocument.Parse(config);
-            if (!doc.RootElement.TryGetProperty("roles", out JsonElement prop))
-            {
-                return false;
-            }
-
-            if (prop.ValueKind != System.Text.Json.JsonValueKind.Array)
-            {
-                return false;
-            }
-
-            return prop.GetArrayLength() > 0;
-        }
-        catch (System.Text.Json.JsonException)
-        {
-            return false;
-        }
     }
 }

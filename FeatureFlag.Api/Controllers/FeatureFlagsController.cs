@@ -1,3 +1,4 @@
+using FeatureFlag.Api.Helpers;
 using FeatureFlag.Application.DTOs;
 using FeatureFlag.Application.Interfaces;
 using FeatureFlag.Domain.Enums;
@@ -69,6 +70,7 @@ public sealed class FeatureFlagsController : ControllerBase
         CancellationToken ct
     )
     {
+        RouteParameterGuard.ValidateName(name);
         FlagResponse flag = await _service.GetFlagAsync(name, environment, ct);
         return Ok(flag);
     }
@@ -138,6 +140,7 @@ public sealed class FeatureFlagsController : ControllerBase
         CancellationToken ct
     )
     {
+        RouteParameterGuard.ValidateName(name);
         ValidationResult validation = await _updateValidator.ValidateAsync(request, ct);
         if (!validation.IsValid)
         {
@@ -172,6 +175,7 @@ public sealed class FeatureFlagsController : ControllerBase
         CancellationToken ct
     )
     {
+        RouteParameterGuard.ValidateName(name);
         await _service.ArchiveFlagAsync(name, environment, ct);
         return NoContent();
     }

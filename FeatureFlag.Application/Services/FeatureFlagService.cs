@@ -74,11 +74,16 @@ public sealed class FeatureFlagService : IFeatureFlagService
         CancellationToken ct = default
     )
     {
-        // Sanitize Name so the stored value matches the validated form.
-        string sanitizedName = Validators.InputSanitizer.Clean(request.Name) ?? request.Name;
+        // NotEmpty in the validator guarantees non-null, non-whitespace — ! is safe here.
+        string name = Validators.InputSanitizer.Clean(request.Name)!;
+
+        if (await _repository.ExistsAsync(name, request.Environment, ct))
+        {
+            throw new DuplicateFlagNameException(name, request.Environment);
+        }
 
         var flag = new Flag(
-            sanitizedName,
+            name,
             request.Environment,
             request.IsEnabled,
             request.StrategyType,
