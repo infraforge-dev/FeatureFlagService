@@ -57,7 +57,7 @@ Every phase of this roadmap builds toward that demo.
 ```
 Phase 0  ✅  Foundation — domain, strategies, persistence, API
 Phase 1  🔄  MVP Completion — validation, sanitization, CI, testing, error handling
-Phase 1.5 🆕  Azure Foundation + AI — Key Vault, App Insights, AI analysis endpoint
+Phase 1.5    Azure Foundation + AI — Key Vault, App Insights, AI analysis endpoint
 Phase 2      Testing & Reliability — full test coverage, contract tests
 Phase 3      Auth & Security — JWT, RBAC, rate limiting, audit trail
 Phase 4      Observability — evaluation telemetry, debugging endpoint, dashboards
@@ -98,35 +98,39 @@ Phase 9      Open Core Launch — public repo, self-hosted Docker image, hosted 
 ### Application Service & DTOs
 
 * [x] `FeatureFlagService` — async, orchestrates repository + evaluator
-* [x] DTOs: `CreateFlagRequest`, `UpdateFlagRequest`, `FlagResponse`, `EvaluationRequest`, `FlagMappings`
+* [x] DTOs: `CreateFlagRequest`, `UpdateFlagRequest`, `FlagResponse`, `EvaluationRequest`,
+      `EvaluationResponse`, `FlagMappings`
 * [x] `DependencyInjection.cs` — `AddApplication()` extension method
 
 ### API Layer
 
 * [x] `FeatureFlagsController` — full CRUD: GET all, GET by name, POST, PUT, DELETE (soft archive)
-* [x] `EvaluationController` — POST `/api/evaluate`
-* [x] OpenAPI enrichment — Scalar UI, XML docs, `EnumSchemaTransformer`, `ApiInfoTransformer`
+* [x] `EvaluationController` — `POST /api/evaluate`
+* [x] Scalar UI replacing Swagger — `/scalar/v1`
+* [x] OpenAPI enrichment: `EnumSchemaTransformer`, `ApiInfoTransformer`, XML doc comments,
+      `ProducesResponseType` attributes, `EvaluationResponse` DTO
 
-### Infrastructure & Persistence
+### Infrastructure
 
-* [x] EF Core + Npgsql setup — `FeatureFlagDbContext`
-* [x] `FeatureFlagRepository` — async, full CRUD with soft-delete
-* [x] Postgres `jsonb` for `StrategyConfig`
-* [x] Partial unique index on `Name` for soft-delete support
-* [x] EF Core migrations — initial schema
-* [x] `docker-compose.yml` — one-command local Postgres setup
+* [x] EF Core + Npgsql — `FeatureFlagDbContext`, `FlagConfiguration` (Fluent API)
+* [x] `StrategyConfig` stored as `jsonb`
+* [x] Partial unique index on `(Name, Environment)` filtered to `IsArchived = false`
+* [x] `FeatureFlagRepository` — implements `IFeatureFlagRepository`
+* [x] `docker-compose.yml` at repo root — one-command local Postgres setup
+* [x] `Docs/Decisions/` folder established for Architecture Decision Records
 
-### Service Interface Boundary
+### Architectural Cleanup
 
 * [x] `IFeatureFlagService` — no `Flag` entity in any method signature
-* [x] All signatures use DTOs only
+* [x] All signatures use DTOs: `FlagResponse`, `CreateFlagRequest`, `UpdateFlagRequest`
 * [x] `Flag` construction moved from controller into `FeatureFlagService.CreateFlagAsync`
+* [x] `UpdateFlagAsync` accepts `UpdateFlagRequest` DTO
 
 ### Dev Environment
 
 * [x] DevContainer: `devcontainers/base:ubuntu-24.04` + .NET 10 SDK feature
 * [x] Docker-outside-of-Docker configured with `postStartCommand` network join
-* [x] `.config/dotnet-tools.json` — `dotnet-ef` tool manifest
+* [x] `.config/dotnet-tools.json` — `dotnet-ef` and `csharpier` tool manifests
 
 ---
 
@@ -179,7 +183,7 @@ Phase 9      Open Core Launch — public repo, self-hosted Docker image, hosted 
 
 * [x] `FeatureFlagException` abstract base class in `Domain/Exceptions/`
 * [x] `FlagNotFoundException` — 404, thrown by service layer on null flag lookup
-* [x] `DuplicateFlagNameException` — 409, defined (not yet thrown — see name uniqueness)
+* [x] `DuplicateFlagNameException` — 409, constructor accepts `(string, EnvironmentType)`
 * [x] `GlobalExceptionMiddleware` — single catch-all; domain exceptions → named 4xx;
       unexpected → `LogError` + safe 500
 * [x] Middleware registered first in `Program.cs`
@@ -187,20 +191,30 @@ Phase 9      Open Core Launch — public repo, self-hosted Docker image, hosted 
 * [x] All error responses return `ProblemDetails` with `Content-Type: application/problem+json`
 * [x] AI reviewer system prompt Rule 8 updated — `try/catch` in controllers is reviewable error
 
-### Validation (remaining)
+### Input Validation Hardening ✅ Complete (PR #37)
 
-* [ ] Name uniqueness check at the service layer before hitting the DB
+* [x] `StrategyConfigRules` extracted — shared `internal static` class in
+      `FeatureFlag.Application/Validators/`; closes KI-NEW-001
+* [x] `BeValidPercentageConfig` and `BeValidRoleConfig` removed from both validators;
+      both now call `StrategyConfigRules.*`
+* [x] `FeatureFlagValidationException` — 400 domain exception for route parameter failures
+* [x] `RouteParameterGuard` — compiled regex allowlist guard in `FeatureFlag.Api/Helpers/`;
+      closes KI-008
+* [x] `RouteParameterGuard.ValidateName(name)` called first in `GetByNameAsync`,
+      `UpdateAsync`, and `ArchiveAsync`
+* [x] `ExistsAsync` added to `IFeatureFlagRepository` and implemented with `AnyAsync`
+* [x] `CreateFlagAsync` — sanitizes name, calls `ExistsAsync`, throws
+      `DuplicateFlagNameException` before insert
+* [x] `SaveChangesAsync` in repository intercepts Postgres `23505` unique constraint
+      violation and rethrows as `DuplicateFlagNameException` — handles TOCTOU race condition
+* [x] `GlobalExceptionMiddleware` `409` case verified present — no change required
 
-### Error Handling (remaining)
-
-* [ ] Route parameter guard for `{name}` on GET/PUT — closes KI-008
-
-### Testing
+### Testing 🔄 In Progress
 
 * [ ] Unit tests for `PercentageStrategy`, `RoleStrategy`, `NoneStrategy`
 * [ ] Unit tests for `FeatureEvaluator` — dispatch, missing strategy fallback
-* [ ] Unit tests for all three validators
-* [ ] Integration tests for all 6 endpoints (Phase 2 gate — Postgres service container)
+* [ ] Unit tests for all three validators — every acceptance criterion covered
+* [ ] Integration tests for all 6 endpoints (requires Postgres service container)
 
 ### Developer Experience
 
@@ -210,184 +224,160 @@ Phase 9      Open Core Launch — public repo, self-hosted Docker image, hosted 
 
 ---
 
-## 🌩️ Phase 1.5 — Azure Foundation + AI Integration 🆕
+## 🌩️ Phase 1.5 — Azure Foundation + AI Integration
 
 > Begins immediately after Phase 1 DoD is met.
 
-* [ ] Azure Key Vault integration — all secrets sourced from Key Vault at startup
-* [ ] Azure Application Insights — structured telemetry for API requests and evaluations
-* [ ] `IAiFlagAnalyzer` interface + `AzureOpenAiFlagAnalyzer` implementation
-      (Semantic Kernel, Azure OpenAI backend)
-* [ ] `IPromptSanitizer` — newline injection and instruction override defense
-      (complements `InputSanitizer` at the HTTP boundary)
-* [ ] `GET /api/flags/analysis` endpoint — natural language flag health queries
-* [ ] Azure OpenAI deployment provisioned (gpt-4o or equivalent)
+### Azure Key Vault
+
+* [ ] `Azure.Extensions.AspNetCore.Configuration.Secrets` wired into `Program.cs`
+* [ ] Connection string moved from `appsettings.Development.json` to Key Vault
+* [ ] `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_CLIENT_SECRET` documented in `.env.example`
+
+### Azure Application Insights
+
+* [ ] `Microsoft.ApplicationInsights.AspNetCore` added
+* [ ] Structured request telemetry — flag name, environment, strategy, result
+* [ ] Evaluation decision log events emitted as custom Application Insights events
+* [ ] Exception telemetry — captures unhandled exceptions with full context
+
+### AI Flag Analysis Endpoint
+
+* [ ] `IAiFlagAnalyzer` interface — `AnalyzeAsync(IReadOnlyList<FlagSummary>)`
+* [ ] `AiFlagAnalyzer` implementation — Azure OpenAI via Semantic Kernel
+* [ ] `IPromptSanitizer` — defends against prompt injection via flag data
+* [ ] `POST /api/analysis` — returns natural language flag health summary
+* [ ] System prompt committed to `Docs/Prompts/flag-analysis-system.md`
 
 ---
 
 ## 🧪 Phase 2 — Testing & Reliability
 
-* [ ] Integration tests for all API endpoints with Postgres service container in CI
-* [ ] NuGet caching in CI — `RestorePackagesWithLockFile=true` in `Directory.Build.props`,
-      `packages.lock.json` committed, `cache: true` on `setup-dotnet@v4`
-* [ ] Code coverage gate — Coverlet + ReportGenerator, 80% line coverage minimum
-* [ ] Contract tests for `IFeatureFlagService`
-* [ ] `StrategyConfigRules` internal static class — resolves KI-NEW-001 duplication
+* [ ] Integration test project with Postgres service container
+* [ ] Integration tests for all 6 endpoints
+* [ ] Contract tests — API response shape regression coverage
+* [ ] Test coverage baseline established and tracked in CI
 
 ---
 
 ## 🔐 Phase 3 — Authentication, Authorization & Rate Limiting
 
-* [ ] JWT bearer authentication on all management endpoints
-* [ ] Role-based access control — admin vs read-only roles
-* [ ] Rate limiting on `/api/evaluate` — `AddRateLimiter`, keyed on authenticated identity
-* [ ] Audit trail — structured log events on all flag mutations
-* [ ] Dependabot for NuGet packages
-* [ ] CodeQL security scanning (free for public repos)
+* [ ] JWT bearer authentication on management endpoints
+* [ ] Role-based authorization — flag read vs flag write
+* [ ] Evaluation endpoint optionally anonymous (SDK-compatible)
+* [ ] `AddRateLimiter` on `/api/evaluate` keyed on authenticated identity
 
 ---
 
-## 📡 Phase 4 — Observability & Debugging
+## 📊 Phase 4 — Observability & Debugging
 
-* [ ] Evaluation telemetry pipeline — log every evaluation decision
-* [ ] Debugging endpoint — `GET /api/flags/{name}/trace` with evaluation reasoning
-* [ ] Anomaly detection — unusual evaluation patterns surfaced via AI analysis
-* [ ] Application Insights dashboard — evaluation rates, strategy distribution, stale flags
-* [ ] Return evaluation trace in evaluation response
+* [ ] Structured audit events on all flag mutations
+* [ ] `GET /api/flags/{name}/evaluation-trace` — "Why was this flag ON/OFF?"
+* [ ] Anomaly detection — unusual evaluation pattern alerts
+* [ ] Dashboard integration (Azure Monitor or Grafana)
 
 ---
 
-## ⚙️ Phase 5 — Advanced Rollout Strategies
+## 🎯 Phase 5 — Advanced Rollout Strategies
 
-* [ ] User targeting (by ID)
-* [ ] Time-based activation
+* [ ] User targeting by ID
+* [ ] Time-based activation (scheduled flags)
 * [ ] Gradual rollout (time + percentage combined)
-* [ ] Dynamic strategy registration (DI-driven — Open/Closed compliant)
-* [ ] Smart rollout recommendations via AI analysis
+* [ ] Dynamic strategy registration (DI-driven)
+* [ ] Strategy config validation framework
 
 ---
 
-## 🌐 Phase 6 — Performance & Scaling
+## ⚡ Phase 6 — Performance & Scaling
 
-* [ ] Environment-specific flag overrides
-* [ ] Promotion workflow (dev → staging → prod)
-* [ ] In-memory caching layer with cache invalidation strategy
-* [ ] Redis for distributed caching (horizontal scaling readiness)
-* [ ] Optimize evaluation path for sub-millisecond hot path
+* [ ] In-memory caching layer between service and repository
+* [ ] Redis cache option for distributed deployments
+* [ ] Horizontal scaling validation — stateless API design confirmed
+* [ ] Evaluation path latency baseline and regression tests
 
 ---
 
-## 📦 Phase 7 — .NET SDK ← Key Product Milestone
-
-> No enterprise team will adopt a flag service without a first-class SDK.
+## 📦 Phase 7 — .NET SDK ⭐ Key Product Milestone
 
 * [ ] `FeatureFlag.Client` NuGet package
-* [ ] `IFeatureFlagClient` interface — `IsEnabledAsync(flagName, context)`
-* [ ] HTTP client backed by `/api/evaluate`
-* [ ] Local evaluation mode — cached flag config, evaluates without HTTP on hot path
-* [ ] Fail-closed by default — returns `false` if service is unreachable
-* [ ] `AddFeatureFlagClient()` extension for ASP.NET Core DI
-* [ ] Middleware extensions and action filter attributes
-* [ ] Full SDK documentation with quickstart guide
-* [ ] NuGet package published
-* [ ] Natural language flag creation — describe a flag in plain English, system creates it
+* [ ] `IFeatureFlagClient` — `IsEnabledAsync(string flagName, string userId, string[] roles)`
+* [ ] ASP.NET Core middleware extensions — `UseFeatureFlags()`
+* [ ] Action filter attributes — `[RequireFlag("my-flag")]`
+* [ ] Service registration helpers — `services.AddFeatureFlagClient()`
+* [ ] SDK documentation and quickstart guide
+* [ ] NuGet publish via GitHub Actions on tag
 
 ---
 
-## 🏭 Phase 8 — Production Readiness
+## 🚀 Phase 8 — Production Readiness
 
-> CI (lint, format, build, test) was pulled forward to Phase 1.
-> Phase 8 covers CD — automated deployment — and hardening.
-
-* [ ] CD pipeline — GitHub Actions deploy to Azure Container Apps on merge to `main`
-* [ ] AKS deployment manifests — for teams self-hosting on Kubernetes
-* [ ] All secrets sourced from Key Vault (validates Phase 1.5 work at scale)
-* [ ] EF Core migration strategy for zero-downtime production upgrades
-* [ ] Backup and restore documentation for Postgres
-* [ ] Migrate devcontainer to full docker-compose devcontainer setup — resolves KI-007
-* [ ] SLA baseline documented — target 99.9% uptime for hosted offering
-* [ ] AI reviewer fail-open → fail-closed hardening for PRs targeting `main`
-* [ ] Switch AI reviewer fail behavior: retry with backoff, fail-closed on `main` only
+* [ ] CD pipeline to Azure Container Apps
+* [ ] AKS deployment option documented
+* [ ] SLA baseline established (p99 evaluation latency)
+* [ ] Backup and migration strategy (EF Core)
+* [ ] Full docker-compose devcontainer setup (resolves KI-007)
+* [ ] README overhaul — product vision, market gap, architecture overview,
+      getting started, AI-assisted dev workflow section, roadmap summary
 
 ---
 
 ## 🌐 Phase 9 — Open Core Launch
 
-* [ ] Public GitHub repository — MIT license
-* [ ] Self-hosted Docker image published to Docker Hub and GitHub Container Registry
-* [ ] One-command local setup: `docker compose up` → working service in < 2 minutes
-* [ ] Managed hosting offering (Azure Container Apps) — paid tier
-* [ ] Landing page with live demo
-* [ ] Technical blog post: architecture, AI analysis design, Azure-native decisions
-* [ ] LinkedIn launch posts and community outreach (.NET, Azure developer communities)
+* [ ] Public repo prepared — `CONTRIBUTING.md`, issue templates, `good first issue` labels
+* [ ] Self-hosted Docker image published to GitHub Container Registry
+* [ ] Managed hosting offering documented
+* [ ] Launch post and demo video
 
 ---
 
-## 📌 Current Focus
+## 🎯 Current Focus
 
-👉 **Phase 1 — MVP Completion**
+**Phase 1 — Testing & Developer Experience (final stretch)**
 
-Code style foundation and core CI pipeline are complete (PRs #33, #34).
-Immediate next tasks:
+Remaining tasks before Phase 1 is complete:
 
-1. Write `spec-ai-reviewer.md` — AI reviewer job for PR #35
-2. Global exception middleware — replace per-controller try/catch
-3. Route parameter guard for `{name}` on GET/PUT — closes KI-008
-4. Name uniqueness check at the service layer
-5. Unit tests for strategies, evaluator, and all three validators
-6. Integration tests for all endpoints
-7. Commit `.http` smoke test file
-8. Seed data for local development
-9. Evaluation decision logging
+1. Unit tests — `PercentageStrategy`, `RoleStrategy`, `NoneStrategy`, `FeatureEvaluator`,
+   all three validators
+2. Integration tests — all 6 endpoints
+3. `.http` smoke test file (`requests/smoke-test.http`)
+4. Seed data for local development
+5. Evaluation decision logging
+
+Phase 1 DoD is met when all five are complete. Phase 1.5 begins immediately after.
 
 ---
 
 ## 🧩 Notes for AI Assistants (Claude Context)
 
-### Product Direction
-* This is an Azure-native, .NET-first, AI-assisted feature flag platform
-* Every architectural decision should be evaluated against: does this serve Azure
-  deployment, .NET SDK ergonomics, or AI integration?
-
-### Architecture
-* Controller → Service → Evaluator → Strategy → Repository
-* `IFeatureFlagService` speaks entirely in DTOs — no `Flag` entity crosses the service boundary
-* Domain logic is intentionally strict (no public setters)
-* Strategy pattern is central to extensibility — use registry dispatch, not switch statements
-* Evaluation must remain deterministic and testable
-
-### FluentValidation v12
-* No `.Transform()` — use `.Must()` lambda instead
-* No `AddValidatorsFromAssemblyContaining` — register validators explicitly with `AddScoped`
-* No `FluentValidation.AspNetCore` — use manual `ValidateAsync()` in controllers
-
-### Formatter conventions
-* CSharpier is the final formatting authority — always run last
-* `dotnet format` may precede CSharpier for Roslyn diagnostic fixes
-* CSharpier 1.x syntax: `dotnet csharpier check .` and `dotnet csharpier format .`
-* `**/Migrations/**` has `generated_code = true` — do not format or analyze
-
-### Infrastructure
-* Connection string uses `Host=postgres` — do not change to `localhost`
-* Both Infrastructure and Api projects require `Microsoft.EntityFrameworkCore.Design`
+- Architecture follows Clean Architecture: Api → Application → Domain ← Infrastructure
+- `IFeatureFlagService` speaks entirely in DTOs — no `Flag` entity crosses the boundary
+- Domain logic is intentionally strict — no public setters, explicit mutation methods
+- Strategy pattern is central to extensibility — new strategies require zero changes to evaluator
+- Evaluation must remain deterministic and testable
+- `GlobalExceptionMiddleware` wraps the entire pipeline — controllers contain only happy path
+- All error responses return `ProblemDetails` with `Content-Type: application/problem+json`
+- `RouteParameterGuard.ValidateName(name)` is the first call in `GetByNameAsync`,
+  `UpdateAsync`, and `ArchiveAsync` — do not remove or reorder
+- `StrategyConfigRules` is the single source of truth for strategy config validation methods
+- `SaveChangesAsync` in `FeatureFlagRepository` catches Postgres `23505` and rethrows as
+  `DuplicateFlagNameException` — intentional TOCTOU handling, do not remove
+- `ExistsAsync` checks non-archived flags only — archived flags do not block name reuse
+- Connection string uses `Host=postgres` — do not change to `localhost`
+- Both Infrastructure and Api projects require `Microsoft.EntityFrameworkCore.Design`
   with `PrivateAssets=all`
-* `appsettings.Development.json` is intentionally committed — local Docker defaults only
-* NuGet caching in CI requires `packages.lock.json` — deferred to Phase 2
-
-### What not to do
-* No auth yet (Phase 3)
-* No caching layer yet (Phase 6)
-* No advanced strategies yet (Phase 5)
-* No App Insights yet (Phase 1.5)
-* No CD to Azure yet (Phase 8)
-* No UI work
+- Do not use `FluentValidation.AspNetCore`, `AddFluentValidationAutoValidation()`,
+  or `.Transform()` — all deprecated or removed in FluentValidation v12
+- Any spec referencing ProblemDetails must specify `application/problem+json`
+- Any spec with uniqueness checks must address TOCTOU and designate the correct layer
+- Any spec providing `JsonDocument` code must use `using JsonDocument doc = ...`
 
 ---
 
-## 🗺️ Long-Term Vision
+## 🔭 Long-Term Vision
 
-* Full **Observability + Experimentation Platform** for .NET teams on Azure
-* A/B testing capabilities with statistical significance reporting
-* AI-powered flag lifecycle management — creation, health analysis, rollout recommendations
-* Real-time evaluation dashboards
-* Open core + managed hosting business model
+- Full **Observability + Experimentation Platform**
+- A/B testing with statistical significance tracking
+- Natural language flag creation — *"Roll out the payment flow to 10% of production users"*
+- Smart rollout recommendations based on evaluation patterns
+- Integration with analytics pipelines and real-time dashboards
+- Anomaly detection — automatic stale flag and unusual distribution alerts

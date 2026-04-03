@@ -1,7 +1,7 @@
 # Specification: CI Pipeline — AI Reviewer
 <!-- spec-ai-reviewer.md -->
 
-**Document:** `Docs/Decisions/spec-ai-reviewer.md`
+**Document:** `Docs/Decisions/spec-ai-reviewer/spec.md`
 **Status:** Ready for Review
 **Branch:** `feature/ci-ai-reviewer`
 **PR:** #35

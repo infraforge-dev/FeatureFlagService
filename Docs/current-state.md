@@ -23,19 +23,14 @@
 **Phase 1 — CI/CD Foundation (PRs #33, #34): ✅ Complete**
 **Phase 1 — CI/CD AI Reviewer (PR #35): ✅ Complete**
 **Phase 1 — Error Handling (PR #36): ✅ Complete**
+**Phase 1 — Input Validation Hardening (PR #37): ✅ Complete**
 **Phase 1 — Testing & Developer Experience: 🔄 In Progress**
 
-FluentValidation v12 is implemented with manual controller validation. `InputSanitizer`
-is in place. The service layer sanitizes evaluation inputs. KI-003 is closed.
-
-GitHub Actions CI pipeline is live with parallel `lint-format` and `build-test` jobs.
-CSharpier is the formatting source of truth. AI reviewer job is live — activated by
-the `ai-review` label on any PR.
-
-Global exception middleware is in place. All controllers contain only the happy path.
-All error responses return a consistent `ProblemDetails` shape with
-`Content-Type: application/problem+json`. AI reviewer system prompt updated to enforce
-the no-try/catch-in-controllers rule.
+KI-008 and KI-NEW-001 are closed. `RouteParameterGuard` enforces the flag name
+allowlist on all `{name}` route parameters. `DuplicateFlagNameException` is now
+thrown from the service layer on duplicate `POST`. A TOCTOU race condition is
+handled in the repository via `DbUpdateException` interception. `StrategyConfigRules`
+is extracted — no more duplicated validator logic.
 
 **Product direction locked:** Azure-native, .NET-first, AI-assisted feature flag
 platform targeting .NET teams on Azure. Phase 1.5 introduces Key Vault, Application
@@ -49,106 +44,86 @@ Insights, and the AI analysis endpoint immediately after Phase 1 completes.
 
 - `Flag` entity with controlled mutation (private setters, explicit update methods)
 - `Flag.Update()` — atomic method that sets enabled state, strategy, and `UpdatedAt`
-- `FeatureEvaluationContext` value object — `IEquatable<T>`, guard clauses,
-  immutable `IReadOnlyList<string>` roles, accepts `IEnumerable<string>` on construction
+- `FeatureEvaluationContext` value object — `IEquatable<T>`, guard clauses, immutable roles
 - `RolloutStrategy` enum (None, Percentage, RoleBased)
 - `EnvironmentType` enum (None = 0 sentinel, Development, Staging, Production)
-- `IRolloutStrategy` interface — `StrategyType` property for registry dispatch
-- `IFeatureFlagRepository` interface — async, `CancellationToken` throughout
+- `IRolloutStrategy` interface — includes `StrategyType` property for registry dispatch
+- `IFeatureFlagRepository` interface — async signatures with `CancellationToken`
+  - Includes `ExistsAsync(name, environment, ct)` — added PR #37
+- Exception hierarchy in `FeatureFlag.Domain/Exceptions/`:
+  - `FeatureFlagException` — abstract base, carries `StatusCode`
+  - `FlagNotFoundException` — 404
+  - `DuplicateFlagNameException` — 409, constructor accepts `(string, EnvironmentType)`
+  - `FeatureFlagValidationException` — 400, for route parameter allowlist failures (PR #37)
 
 ### Application Layer
 
 - `NoneStrategy`, `PercentageStrategy`, `RoleStrategy` — all strategies implemented
 - `FeatureEvaluator` — registry dispatch pattern
-- `FeatureFlagService` — async, orchestrates repository + evaluator; sanitizes inputs
-  at two call sites (`IsEnabledAsync`, `CreateFlagAsync`)
-- DTOs: `CreateFlagRequest`, `UpdateFlagRequest`, `FlagResponse`, `EvaluationRequest`,
-  `FlagMappings`
-- `IFeatureFlagService` — async, CancellationToken, full CRUD + evaluation
+- `FeatureFlagService` — async, orchestrates repository + evaluator
+  - `CreateFlagAsync` — sanitizes name, calls `ExistsAsync`, throws `DuplicateFlagNameException` before insert (PR #37)
+- `DependencyInjection.cs` — `AddApplication()` extension method
+- DTOs: `CreateFlagRequest`, `UpdateFlagRequest`, `FlagResponse`, `EvaluationRequest`, `EvaluationResponse`, `FlagMappings`
+- `IFeatureFlagService` — async signatures with `CancellationToken`, full CRUD + evaluation
+- Validators:
+  - `CreateFlagRequestValidator`, `UpdateFlagRequestValidator`, `EvaluationRequestValidator`
+  - `InputSanitizer` — shared static helper, HTTP boundary sanitization
+  - `StrategyConfigRules` — shared static class, `BeValidPercentageConfig` and `BeValidRoleConfig` (PR #37, closes KI-NEW-001)
 
-### Infrastructure & API Layer
+### API Layer
 
-- `FeatureFlagRepository` — full EF Core implementation with Postgres + `jsonb`
-- `FeatureFlagsController` — full CRUD (GET all, GET by name, POST, PUT, DELETE soft-archive)
-- `EvaluationController` — POST `/api/evaluate`
-- OpenAPI enrichment — Scalar UI, `EvaluationResponse` DTO, XML docs,
-  `EnumSchemaTransformer`, `ApiInfoTransformer`
-- `GenerateDocumentationFile=true` + `<NoWarn>1591</NoWarn>` in `Directory.Build.props`
+- `FeatureFlagsController` — full CRUD
+  - `RouteParameterGuard.ValidateName(name)` called first in `GetByNameAsync`, `UpdateAsync`, `ArchiveAsync` (PR #37, closes KI-008)
+- `EvaluationController` — evaluation endpoint
+- `GlobalExceptionMiddleware` — catches all exceptions, maps to `ProblemDetails`
+  - Handles `400`, `404`, `409` domain exceptions
+  - Returns `application/problem+json` on all error responses
+- `FeatureFlag.Api/Helpers/RouteParameterGuard` — compiled regex allowlist on `{name}` route params (PR #37)
+- OpenAPI enrichment: `EnumSchemaTransformer`, `ApiInfoTransformer`, Scalar UI
+- Manual `ValidateAsync` in controllers (POST and PUT on flags; POST on evaluate)
 
-### Validation & Sanitization (PR #30) ✅
+### Infrastructure Layer
 
-- `InputSanitizer` — `internal static` helper in `FeatureFlag.Application/Validators/`;
-  trims whitespace and strips ASCII control characters; called by validators and service layer
-- `CreateFlagRequestValidator`, `UpdateFlagRequestValidator`, `EvaluationRequestValidator`
-  — FluentValidation v12, `.Must()` pattern, no `.Transform()`
-- Manual `ValidateAsync` in controllers — no `FluentValidation.AspNetCore`
+- `FeatureFlagRepository` — implements `IFeatureFlagRepository`
+  - `ExistsAsync` implemented using `AnyAsync` — non-archived flags only (PR #37)
+  - `SaveChangesAsync` intercepts `DbUpdateException` wrapping Postgres `23505` (unique constraint) and rethrows as `DuplicateFlagNameException` — handles TOCTOU race condition (PR #37)
+- `FeatureFlagDbContext` + `FlagConfiguration` — Fluent API, `jsonb` for `StrategyConfig`
+- Partial unique index on `(Name, Environment)` filtered to `IsArchived = false`
 
-### CI/CD — Core Pipeline (PRs #33, #34) ✅
+### CI/CD
 
-- `.editorconfig`, `.gitattributes`, `.csharpierrc.json`, `.csharpierignore`
-- `.github/workflows/ci.yml` — `lint-format` and `build-test` parallel jobs
-- `dotnet csharpier check .` — format gate
-- `dotnet build -p:TreatWarningsAsErrors=true` — zero-warnings policy
-- `dotnet test --filter "Category!=Integration"` — unit tests only in Phase 1
-- All existing tests decorated `[Trait("Category", "Unit")]`
-
-### CI/CD — AI Reviewer (PR #35) ✅
-
-- `.github/workflows/ci.yml` — `ai-review` job fully implemented
-- `.github/prompts/ai-review-system.md` — system prompt in repo, read at runtime
-- Activated by `ai-review` label on any PR
-- Fail-open — transient API failures do not block merge
-- `ANTHROPIC_API_KEY` secret added to GitHub repo
-- `ai-review` label created in GitHub repo
-
-### Error Handling (PR #36) ✅
-
-- `FeatureFlagException` — abstract base class in `Domain/Exceptions/`, carries `StatusCode`
-- `FlagNotFoundException` — 404, `sealed`, thrown by service layer on null flag lookup
-- `DuplicateFlagNameException` — 409, `sealed`, defined but not yet thrown
-  (name uniqueness check is a separate task)
-- `GlobalExceptionMiddleware` — single catch-all in `Api/Middleware/`;
-  domain exceptions → named 4xx; unexpected exceptions → `LogError` + safe 500
-- `FrameworkReference` to `Microsoft.AspNetCore.App` added to `FeatureFlag.Domain.csproj`
-- Middleware registered first in `Program.cs` — wraps entire pipeline
-- `FeatureFlagService` throws `FlagNotFoundException` — no `KeyNotFoundException`
-  references remain in Application layer
-- `FeatureFlagsController` and `EvaluationController` contain zero `try/catch` blocks
-- AI reviewer system prompt Rule 8 updated — `try/catch` in a controller is a
-  reviewable error
+- `.github/workflows/ci.yml` — parallel `lint-format` and `build-test` jobs
+- AI reviewer job — activated by `ai-review` label
+- CSharpier 1.x as final formatting authority
+- `.editorconfig` with Allman brace style and Roslyn diagnostic severities
 
 ### Dev Environment
 
 - DevContainer: `devcontainers/base:ubuntu-24.04` + .NET 10 SDK
-- Docker-outside-of-Docker configured
+- Docker-outside-of-Docker configured; `postStartCommand` automates network join
 - `dotnet-ef` and `csharpier` in `.config/dotnet-tools.json`
 - Connection string: `Host=postgres`
 - `docker-compose.yml` at repo root
-- All five `.csproj` files targeting `net10.0`
 
 ### Tests
 
-- `FeatureEvaluationContextTests` — 8/8 passing, decorated `[Trait("Category", "Unit")]`
+- `FeatureEvaluationContextTests` — 8/8 passing, `[Trait("Category", "Unit")]`
 - Build: ✅ 0 warnings, 0 errors
-- CSharpier: ✅ 41 files checked, 0 violations
+- CSharpier: ✅ 0 violations
 
 ---
 
 ## ❌ What Is Not Yet Built (Phase 1 Remaining)
 
-### Validation (remaining)
-- Name uniqueness check at the service layer before hitting the DB
-
-### Error Handling (remaining)
-- Route parameter guard for `{name}` on GET and PUT — closes KI-008
-
 ### Testing
+
 - Unit tests for `PercentageStrategy`, `RoleStrategy`, `NoneStrategy`
 - Unit tests for `FeatureEvaluator` — dispatch, missing strategy fallback
 - Unit tests for all three validators — every acceptance criterion covered
 - Integration tests for all API endpoints including `/api/evaluate`
 
 ### Developer Experience
+
 - `.http` smoke test request file committed to repo (`requests/smoke-test.http`)
 - Seed data for development/staging flags
 - Evaluation decision logging
@@ -183,51 +158,29 @@ and Api projects with `PrivateAssets=all`.
 **Status:** Mitigated — `postStartCommand` automates the network join
 
 **Workaround:** Run `docker compose up -d` before opening the devcontainer.
-If devcontainer is already running:
-```bash
-docker network connect featureflagservice_default $(cat /etc/hostname)
-```
 **Longer-term fix:** Full docker-compose devcontainer setup. Deferred to Phase 8.
-
----
-
-### KI-008 — Route Parameters on GET and PUT Lack Allowlist Validation
-
-**Severity:** Low
-**Status:** Open — Phase 1 fix
-
-`GET /api/flags/{name}` and `PUT /api/flags/{name}` accept a `name` route parameter
-with no character allowlist validation. EF Core parameterized queries prevent SQL
-injection. Risk is unexpected characters reaching logs and repository calls.
-
-**Planned fix:** Static `RouteParameterGuard.ValidateName(string name)` helper
-returning `400` for non-conforming values, called at top of affected controller actions.
-
----
-
-### KI-NEW-001 — `BeValidPercentageConfig` / `BeValidRoleConfig` Duplicated
-
-**Severity:** Low — code quality, no runtime impact
-**Status:** Deferred — not a Phase 1 blocker
-
-`BeValidPercentageConfig` and `BeValidRoleConfig` are private static methods
-duplicated identically in both `CreateFlagRequestValidator` and
-`UpdateFlagRequestValidator`.
-
-**Candidate fix:** Extract to `StrategyConfigRules` internal static class in
-`FeatureFlag.Application/Validators/`. Both validators call the shared methods.
 
 ---
 
 ### Spec Writing — Lessons Learned
 
 **Audit all service methods in AC-6-style tasks:** When a spec instructs updating
-methods that throw or return null, explicitly list every affected method. In PR #36,
-`IsEnabledAsync` was omitted from AC-6 but caught by the implementer via the DoD.
+methods that throw or return null, explicitly list every affected method.
 
-**ProblemDetails responses require `application/problem+json`:** RFC 9457 §8.1 defines
-a dedicated MIME type. Do not use `MediaTypeNames.Application.Json` for `ProblemDetails`
-responses. Future specs must specify `"application/problem+json"` explicitly.
+**ProblemDetails responses require `application/problem+json`:** RFC 9457 §8.1.
+Do not use `MediaTypeNames.Application.Json`. Future specs must specify
+`"application/problem+json"` explicitly.
+
+**Address race conditions (TOCTOU) in uniqueness checks:** The spec for PR #37 did
+not address the concurrent-request scenario. The implementer correctly placed the
+`DbUpdateException` catch in the repository (Infrastructure), not the service
+(Application), to avoid introducing an EF Core dependency into the Application layer.
+Future specs involving uniqueness checks must explicitly address TOCTOU handling and
+designate the correct layer for the catch.
+
+**Dispose `JsonDocument` after parsing:** `JsonDocument.Parse()` allocates from pooled
+memory. Always wrap with `using` — failure to dispose increases GC pressure. Future
+specs providing `JsonDocument` code must use `using JsonDocument doc = ...`.
 
 ---
 
@@ -237,15 +190,13 @@ responses. Future specs must specify `"application/problem+json"` explicitly.
 
 ### Immediate Next Tasks
 
-1. Route parameter guard for `{name}` on GET/PUT — closes KI-008
-2. Name uniqueness check at the service layer before hitting the DB
-3. Unit tests for `PercentageStrategy`, `RoleStrategy`, `NoneStrategy`
-4. Unit tests for `FeatureEvaluator` — dispatch, missing strategy fallback
-5. Unit tests for all three validators
-6. Integration tests for all endpoints
-7. Commit `.http` smoke test file
-8. Seed data for local development
-9. Evaluation decision logging
+1. Unit tests for `PercentageStrategy`, `RoleStrategy`, `NoneStrategy`
+2. Unit tests for `FeatureEvaluator` — dispatch, missing strategy fallback
+3. Unit tests for all three validators — every acceptance criterion covered
+4. Integration tests for all endpoints
+5. Commit `.http` smoke test file (`requests/smoke-test.http`)
+6. Seed data for local development
+7. Evaluation decision logging
 
 ---
 
@@ -265,6 +216,8 @@ responses. Future specs must specify `"application/problem+json"` explicitly.
   CSharpier is the final formatting authority
 - Do not add `try/catch` blocks to controllers — `GlobalExceptionMiddleware` handles
   all exceptions; controllers contain only the happy path
+- Do not catch `DbUpdateException` in the Application layer — it is an Infrastructure
+  concern; the Application project has no EF Core reference
 
 ---
 
@@ -280,8 +233,9 @@ responses. Future specs must specify `"application/problem+json"` explicitly.
 - [x] `ai-review` label created in GitHub repo
 - [x] Global exception middleware in place
 - [x] Standardized `ProblemDetails` error response shape
-- [ ] Name uniqueness check at the service layer
-- [ ] Route parameter guard for `{name}` on GET/PUT — closes KI-008
+- [x] Name uniqueness check at the service layer (PR #37)
+- [x] Route parameter guard for `{name}` on GET, PUT, DELETE — closes KI-008 (PR #37)
+- [x] `StrategyConfigRules` extracted — closes KI-NEW-001 (PR #37)
 - [ ] Unit tests for `PercentageStrategy`, `RoleStrategy`, `NoneStrategy`
 - [ ] Unit tests for `FeatureEvaluator` — dispatch, missing strategy fallback
 - [ ] Unit tests for all three validators
@@ -297,20 +251,27 @@ responses. Future specs must specify `"application/problem+json"` explicitly.
 - The system is not production-ready
 - Prioritize correctness over feature expansion
 - Follow Clean Architecture — dependencies point inward toward Domain
-- Work within the established layer boundaries (Api → Application → Domain ← Infrastructure)
+- Work within established layer boundaries (Api → Application → Domain ← Infrastructure)
 - `IFeatureFlagService` speaks entirely in DTOs — never return `Flag` from the service
 - All evaluation logic must remain deterministic and isolated from persistence
 - `GlobalExceptionMiddleware` is registered first in `Program.cs` — wraps entire pipeline
 - Controllers contain only the happy path — zero `try/catch` blocks anywhere in `FeatureFlag.Api`
 - All error responses return `ProblemDetails` with `Content-Type: application/problem+json`
-- `ProblemDetails.Type` is set to `"about:blank"` — RFC 9457 recommendation for standard HTTP errors
-- Custom `type` URIs pointing to FeatureFlagService documentation will be introduced in Phase 1.5
-- `FlagNotFoundException` and `DuplicateFlagNameException` live in `FeatureFlag.Domain/Exceptions/`
-- `DuplicateFlagNameException` is defined but not yet thrown — name uniqueness check is a separate task
+- `ProblemDetails.Type` is set to `"about:blank"` — RFC 9457 recommendation
+- `RouteParameterGuard.ValidateName(name)` is the first call in `GetByNameAsync`,
+  `UpdateAsync`, and `ArchiveAsync` — do not remove or reorder
+- `StrategyConfigRules` is the single source of truth for `BeValidPercentageConfig`
+  and `BeValidRoleConfig` — do not re-add these methods to individual validators
+- `DuplicateFlagNameException` constructor accepts `(string flagName, EnvironmentType environment)`
+- `ExistsAsync` on the repository checks non-archived flags only
+- `SaveChangesAsync` in `FeatureFlagRepository` catches `DbUpdateException` wrapping
+  Postgres `23505` and rethrows as `DuplicateFlagNameException` — this is intentional
+  TOCTOU handling and must not be removed
 - `appsettings.Development.json` is intentionally committed — local Docker defaults only
 - Connection string uses `Host=postgres` — do not change to `localhost`
 - Both Infrastructure and Api projects require `Microsoft.EntityFrameworkCore.Design`
   with `PrivateAssets=all`
-- Do not use `FluentValidation.AspNetCore` or `.Transform()` — see FluentValidation v12 notes above
-- Any spec referencing ProblemDetails must specify `application/problem+json`, not `application/json`
-- Any spec with AC-6-style service method updates must explicitly list every affected method
+- Do not use `FluentValidation.AspNetCore` or `.Transform()` — see FluentValidation v12 notes
+- Any spec referencing ProblemDetails must specify `application/problem+json`
+- Any spec with uniqueness checks must address TOCTOU and designate the correct layer
+- Any spec providing `JsonDocument` code must use `using JsonDocument doc = ...`
