@@ -10,13 +10,24 @@ namespace FeatureFlag.Application.Strategies;
 
 public sealed class PercentageStrategy : IRolloutStrategy
 {
+    private static readonly JsonSerializerOptions _options = new()
+    {
+        PropertyNameCaseInsensitive = true,
+    };
+
     public RolloutStrategy StrategyType => RolloutStrategy.Percentage;
 
     public bool Evaluate(Flag flag, FeatureEvaluationContext context)
     {
-        PercentageConfig? config = JsonSerializer.Deserialize<PercentageConfig>(
-            flag.StrategyConfig
-        );
+        PercentageConfig? config;
+        try
+        {
+            config = JsonSerializer.Deserialize<PercentageConfig>(flag.StrategyConfig, _options);
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
 
         if (config is null || config.Percentage is < 0 or > 100)
         {

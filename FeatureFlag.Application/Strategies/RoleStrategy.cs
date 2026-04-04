@@ -8,11 +8,24 @@ namespace FeatureFlag.Application.Strategies;
 
 public sealed class RoleStrategy : IRolloutStrategy
 {
+    private static readonly JsonSerializerOptions _options = new()
+    {
+        PropertyNameCaseInsensitive = true,
+    };
+
     public RolloutStrategy StrategyType => RolloutStrategy.RoleBased;
 
     public bool Evaluate(Flag flag, FeatureEvaluationContext context)
     {
-        RoleConfig? config = JsonSerializer.Deserialize<RoleConfig>(flag.StrategyConfig);
+        RoleConfig? config;
+        try
+        {
+            config = JsonSerializer.Deserialize<RoleConfig>(flag.StrategyConfig, _options);
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
 
         if (config is null || config.Roles is null || config.Roles.Count == 0)
         {
