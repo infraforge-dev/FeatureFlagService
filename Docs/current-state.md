@@ -24,13 +24,13 @@
 **Phase 1 — CI/CD AI Reviewer (PR #35): ✅ Complete**
 **Phase 1 — Error Handling (PR #36): ✅ Complete**
 **Phase 1 — Input Validation Hardening (PR #37): ✅ Complete**
-**Phase 1 — Testing & Developer Experience: 🔄 In Progress**
+**Phase 1 — Unit Tests (PR #38): ✅ Complete**
 
-KI-008 and KI-NEW-001 are closed. `RouteParameterGuard` enforces the flag name
-allowlist on all `{name}` route parameters. `DuplicateFlagNameException` is now
-thrown from the service layer on duplicate `POST`. A TOCTOU race condition is
-handled in the repository via `DbUpdateException` interception. `StrategyConfigRules`
-is extracted — no more duplicated validator logic.
+KI-008 and KI-NEW-001 are closed. Unit tests are complete — 75 tests passing across
+all strategies, the evaluator, and all three validators. Two silent production bugs
+were discovered and fixed during the test session: `PercentageStrategy` and
+`RoleStrategy` both had case-sensitive JSON deserialization that caused every real
+Percentage and RoleBased evaluation to silently return `false`.
 
 **Product direction locked:** Azure-native, .NET-first, AI-assisted feature flag
 platform targeting .NET teams on Azure. Phase 1.5 introduces Key Vault, Application
@@ -69,6 +69,15 @@ Insights, and the AI analysis endpoint immediately after Phase 1 completes.
   - `CreateFlagRequestValidator`, `UpdateFlagRequestValidator`, `EvaluationRequestValidator`
   - `InputSanitizer` — shared static helper, HTTP boundary sanitization
   - `StrategyConfigRules` — shared static class, `BeValidPercentageConfig` and `BeValidRoleConfig` (PR #37, closes KI-NEW-001)
+- `PercentageStrategy` — `try/catch (JsonException)` around `Deserialize`;
+  `PropertyNameCaseInsensitive = true` added to `JsonSerializerOptions` (PR #38,
+  fixes silent fail-closed failure on malformed config and case-mismatch deserialization)
+- `RoleStrategy` — same two fixes as `PercentageStrategy` (PR #38)
+- Unit tests: 75/75 passing — `NoneStrategyTests` (4), `PercentageStrategyTests` (9),
+  `RoleStrategyTests` (9), `FeatureEvaluatorTests` (4), `CreateFlagRequestValidatorTests` (17),
+  `UpdateFlagRequestValidatorTests` (9), `EvaluationRequestValidatorTests` (10) (PR #38)
+- `FluentAssertions v7.*` added to `FeatureFlag.Tests`
+- `FlagBuilder` static helper — `FeatureFlag.Tests/Helpers/FlagBuilder.cs`
 
 ### API Layer
 
@@ -190,13 +199,10 @@ specs providing `JsonDocument` code must use `using JsonDocument doc = ...`.
 
 ### Immediate Next Tasks
 
-1. Unit tests for `PercentageStrategy`, `RoleStrategy`, `NoneStrategy`
-2. Unit tests for `FeatureEvaluator` — dispatch, missing strategy fallback
-3. Unit tests for all three validators — every acceptance criterion covered
-4. Integration tests for all endpoints
-5. Commit `.http` smoke test file (`requests/smoke-test.http`)
-6. Seed data for local development
-7. Evaluation decision logging
+1. Integration tests for all 6 endpoints (requires Postgres service container in CI)
+2. `.http` smoke test file (`requests/smoke-test.http`)
+3. Seed data for local development
+4. Evaluation decision logging
 
 ---
 
@@ -236,9 +242,9 @@ specs providing `JsonDocument` code must use `using JsonDocument doc = ...`.
 - [x] Name uniqueness check at the service layer (PR #37)
 - [x] Route parameter guard for `{name}` on GET, PUT, DELETE — closes KI-008 (PR #37)
 - [x] `StrategyConfigRules` extracted — closes KI-NEW-001 (PR #37)
-- [ ] Unit tests for `PercentageStrategy`, `RoleStrategy`, `NoneStrategy`
-- [ ] Unit tests for `FeatureEvaluator` — dispatch, missing strategy fallback
-- [ ] Unit tests for all three validators
+- [x] Unit tests for `PercentageStrategy`, `RoleStrategy`, `NoneStrategy`
+- [x] Unit tests for `FeatureEvaluator` — dispatch, missing strategy fallback
+- [x] Unit tests for all three validators
 - [ ] Integration tests for all 6 endpoints
 - [ ] `.http` smoke test file committed
 - [ ] Seed data for local development
@@ -275,3 +281,10 @@ specs providing `JsonDocument` code must use `using JsonDocument doc = ...`.
 - Any spec referencing ProblemDetails must specify `application/problem+json`
 - Any spec with uniqueness checks must address TOCTOU and designate the correct layer
 - Any spec providing `JsonDocument` code must use `using JsonDocument doc = ...`
+- `PercentageStrategy` and `RoleStrategy` use `PropertyNameCaseInsensitive = true`
+  in their `JsonSerializerOptions` — do not remove; stored configs use lowercase keys
+  (`"percentage"`, `"roles"`) but C# records use PascalCase properties
+- `FluentAssertions v7.*` is the assertion library in `FeatureFlag.Tests` — do not
+  use `Assert.*` methods anywhere in the test project
+- All test methods carry `[Trait("Category", "Unit")]` — required for CI filter
+  `--filter "Category!=Integration"` to include them

@@ -211,9 +211,9 @@ Phase 9      Open Core Launch — public repo, self-hosted Docker image, hosted 
 
 ### Testing 🔄 In Progress
 
-* [ ] Unit tests for `PercentageStrategy`, `RoleStrategy`, `NoneStrategy`
-* [ ] Unit tests for `FeatureEvaluator` — dispatch, missing strategy fallback
-* [ ] Unit tests for all three validators — every acceptance criterion covered
+* [x] Unit tests for `PercentageStrategy`, `RoleStrategy`, `NoneStrategy`
+* [x] Unit tests for `FeatureEvaluator` — dispatch, missing strategy fallback
+* [x] Unit tests for all three validators — every acceptance criterion covered
 * [ ] Integration tests for all 6 endpoints (requires Postgres service container)
 
 ### Developer Experience
@@ -334,16 +334,12 @@ Phase 9      Open Core Launch — public repo, self-hosted Docker image, hosted 
 
 **Phase 1 — Testing & Developer Experience (final stretch)**
 
-Remaining tasks before Phase 1 is complete:
+1. Integration tests — all 6 endpoints (own PR, own session)
+2. `.http` smoke test file (`requests/smoke-test.http`)
+3. Seed data for local development
+4. Evaluation decision logging
 
-1. Unit tests — `PercentageStrategy`, `RoleStrategy`, `NoneStrategy`, `FeatureEvaluator`,
-   all three validators
-2. Integration tests — all 6 endpoints
-3. `.http` smoke test file (`requests/smoke-test.http`)
-4. Seed data for local development
-5. Evaluation decision logging
-
-Phase 1 DoD is met when all five are complete. Phase 1.5 begins immediately after.
+Phase 1 DoD is met when all four are complete. Phase 1.5 begins immediately after.
 
 ---
 

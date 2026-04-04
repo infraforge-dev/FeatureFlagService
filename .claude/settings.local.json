@@ -8,7 +8,10 @@
       "Bash(git pull:*)",
       "Bash(dotnet build:*)",
       "Bash(git add:*)",
-      "Bash(git:*)"
+      "Bash(git:*)",
+      "Bash(dotnet format:*)",
+      "Bash(dotnet test:*)",
+      "Bash(dotnet csharpier:*)"
     ]
   }
 }
