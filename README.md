@@ -3,7 +3,7 @@
 **Azure-native. .NET-first. AI-assisted feature flag management.**
 
 A production-quality feature flag evaluation service built for .NET teams on Azure —
-designed from the ground up as an open-core alternative to LaunchDarkly and Unleash,
+designed from the ground up as an open-source alternative to LaunchDarkly and Unleash,
 with AI-assisted flag analysis and a first-class .NET SDK as core product features.
 
 [![.NET](https://img.shields.io/badge/.NET-10.0-512BD4?logo=dotnet)](https://dotnet.microsoft.com)
