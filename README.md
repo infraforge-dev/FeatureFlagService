@@ -58,7 +58,7 @@ A production-quality NuGet SDK ships alongside the service. ASP.NET Core teams g
 **🤖 AI-assisted flag management**
 Natural language flag health analysis, stale flag detection, rollout risk reasoning, and evaluation debugging are core product features — powered by Azure OpenAI and Semantic Kernel.
 
-**🔓 Open core**
+**🔓 Open Source**
 Self-hostable under MIT. No vendor lock-in. Managed hosting and enterprise features are the business model — not the open source license.
 
 ---
