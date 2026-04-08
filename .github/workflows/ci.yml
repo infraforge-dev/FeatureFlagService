@@ -113,7 +113,36 @@ jobs:
           --logger "console;verbosity=normal"
 
   # ============================================================
-  # Job 3: AI Code Review
+  # Job 3: Integration Tests
+  # Runs integration tests against a real Postgres database via
+  # Testcontainers. Requires Docker — available on ubuntu-latest.
+  # Runs in parallel with lint-format and build-test.
+  # ============================================================
+  integration-test:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.x'
+
+      - name: Restore packages
+        run: dotnet restore FeatureFlagService.sln
+
+      - name: Run integration tests
+        run: >
+          dotnet test FeatureFlagService.sln
+          --no-restore
+          --filter "Category=Integration"
+          --logger "console;verbosity=normal"
+
+  # ============================================================
+  # Job 4: AI Code Review
   # Calls Claude API with the PR diff and a project-specific system prompt.
   # Posts a structured PR comment and submits REQUEST_CHANGES or APPROVE.
   # Runs only on pull_request events when the 'ai-review' label is present.
@@ -123,7 +152,7 @@ jobs:
   ai-review:
     name: AI Code Review
     runs-on: ubuntu-latest
-    needs: [lint-format, build-test]
+    needs: [lint-format, build-test, integration-test]
     if: >
       github.event_name == 'pull_request' &&
       contains(github.event.pull_request.labels.*.name, 'ai-review')

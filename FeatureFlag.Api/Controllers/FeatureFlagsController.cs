@@ -55,7 +55,7 @@ public sealed class FeatureFlagsController : ControllerBase
     /// <param name="ct">Cancellation token.</param>
     /// <response code="200">Returns the feature flag.</response>
     /// <response code="404">No flag found with the given name in the specified environment.</response>
-    [HttpGet("{name}")]
+    [HttpGet("{name}", Name = nameof(GetByNameAsync))]
     [ProducesResponseType<FlagResponse>(
         StatusCodes.Status200OK,
         Description = "The requested feature flag."
@@ -103,7 +103,7 @@ public sealed class FeatureFlagsController : ControllerBase
         }
 
         FlagResponse created = await _service.CreateFlagAsync(request, ct);
-        return CreatedAtAction(
+        return CreatedAtRoute(
             nameof(GetByNameAsync),
             new { name = created.Name, environment = created.Environment },
             created

@@ -20,7 +20,7 @@ public class Flag
         EnvironmentType environment,
         bool isEnabled,
         RolloutStrategy strategyType,
-        string strategyConfig
+        string? strategyConfig
     )
     {
         if (string.IsNullOrWhiteSpace(name))
@@ -48,7 +48,7 @@ public class Flag
         UpdatedAt = DateTime.UtcNow;
     }
 
-    public void UpdateStrategy(RolloutStrategy strategyType, string strategyConfig)
+    public void UpdateStrategy(RolloutStrategy strategyType, string? strategyConfig)
     {
         StrategyType = strategyType;
         StrategyConfig = strategyConfig ?? "{}";
@@ -70,7 +70,7 @@ public class Flag
     /// Atomically updates the enabled state and rollout strategy in a single
     /// operation, setting UpdatedAt exactly once.
     /// </summary>
-    public void Update(bool isEnabled, RolloutStrategy strategyType, string strategyConfig)
+    public void Update(bool isEnabled, RolloutStrategy strategyType, string? strategyConfig)
     {
         IsEnabled = isEnabled;
         StrategyType = strategyType;

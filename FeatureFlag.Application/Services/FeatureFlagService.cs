@@ -1,6 +1,7 @@
 using FeatureFlag.Application.DTOs;
 using FeatureFlag.Application.Evaluation;
 using FeatureFlag.Application.Interfaces;
+using FeatureFlag.Application.Validation;
 using FeatureFlag.Domain.Entities;
 using FeatureFlag.Domain.Enums;
 using FeatureFlag.Domain.Exceptions;
@@ -26,6 +27,8 @@ public sealed class FeatureFlagService : IFeatureFlagService
         CancellationToken ct = default
     )
     {
+        EnvironmentRules.RequireValid(environment);
+
         Flag flag =
             await _repository.GetByNameAsync(name, environment, ct)
             ?? throw new FlagNotFoundException(name);
@@ -65,6 +68,8 @@ public sealed class FeatureFlagService : IFeatureFlagService
         CancellationToken ct = default
     )
     {
+        EnvironmentRules.RequireValid(environment);
+
         IReadOnlyList<Flag> flags = await _repository.GetAllAsync(environment, ct);
         return flags.Select(f => f.ToResponse()).ToList();
     }
@@ -74,6 +79,8 @@ public sealed class FeatureFlagService : IFeatureFlagService
         CancellationToken ct = default
     )
     {
+        EnvironmentRules.RequireValid(request.Environment);
+
         // NotEmpty in the validator guarantees non-null, non-whitespace — ! is safe here.
         string name = Validators.InputSanitizer.Clean(request.Name)!;
 
@@ -102,6 +109,8 @@ public sealed class FeatureFlagService : IFeatureFlagService
         CancellationToken ct = default
     )
     {
+        EnvironmentRules.RequireValid(environment);
+
         Flag flag =
             await _repository.GetByNameAsync(name, environment, ct)
             ?? throw new FlagNotFoundException(name);
@@ -117,6 +126,8 @@ public sealed class FeatureFlagService : IFeatureFlagService
         CancellationToken ct = default
     )
     {
+        EnvironmentRules.RequireValid(environment);
+
         Flag flag =
             await _repository.GetByNameAsync(name, environment, ct)
             ?? throw new FlagNotFoundException(name);

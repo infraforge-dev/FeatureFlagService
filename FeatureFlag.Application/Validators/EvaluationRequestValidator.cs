@@ -1,5 +1,5 @@
 using FeatureFlag.Application.DTOs;
-using FeatureFlag.Domain.Enums;
+using FeatureFlag.Application.Validation;
 using FluentValidation;
 
 namespace FeatureFlag.Application.Validators;
@@ -21,10 +21,8 @@ public sealed class EvaluationRequestValidator : AbstractValidator<EvaluationReq
             .WithMessage("UserId must not exceed 256 characters.");
 
         RuleFor(x => x.Environment)
-            .NotEqual(EnvironmentType.None)
-            .WithMessage(
-                "A valid environment must be specified (Development, Staging, or Production)."
-            );
+            .Must(EnvironmentRules.IsValid)
+            .WithMessage(EnvironmentRules.InvalidEnvironmentMessage);
 
         // UserRoles: not null, max 50 entries, each role max 100 chars after sanitization
         RuleFor(x => x.UserRoles)
