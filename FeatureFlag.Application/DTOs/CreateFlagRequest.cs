@@ -18,5 +18,5 @@ public sealed record CreateFlagRequest(
     EnvironmentType Environment,
     bool IsEnabled,
     RolloutStrategy StrategyType,
-    string StrategyConfig
+    string? StrategyConfig
 );

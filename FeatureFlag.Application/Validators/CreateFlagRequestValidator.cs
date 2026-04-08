@@ -1,4 +1,5 @@
 using FeatureFlag.Application.DTOs;
+using FeatureFlag.Application.Validation;
 using FeatureFlag.Domain.Enums;
 using FluentValidation;
 
@@ -25,10 +26,8 @@ public sealed class CreateFlagRequestValidator : AbstractValidator<CreateFlagReq
             .WithMessage("Flag name may only contain letters, numbers, hyphens, and underscores.");
 
         RuleFor(x => x.Environment)
-            .NotEqual(EnvironmentType.None)
-            .WithMessage(
-                "A valid environment must be specified (Development, Staging, or Production)."
-            );
+            .Must(EnvironmentRules.IsValid)
+            .WithMessage(EnvironmentRules.InvalidEnvironmentMessage);
 
         RuleFor(x => x.StrategyType)
             .IsInEnum()

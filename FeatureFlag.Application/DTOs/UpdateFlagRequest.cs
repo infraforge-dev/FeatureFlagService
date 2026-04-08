@@ -14,5 +14,5 @@ namespace FeatureFlag.Application.DTOs;
 public sealed record UpdateFlagRequest(
     bool IsEnabled,
     RolloutStrategy StrategyType,
-    string StrategyConfig
+    string? StrategyConfig
 );
