@@ -25,12 +25,16 @@
 **Phase 1 — Error Handling (PR #36): ✅ Complete**
 **Phase 1 — Input Validation Hardening (PR #37): ✅ Complete**
 **Phase 1 — Unit Tests (PR #38): ✅ Complete**
+**Phase 1 — Integration Tests (PR #39): ✅ Complete**
 
-KI-008 and KI-NEW-001 are closed. Unit tests are complete — 75 tests passing across
-all strategies, the evaluator, and all three validators. Two silent production bugs
-were discovered and fixed during the test session: `PercentageStrategy` and
-`RoleStrategy` both had case-sensitive JSON deserialization that caused every real
-Percentage and RoleBased evaluation to silently return `false`.
+Integration tests are complete — 106 tests passing total (75 unit + 31 integration)
+against a real Postgres instance via Testcontainers. Two additional production bugs
+were found and fixed: `strategyConfig: null` was rejected at model binding (fixed by
+making `StrategyConfig` nullable on both request DTOs), and `CreatedAtAction` could
+not resolve its route on POST (fixed with a named route on `GetByNameAsync` and
+`CreatedAtRoute` on the create response). `EnvironmentRules.cs` was introduced in
+the Application layer as the single source of truth for environment validation — a
+stronger design than the spec called for.
 
 **Product direction locked:** Azure-native, .NET-first, AI-assisted feature flag
 platform targeting .NET teams on Azure. Phase 1.5 introduces Key Vault, Application
@@ -59,20 +63,28 @@ Insights, and the AI analysis endpoint immediately after Phase 1 completes.
 ### Application Layer
 
 - `NoneStrategy`, `PercentageStrategy`, `RoleStrategy` — all strategies implemented
-- `FeatureEvaluator` — registry dispatch pattern
+  - `PercentageStrategy` — `try/catch (JsonException)` around `Deserialize`;
+    `PropertyNameCaseInsensitive = true` on static `JsonSerializerOptions` (PR #38)
+  - `RoleStrategy` — same two fixes as `PercentageStrategy` (PR #38)
+- `FeatureEvaluator` — registry dispatch pattern, dictionary keyed by `RolloutStrategy`
 - `FeatureFlagService` — async, orchestrates repository + evaluator
-  - `CreateFlagAsync` — sanitizes name, calls `ExistsAsync`, throws `DuplicateFlagNameException` before insert (PR #37)
+  - `CreateFlagAsync` — sanitizes name, calls `ExistsAsync`, throws
+    `DuplicateFlagNameException` before insert (PR #37)
 - `DependencyInjection.cs` — `AddApplication()` extension method
-- DTOs: `CreateFlagRequest`, `UpdateFlagRequest`, `FlagResponse`, `EvaluationRequest`, `EvaluationResponse`, `FlagMappings`
+- DTOs: `CreateFlagRequest`, `UpdateFlagRequest`, `FlagResponse`, `EvaluationRequest`,
+  `EvaluationResponse`, `FlagMappings`
+  - `CreateFlagRequest.StrategyConfig` — `string?` (nullable) (PR #39)
+  - `UpdateFlagRequest.StrategyConfig` — `string?` (nullable) (PR #39)
 - `IFeatureFlagService` — async signatures with `CancellationToken`, full CRUD + evaluation
 - Validators:
   - `CreateFlagRequestValidator`, `UpdateFlagRequestValidator`, `EvaluationRequestValidator`
   - `InputSanitizer` — shared static helper, HTTP boundary sanitization
-  - `StrategyConfigRules` — shared static class, `BeValidPercentageConfig` and `BeValidRoleConfig` (PR #37, closes KI-NEW-001)
-- `PercentageStrategy` — `try/catch (JsonException)` around `Deserialize`;
-  `PropertyNameCaseInsensitive = true` added to `JsonSerializerOptions` (PR #38,
-  fixes silent fail-closed failure on malformed config and case-mismatch deserialization)
-- `RoleStrategy` — same two fixes as `PercentageStrategy` (PR #38)
+  - `StrategyConfigRules` — shared static class, `BeValidPercentageConfig` and
+    `BeValidRoleConfig` (PR #37, closes KI-NEW-001)
+- `EnvironmentRules` — `FeatureFlag.Application/Validation/EnvironmentRules.cs` (PR #39)
+  - `IsValid(EnvironmentType)` — consumed by all three validators
+  - `RequireValid(EnvironmentType)` — enforced at the service boundary in `FeatureFlagService`
+  - Single source of truth for environment validation message and logic
 - Unit tests: 75/75 passing — `NoneStrategyTests` (4), `PercentageStrategyTests` (9),
   `RoleStrategyTests` (9), `FeatureEvaluatorTests` (4), `CreateFlagRequestValidatorTests` (17),
   `UpdateFlagRequestValidatorTests` (9), `EvaluationRequestValidatorTests` (10) (PR #38)
@@ -82,12 +94,18 @@ Insights, and the AI analysis endpoint immediately after Phase 1 completes.
 ### API Layer
 
 - `FeatureFlagsController` — full CRUD
-  - `RouteParameterGuard.ValidateName(name)` called first in `GetByNameAsync`, `UpdateAsync`, `ArchiveAsync` (PR #37, closes KI-008)
+  - `RouteParameterGuard.ValidateName(name)` called first in `GetByNameAsync`,
+    `UpdateAsync`, `ArchiveAsync` (PR #37, closes KI-008)
+  - `GetByNameAsync` has a named route — used by `CreatedAtRoute` (PR #39)
+  - `POST /api/flags` returns `CreatedAtRoute(nameof(GetByNameAsync), ...)` (PR #39)
 - `EvaluationController` — evaluation endpoint
 - `GlobalExceptionMiddleware` — catches all exceptions, maps to `ProblemDetails`
   - Handles `400`, `404`, `409` domain exceptions
   - Returns `application/problem+json` on all error responses
-- `FeatureFlag.Api/Helpers/RouteParameterGuard` — compiled regex allowlist on `{name}` route params (PR #37)
+- `FeatureFlag.Api/Helpers/RouteParameterGuard` — compiled regex allowlist on `{name}`
+  route params (PR #37)
+- `public partial class Program { }` — exposes `Program` to `WebApplicationFactory<Program>`
+  in the integration test project (PR #39)
 - OpenAPI enrichment: `EnumSchemaTransformer`, `ApiInfoTransformer`, Scalar UI
 - Manual `ValidateAsync` in controllers (POST and PUT on flags; POST on evaluate)
 
@@ -95,16 +113,22 @@ Insights, and the AI analysis endpoint immediately after Phase 1 completes.
 
 - `FeatureFlagRepository` — implements `IFeatureFlagRepository`
   - `ExistsAsync` implemented using `AnyAsync` — non-archived flags only (PR #37)
-  - `SaveChangesAsync` intercepts `DbUpdateException` wrapping Postgres `23505` (unique constraint) and rethrows as `DuplicateFlagNameException` — handles TOCTOU race condition (PR #37)
+  - `SaveChangesAsync` intercepts `DbUpdateException` wrapping Postgres `23505` and
+    rethrows as `DuplicateFlagNameException` — handles TOCTOU race condition (PR #37)
 - `FeatureFlagDbContext` + `FlagConfiguration` — Fluent API, `jsonb` for `StrategyConfig`
 - Partial unique index on `(Name, Environment)` filtered to `IsArchived = false`
 
 ### CI/CD
 
-- `.github/workflows/ci.yml` — parallel `lint-format` and `build-test` jobs
+- `.github/workflows/ci.yml` — three parallel jobs: `lint-format`, `build-test`,
+  `integration-test` (PR #39)
+- `integration-test` job uses Testcontainers — Docker available on `ubuntu-latest`,
+  no separate Postgres service container needed
+- `ai-review` job now depends on all three: `[lint-format, build-test, integration-test]`
+  (PR #39)
 - AI reviewer job — activated by `ai-review` label
 - CSharpier 1.x as final formatting authority
-- `.editorconfig` with Allman brace style and Roslyn diagnostic severities
+- `.editorconfig` with Roslyn diagnostic severities
 
 ### Dev Environment
 
@@ -116,7 +140,16 @@ Insights, and the AI analysis endpoint immediately after Phase 1 completes.
 
 ### Tests
 
-- `FeatureEvaluationContextTests` — 8/8 passing, `[Trait("Category", "Unit")]`
+- `FeatureFlag.Tests` — 75/75 unit tests passing, `[Trait("Category", "Unit")]`
+- `FeatureFlag.Tests.Integration` — 31/31 integration tests passing,
+  `[Trait("Category", "Integration")]` (PR #39)
+  - `FeatureFlagApiFactory` — `WebApplicationFactory<Program>` backed by
+    Testcontainers Postgres; overrides EF Core connection string at test-host startup
+  - `IntegrationTestCollection` + `IntegrationTestBase` — shared container fixture;
+    `DELETE FROM flags` cleanup between tests
+  - `FlagEndpointTests` — 24 tests covering all 6 flag endpoints
+  - `EvaluationEndpointTests` — 7 tests covering `POST /api/evaluate`
+- **Total: 106/106 passing**
 - Build: ✅ 0 warnings, 0 errors
 - CSharpier: ✅ 0 violations
 
@@ -124,17 +157,10 @@ Insights, and the AI analysis endpoint immediately after Phase 1 completes.
 
 ## ❌ What Is Not Yet Built (Phase 1 Remaining)
 
-### Testing
-
-- Unit tests for `PercentageStrategy`, `RoleStrategy`, `NoneStrategy`
-- Unit tests for `FeatureEvaluator` — dispatch, missing strategy fallback
-- Unit tests for all three validators — every acceptance criterion covered
-- Integration tests for all API endpoints including `/api/evaluate`
-
 ### Developer Experience
 
 - `.http` smoke test request file committed to repo (`requests/smoke-test.http`)
-- Seed data for development/staging flags
+- Seed data for local development
 - Evaluation decision logging
 
 ---
@@ -147,7 +173,8 @@ Insights, and the AI analysis endpoint immediately after Phase 1 completes.
 **Status:** Documented — tracked for review when new callers are introduced
 
 Callers must check `Flag.IsEnabled` before calling `Evaluate`. Documented via XML
-doc comment, not enforced by a guard clause.
+doc comment, not enforced by a guard clause. If a second caller of `FeatureEvaluator`
+is introduced, re-evaluate whether the guard clause should be added back.
 
 ---
 
@@ -191,18 +218,24 @@ designate the correct layer for the catch.
 memory. Always wrap with `using` — failure to dispose increases GC pressure. Future
 specs providing `JsonDocument` code must use `using JsonDocument doc = ...`.
 
+**DTO nullability must match wire contract:** `CreateFlagRequest.StrategyConfig` and
+`UpdateFlagRequest.StrategyConfig` are `string?` — nullable. The spec for PR #39
+intended to keep them non-nullable and use raw JSON in tests; the implementer
+correctly updated the DTOs to match the actual wire contract where `null` is valid
+for `RolloutStrategy.None`. Future specs must specify nullability on DTO fields
+explicitly when the field is optional on the wire.
+
 ---
 
 ## 🎯 Current Focus
 
-**Phase 1 — MVP Completion (Testing & Developer Experience)**
+**Phase 1 — MVP Completion (Developer Experience — final stretch)**
 
 ### Immediate Next Tasks
 
-1. Integration tests for all 6 endpoints (requires Postgres service container in CI)
-2. `.http` smoke test file (`requests/smoke-test.http`)
-3. Seed data for local development
-4. Evaluation decision logging
+1. `.http` smoke test file (`requests/smoke-test.http`)
+2. Seed data for local development
+3. Evaluation decision logging
 
 ---
 
@@ -245,7 +278,7 @@ specs providing `JsonDocument` code must use `using JsonDocument doc = ...`.
 - [x] Unit tests for `PercentageStrategy`, `RoleStrategy`, `NoneStrategy`
 - [x] Unit tests for `FeatureEvaluator` — dispatch, missing strategy fallback
 - [x] Unit tests for all three validators
-- [ ] Integration tests for all 6 endpoints
+- [x] Integration tests for all 6 endpoints (PR #39)
 - [ ] `.http` smoke test file committed
 - [ ] Seed data for local development
 - [ ] Evaluation decision logging
@@ -268,23 +301,32 @@ specs providing `JsonDocument` code must use `using JsonDocument doc = ...`.
   `UpdateAsync`, and `ArchiveAsync` — do not remove or reorder
 - `StrategyConfigRules` is the single source of truth for `BeValidPercentageConfig`
   and `BeValidRoleConfig` — do not re-add these methods to individual validators
+- `EnvironmentRules.IsValid(...)` is used by all three validators; `EnvironmentRules.RequireValid(...)`
+  is called at the service boundary — do not duplicate environment validation in controllers
 - `DuplicateFlagNameException` constructor accepts `(string flagName, EnvironmentType environment)`
 - `ExistsAsync` on the repository checks non-archived flags only
 - `SaveChangesAsync` in `FeatureFlagRepository` catches `DbUpdateException` wrapping
-  Postgres `23505` and rethrows as `DuplicateFlagNameException` — this is intentional
-  TOCTOU handling and must not be removed
+  Postgres `23505` and rethrows as `DuplicateFlagNameException` — intentional TOCTOU
+  handling, do not remove
+- `CreateFlagRequest.StrategyConfig` and `UpdateFlagRequest.StrategyConfig` are `string?`
+  (nullable) — `null` is valid on the wire for `RolloutStrategy.None`
+- `GetByNameAsync` in `FeatureFlagsController` has a named route — used by
+  `CreatedAtRoute` in the POST action; do not remove the route name
+- `public partial class Program { }` at the end of `Program.cs` is intentional —
+  required for `WebApplicationFactory<Program>` in integration tests; do not remove
+- `PercentageStrategy` and `RoleStrategy` use `PropertyNameCaseInsensitive = true` on
+  a static `JsonSerializerOptions` — do not remove; stored configs use lowercase keys
+- `FluentAssertions v7.*` is the assertion library in `FeatureFlag.Tests` — do not
+  use `Assert.*` anywhere in the test projects
+- All unit test methods carry `[Trait("Category", "Unit")]`; all integration test
+  methods carry `[Trait("Category", "Integration")]` — required for CI filters
 - `appsettings.Development.json` is intentionally committed — local Docker defaults only
 - Connection string uses `Host=postgres` — do not change to `localhost`
 - Both Infrastructure and Api projects require `Microsoft.EntityFrameworkCore.Design`
   with `PrivateAssets=all`
-- Do not use `FluentValidation.AspNetCore` or `.Transform()` — see FluentValidation v12 notes
+- Do not use `FluentValidation.AspNetCore` or `.Transform()` — deprecated/removed in v12
 - Any spec referencing ProblemDetails must specify `application/problem+json`
 - Any spec with uniqueness checks must address TOCTOU and designate the correct layer
 - Any spec providing `JsonDocument` code must use `using JsonDocument doc = ...`
-- `PercentageStrategy` and `RoleStrategy` use `PropertyNameCaseInsensitive = true`
-  in their `JsonSerializerOptions` — do not remove; stored configs use lowercase keys
-  (`"percentage"`, `"roles"`) but C# records use PascalCase properties
-- `FluentAssertions v7.*` is the assertion library in `FeatureFlag.Tests` — do not
-  use `Assert.*` methods anywhere in the test project
-- All test methods carry `[Trait("Category", "Unit")]` — required for CI filter
-  `--filter "Category!=Integration"` to include them
+- Any spec with optional DTO fields must explicitly state whether the field is `string?`
+  or `string` and what `null` means on the wire
