@@ -11,7 +11,7 @@ namespace FeatureFlag.Tests.Integration;
 
 [Collection("Integration")]
 [Trait("Category", "Integration")]
-public sealed class FlagEndpointTests : IntegrationnTestBase
+public sealed class FlagEndpointTests : IntegrationTestBase
 {
     private const string InvalidRouteName = "invalid%20name%21";
 
