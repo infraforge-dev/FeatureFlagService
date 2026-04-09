@@ -26,19 +26,21 @@
 **Phase 1 — Input Validation Hardening (PR #37): ✅ Complete**
 **Phase 1 — Unit Tests (PR #38): ✅ Complete**
 **Phase 1 — Integration Tests (PR #39): ✅ Complete**
+**Phase 1 — Evaluation Decision Logging (PR #48): ✅ Complete**
+**Phase 1 — NuGet Locked Restore (rolled into PR #48): ✅ Complete**
 
-Integration tests are complete — 106 tests passing total (75 unit + 31 integration)
-against a real Postgres instance via Testcontainers. Two additional production bugs
-were found and fixed: `strategyConfig: null` was rejected at model binding (fixed by
-making `StrategyConfig` nullable on both request DTOs), and `CreatedAtAction` could
-not resolve its route on POST (fixed with a named route on `GetByNameAsync` and
-`CreatedAtRoute` on the create response). `EnvironmentRules.cs` was introduced in
-the Application layer as the single source of truth for environment validation — a
-stronger design than the spec called for.
+110/110 tests passing (79 unit + 31 integration). Evaluation outcomes are now modeled
+as a discriminated union (`EvaluationResult` → `FlagDisabled` | `StrategyEvaluated`)
+with an explicit `EvaluationReason` dimension on every log entry. Raw `UserId` values
+are never logged — a SHA256 surrogate (`HashedUserId`, 8 hex chars) is used throughout.
+NuGet locked restore is now enforced in CI via `--locked-mode`; `packages.lock.json`
+is committed for all projects.
 
-**Product direction locked:** Azure-native, .NET-first, AI-assisted feature flag
-platform targeting .NET teams on Azure. Phase 1.5 introduces Key Vault, Application
-Insights, and the AI analysis endpoint immediately after Phase 1 completes.
+**Two tasks remain before Phase 1 DoD is declared complete:**
+1. `.http` smoke test file
+2. Seed data for local development
+
+Phase 1.5 begins immediately after both are shipped.
 
 ---
 
@@ -46,110 +48,94 @@ Insights, and the AI analysis endpoint immediately after Phase 1 completes.
 
 ### Domain Layer
 
-- `Flag` entity with controlled mutation (private setters, explicit update methods)
+- `Flag` entity with controlled mutation (private setters, explicit mutation methods)
 - `Flag.Update()` — atomic method that sets enabled state, strategy, and `UpdatedAt`
 - `FeatureEvaluationContext` value object — `IEquatable<T>`, guard clauses, immutable roles
 - `RolloutStrategy` enum (None, Percentage, RoleBased)
 - `EnvironmentType` enum (None = 0 sentinel, Development, Staging, Production)
-- `IRolloutStrategy` interface — includes `StrategyType` property for registry dispatch
+- `IRolloutStrategy` interface — includes `StrategyType` for registry dispatch
 - `IFeatureFlagRepository` interface — async signatures with `CancellationToken`
-  - Includes `ExistsAsync(name, environment, ct)` — added PR #37
-- Exception hierarchy in `FeatureFlag.Domain/Exceptions/`:
-  - `FeatureFlagException` — abstract base, carries `StatusCode`
-  - `FlagNotFoundException` — 404
-  - `DuplicateFlagNameException` — 409, constructor accepts `(string, EnvironmentType)`
-  - `FeatureFlagValidationException` — 400, for route parameter allowlist failures (PR #37)
+- Domain exceptions: `FlagNotFoundException`, `DuplicateFlagNameException`,
+  `FeatureFlagValidationException`
 
 ### Application Layer
 
-- `NoneStrategy`, `PercentageStrategy`, `RoleStrategy` — all strategies implemented
-  - `PercentageStrategy` — `try/catch (JsonException)` around `Deserialize`;
-    `PropertyNameCaseInsensitive = true` on static `JsonSerializerOptions` (PR #38)
-  - `RoleStrategy` — same two fixes as `PercentageStrategy` (PR #38)
-- `FeatureEvaluator` — registry dispatch pattern, dictionary keyed by `RolloutStrategy`
-- `FeatureFlagService` — async, orchestrates repository + evaluator
-  - `CreateFlagAsync` — sanitizes name, calls `ExistsAsync`, throws
-    `DuplicateFlagNameException` before insert (PR #37)
+- `NoneStrategy` — passthrough, always returns true
+- `PercentageStrategy` — deterministic SHA256 hashing into 100 buckets
+- `RoleStrategy` — config-driven, case-insensitive, fail-closed role matching
+- `FeatureEvaluator` — registry dispatch, `Dictionary<RolloutStrategy, IRolloutStrategy>`
+- `FeatureFlagService` — async, orchestrates repository + evaluator + logging
+- `IFeatureFlagService` — async signatures with `CancellationToken`, full CRUD + evaluation
 - `DependencyInjection.cs` — `AddApplication()` extension method
 - DTOs: `CreateFlagRequest`, `UpdateFlagRequest`, `FlagResponse`, `EvaluationRequest`,
-  `EvaluationResponse`, `FlagMappings`
-  - `CreateFlagRequest.StrategyConfig` — `string?` (nullable) (PR #39)
-  - `UpdateFlagRequest.StrategyConfig` — `string?` (nullable) (PR #39)
-- `IFeatureFlagService` — async signatures with `CancellationToken`, full CRUD + evaluation
-- Validators:
-  - `CreateFlagRequestValidator`, `UpdateFlagRequestValidator`, `EvaluationRequestValidator`
-  - `InputSanitizer` — shared static helper, HTTP boundary sanitization
-  - `StrategyConfigRules` — shared static class, `BeValidPercentageConfig` and
-    `BeValidRoleConfig` (PR #37, closes KI-NEW-001)
-- `EnvironmentRules` — `FeatureFlag.Application/Validation/EnvironmentRules.cs` (PR #39)
-  - `IsValid(EnvironmentType)` — consumed by all three validators
-  - `RequireValid(EnvironmentType)` — enforced at the service boundary in `FeatureFlagService`
-  - Single source of truth for environment validation message and logic
-- Unit tests: 75/75 passing — `NoneStrategyTests` (4), `PercentageStrategyTests` (9),
-  `RoleStrategyTests` (9), `FeatureEvaluatorTests` (4), `CreateFlagRequestValidatorTests` (17),
-  `UpdateFlagRequestValidatorTests` (9), `EvaluationRequestValidatorTests` (10) (PR #38)
-- `FluentAssertions v7.*` added to `FeatureFlag.Tests`
-- `FlagBuilder` static helper — `FeatureFlag.Tests/Helpers/FlagBuilder.cs`
+  `FlagMappings`
+- `InputSanitizer` — single source of truth for HTTP boundary sanitization
+- `EnvironmentRules` — single source of truth for environment validation
+- `StrategyConfigRules` — single source of truth for strategy config validation
+- Validators: `CreateFlagRequestValidator`, `UpdateFlagRequestValidator`,
+  `EvaluationRequestValidator` (FluentValidation v12)
 
-### API Layer
+### Evaluation Logging (PR #48)
 
-- `FeatureFlagsController` — full CRUD
-  - `RouteParameterGuard.ValidateName(name)` called first in `GetByNameAsync`,
-    `UpdateAsync`, `ArchiveAsync` (PR #37, closes KI-008)
-  - `GetByNameAsync` has a named route — used by `CreatedAtRoute` (PR #39)
-  - `POST /api/flags` returns `CreatedAtRoute(nameof(GetByNameAsync), ...)` (PR #39)
-- `EvaluationController` — evaluation endpoint
-- `GlobalExceptionMiddleware` — catches all exceptions, maps to `ProblemDetails`
-  - Handles `400`, `404`, `409` domain exceptions
-  - Returns `application/problem+json` on all error responses
-- `FeatureFlag.Api/Helpers/RouteParameterGuard` — compiled regex allowlist on `{name}`
-  route params (PR #37)
-- `public partial class Program { }` — exposes `Program` to `WebApplicationFactory<Program>`
-  in the integration test project (PR #39)
-- OpenAPI enrichment: `EnumSchemaTransformer`, `ApiInfoTransformer`, Scalar UI
-- Manual `ValidateAsync` in controllers (POST and PUT on flags; POST on evaluate)
+- `EvaluationResult.cs` — discriminated union in `FeatureFlag.Application/Evaluation/`:
+  - `EvaluationReason` enum (`FlagDisabled`, `StrategyEvaluated`)
+  - `EvaluationResult` abstract base record
+  - `FlagDisabled` sealed record — carries `FlagName`, `Environment`, `HashedUserId`,
+    `Reason`
+  - `StrategyEvaluated` sealed record — additionally carries `IsEnabled`, `StrategyType`
+- `FeatureFlagService` updated:
+  - `ILogger<FeatureFlagService>` injected
+  - `HashUserId(string)` — `internal static`, SHA256, 8 hex chars, lowercase
+  - `LogResult(EvaluationResult)` — structured log, `Reason` as explicit dimension,
+    `default: throw UnreachableException` for exhaustiveness
+  - `LogWarning` before `FlagNotFoundException` (flag-not-found path)
+  - `IsEnabled(LogLevel.Information)` guard in `LogResult` (CA1873)
+  - Raw `UserId` never appears in any log entry
+- `AssemblyInfo.cs` — `InternalsVisibleTo("FeatureFlag.Tests")`
+- `Microsoft.Extensions.Diagnostics.Testing` added to `FeatureFlag.Tests` (`10.4.0`,
+  pinned) — provides `FakeLogger<T>` for structured log assertions
+- New unit tests: `EvaluationResultTests` (8 tests) + `UserIdHashTests` (4 tests) +
+  `FeatureFlagServiceLoggingTests` (4 tests) = 16 new unit tests
+
+### NuGet Locked Restore (rolled into PR #48)
+
+- `RestorePackagesWithLockFile=true` added to `Directory.Build.props`
+- `packages.lock.json` committed for all projects
+- CI restore steps updated to `dotnet restore FeatureFlagService.sln --locked-mode`
+- NuGet caching re-enabled in both `lint-format` and `build-test` CI jobs
 
 ### Infrastructure Layer
 
-- `FeatureFlagRepository` — implements `IFeatureFlagRepository`
-  - `ExistsAsync` implemented using `AnyAsync` — non-archived flags only (PR #37)
-  - `SaveChangesAsync` intercepts `DbUpdateException` wrapping Postgres `23505` and
-    rethrows as `DuplicateFlagNameException` — handles TOCTOU race condition (PR #37)
-- `FeatureFlagDbContext` + `FlagConfiguration` — Fluent API, `jsonb` for `StrategyConfig`
+- `FeatureFlagRepository` — EF Core, async, filters archived flags on all reads
+- `FlagDbContext` + `FlagConfiguration` — Fluent API, enums as strings, `StrategyConfig`
+  as `jsonb`
 - Partial unique index on `(Name, Environment)` filtered to `IsArchived = false`
+- `SaveChangesAsync` catches Postgres `23505` → rethrows `DuplicateFlagNameException`
+
+### API Layer
+
+- `FeatureFlagsController` — 5 endpoints, zero `try/catch`, happy path only
+- `EvaluationController` — `POST /api/evaluate`, zero `try/catch`
+- `GlobalExceptionMiddleware` — RFC 9457 `ProblemDetails`, `application/problem+json`
+- `RouteParameterGuard` — compiled regex, called first in GET/PUT/DELETE by name
+- Swagger/OpenAPI at `/openapi/v1.json`
 
 ### CI/CD
 
-- `.github/workflows/ci.yml` — three parallel jobs: `lint-format`, `build-test`,
-  `integration-test` (PR #39)
-- `integration-test` job uses Testcontainers — Docker available on `ubuntu-latest`,
-  no separate Postgres service container needed
-- `ai-review` job now depends on all three: `[lint-format, build-test, integration-test]`
-  (PR #39)
-- AI reviewer job — activated by `ai-review` label
-- CSharpier 1.x as final formatting authority
-- `.editorconfig` with Roslyn diagnostic severities
-
-### Dev Environment
-
-- DevContainer: `devcontainers/base:ubuntu-24.04` + .NET 10 SDK
-- Docker-outside-of-Docker configured; `postStartCommand` automates network join
-- `dotnet-ef` and `csharpier` in `.config/dotnet-tools.json`
-- Connection string: `Host=postgres`
-- `docker-compose.yml` at repo root
+- `lint-format` job — CSharpier check + zero-warning build
+- `build-test` job — unit tests via `--filter "Category=Unit"`
+- `integration-test` job — integration tests via `--filter "Category=Integration"`,
+  Testcontainers Postgres
+- `ai-review` job — Claude API reviewer, activated by `ai-review` label, fail-open
+- `--locked-mode` on all restore steps
+- NuGet caching active
 
 ### Tests
 
-- `FeatureFlag.Tests` — 75/75 unit tests passing, `[Trait("Category", "Unit")]`
-- `FeatureFlag.Tests.Integration` — 31/31 integration tests passing,
-  `[Trait("Category", "Integration")]` (PR #39)
-  - `FeatureFlagApiFactory` — `WebApplicationFactory<Program>` backed by
-    Testcontainers Postgres; overrides EF Core connection string at test-host startup
-  - `IntegrationTestCollection` + `IntegrationTestBase` — shared container fixture;
-    `DELETE FROM flags` cleanup between tests
-  - `FlagEndpointTests` — 24 tests covering all 6 flag endpoints
-  - `EvaluationEndpointTests` — 7 tests covering `POST /api/evaluate`
-- **Total: 106/106 passing**
+- `FeatureFlag.Tests` — 79/79 unit tests passing (`[Trait("Category", "Unit")]`)
+- `FeatureFlag.Tests.Integration` — 31/31 integration tests passing
+  (`[Trait("Category", "Integration")]`)
+- **Total: 110/110 passing**
 - Build: ✅ 0 warnings, 0 errors
 - CSharpier: ✅ 0 violations
 
@@ -159,9 +145,8 @@ Insights, and the AI analysis endpoint immediately after Phase 1 completes.
 
 ### Developer Experience
 
-- `.http` smoke test request file committed to repo (`requests/smoke-test.http`)
+- `.http` smoke test request file (`requests/smoke-test.http`)
 - Seed data for local development
-- Evaluation decision logging
 
 ---
 
@@ -170,11 +155,11 @@ Insights, and the AI analysis endpoint immediately after Phase 1 completes.
 ### KI-002 — `FeatureEvaluator.Evaluate` Has an Implicit Precondition
 
 **Severity:** Low
-**Status:** Documented — tracked for review when new callers are introduced
+**Status:** Documented
 
 Callers must check `Flag.IsEnabled` before calling `Evaluate`. Documented via XML
-doc comment, not enforced by a guard clause. If a second caller of `FeatureEvaluator`
-is introduced, re-evaluate whether the guard clause should be added back.
+doc comment. If a second caller of `FeatureEvaluator` is introduced, re-evaluate
+whether a guard clause should be added.
 
 ---
 
@@ -198,44 +183,46 @@ and Api projects with `PrivateAssets=all`.
 
 ---
 
-### Spec Writing — Lessons Learned
+## Spec Writing — Lessons Learned
 
 **Audit all service methods in AC-6-style tasks:** When a spec instructs updating
 methods that throw or return null, explicitly list every affected method.
 
 **ProblemDetails responses require `application/problem+json`:** RFC 9457 §8.1.
-Do not use `MediaTypeNames.Application.Json`. Future specs must specify
-`"application/problem+json"` explicitly.
+Future specs must specify `"application/problem+json"` explicitly.
 
-**Address race conditions (TOCTOU) in uniqueness checks:** The spec for PR #37 did
-not address the concurrent-request scenario. The implementer correctly placed the
-`DbUpdateException` catch in the repository (Infrastructure), not the service
-(Application), to avoid introducing an EF Core dependency into the Application layer.
-Future specs involving uniqueness checks must explicitly address TOCTOU handling and
-designate the correct layer for the catch.
+**Address race conditions (TOCTOU) in uniqueness checks:** Designate the correct
+layer for the catch — `DbUpdateException` belongs in Infrastructure.
 
-**Dispose `JsonDocument` after parsing:** `JsonDocument.Parse()` allocates from pooled
-memory. Always wrap with `using` — failure to dispose increases GC pressure. Future
-specs providing `JsonDocument` code must use `using JsonDocument doc = ...`.
+**Dispose `JsonDocument` after parsing:** Always wrap with `using JsonDocument doc = ...`.
 
-**DTO nullability must match wire contract:** `CreateFlagRequest.StrategyConfig` and
-`UpdateFlagRequest.StrategyConfig` are `string?` — nullable. The spec for PR #39
-intended to keep them non-nullable and use raw JSON in tests; the implementer
-correctly updated the DTOs to match the actual wire contract where `null` is valid
-for `RolloutStrategy.None`. Future specs must specify nullability on DTO fields
-explicitly when the field is optional on the wire.
+**DTO nullability must match wire contract:** Explicitly state nullability on DTO
+fields when the field is optional on the wire.
+
+**Log PII defensively from day one:** Raw user identifiers must not appear in log
+output. Use a SHA256 surrogate (`HashedUserId`) from the start — retrofitting
+pseudonymization after logs are flowing into a telemetry sink is painful.
+
+**`EvaluationReason` must be a first-class log dimension:** Inferring reason from
+branch shape or message template presence/absence is fragile for App Insights
+queries and unusable for the Phase 4 trace endpoint. Always log `Reason` explicitly.
+
+**`IsEnabled` guard before logging:** Add `if (!_logger.IsEnabled(level)) return;`
+in any void log helper method (CA1873) to avoid unnecessary work on hot paths.
+
+**Pin test package versions explicitly:** Floating NuGet references in test projects
+cause CI drift. Pin to an exact version and commit `packages.lock.json`.
 
 ---
 
 ## 🎯 Current Focus
 
-**Phase 1 — MVP Completion (Developer Experience — final stretch)**
-
-### Immediate Next Tasks
+**Phase 1 — Final Two Tasks**
 
 1. `.http` smoke test file (`requests/smoke-test.http`)
 2. Seed data for local development
-3. Evaluation decision logging
+
+Phase 1 DoD is complete when both are shipped. Phase 1.5 begins immediately after.
 
 ---
 
@@ -248,15 +235,13 @@ explicitly when the field is optional on the wire.
 - No AI analysis endpoint yet (Phase 1.5)
 - No UI work
 - Do not change `Host=postgres` back to `localhost` in connection string
-- Do not use `FluentValidation.AspNetCore` or `AddFluentValidationAutoValidation()` —
-  both are deprecated; use manual `ValidateAsync` in controllers
+- Do not use `FluentValidation.AspNetCore` or `AddFluentValidationAutoValidation()`
 - Do not use `.Transform()` — removed in FluentValidation v12
-- Do not run `dotnet format` without following up with `dotnet csharpier format .` —
-  CSharpier is the final formatting authority
-- Do not add `try/catch` blocks to controllers — `GlobalExceptionMiddleware` handles
-  all exceptions; controllers contain only the happy path
-- Do not catch `DbUpdateException` in the Application layer — it is an Infrastructure
-  concern; the Application project has no EF Core reference
+- Do not add `try/catch` blocks to controllers
+- Do not catch `DbUpdateException` in the Application layer
+- Do not log raw `UserId` — always use `HashUserId()` and log `HashedUserId`
+- Do not add new `EvaluationResult` subtypes without adding a `LogResult` branch and
+  updating the `UnreachableException` message
 
 ---
 
@@ -264,69 +249,52 @@ explicitly when the field is optional on the wire.
 
 - [x] `InputSanitizer` implemented and called in validators and service layer
 - [x] `FluentValidation` v12 on all three request DTOs
-- [x] Manual `ValidateAsync` in controllers (POST and PUT on flags; POST on evaluate)
+- [x] Manual `ValidateAsync` in controllers
 - [x] CSharpier formatting enforced — CI blocks on violations
-- [x] `.github/workflows/ci.yml` — `lint-format` and `build-test` parallel jobs live
+- [x] CI — `lint-format` and `build-test` parallel jobs live
 - [x] AI reviewer job live (PR #35) — activated by `ai-review` label
 - [x] `ANTHROPIC_API_KEY` secret added to GitHub repo
-- [x] `ai-review` label created in GitHub repo
 - [x] Global exception middleware in place
 - [x] Standardized `ProblemDetails` error response shape
-- [x] Name uniqueness check at the service layer (PR #37)
-- [x] Route parameter guard for `{name}` on GET, PUT, DELETE — closes KI-008 (PR #37)
+- [x] Name uniqueness check with TOCTOU backstop (PR #37)
+- [x] Route parameter guard — closes KI-008 (PR #37)
 - [x] `StrategyConfigRules` extracted — closes KI-NEW-001 (PR #37)
-- [x] Unit tests for `PercentageStrategy`, `RoleStrategy`, `NoneStrategy`
-- [x] Unit tests for `FeatureEvaluator` — dispatch, missing strategy fallback
-- [x] Unit tests for all three validators
-- [x] Integration tests for all 6 endpoints (PR #39)
+- [x] Unit tests — 79/79 passing (PR #38 + PR #48)
+- [x] Integration tests — 31/31 passing (PR #39)
+- [x] NuGet locked restore — `--locked-mode` in CI, lock files committed
+- [x] Evaluation decision logging (PR #48)
 - [ ] `.http` smoke test file committed
 - [ ] Seed data for local development
-- [ ] Evaluation decision logging
 
 ---
 
 ## 🧩 Notes for AI Assistants
 
-- The system is not production-ready
-- Prioritize correctness over feature expansion
-- Follow Clean Architecture — dependencies point inward toward Domain
-- Work within established layer boundaries (Api → Application → Domain ← Infrastructure)
-- `IFeatureFlagService` speaks entirely in DTOs — never return `Flag` from the service
-- All evaluation logic must remain deterministic and isolated from persistence
+- Architecture follows Clean Architecture: Api → Application → Domain ← Infrastructure
+- `IFeatureFlagService` speaks entirely in DTOs — no `Flag` entity crosses the boundary
 - `GlobalExceptionMiddleware` is registered first in `Program.cs` — wraps entire pipeline
-- Controllers contain only the happy path — zero `try/catch` blocks anywhere in `FeatureFlag.Api`
+- Controllers contain only the happy path — zero `try/catch` blocks anywhere in Api
 - All error responses return `ProblemDetails` with `Content-Type: application/problem+json`
-- `ProblemDetails.Type` is set to `"about:blank"` — RFC 9457 recommendation
-- `RouteParameterGuard.ValidateName(name)` is the first call in `GetByNameAsync`,
-  `UpdateAsync`, and `ArchiveAsync` — do not remove or reorder
-- `StrategyConfigRules` is the single source of truth for `BeValidPercentageConfig`
-  and `BeValidRoleConfig` — do not re-add these methods to individual validators
-- `EnvironmentRules.IsValid(...)` is used by all three validators; `EnvironmentRules.RequireValid(...)`
-  is called at the service boundary — do not duplicate environment validation in controllers
-- `DuplicateFlagNameException` constructor accepts `(string flagName, EnvironmentType environment)`
-- `ExistsAsync` on the repository checks non-archived flags only
-- `SaveChangesAsync` in `FeatureFlagRepository` catches `DbUpdateException` wrapping
-  Postgres `23505` and rethrows as `DuplicateFlagNameException` — intentional TOCTOU
-  handling, do not remove
+- `RouteParameterGuard.ValidateName(name)` is the first call in GET/PUT/DELETE by name
+- `StrategyConfigRules` is the single source of truth for strategy config validation
+- `EnvironmentRules` is the single source of truth for environment validation
+- `SaveChangesAsync` catches Postgres `23505` → `DuplicateFlagNameException` — do not remove
+- `ExistsAsync` checks non-archived flags only
 - `CreateFlagRequest.StrategyConfig` and `UpdateFlagRequest.StrategyConfig` are `string?`
-  (nullable) — `null` is valid on the wire for `RolloutStrategy.None`
-- `GetByNameAsync` in `FeatureFlagsController` has a named route — used by
-  `CreatedAtRoute` in the POST action; do not remove the route name
-- `public partial class Program { }` at the end of `Program.cs` is intentional —
-  required for `WebApplicationFactory<Program>` in integration tests; do not remove
-- `PercentageStrategy` and `RoleStrategy` use `PropertyNameCaseInsensitive = true` on
-  a static `JsonSerializerOptions` — do not remove; stored configs use lowercase keys
-- `FluentAssertions v7.*` is the assertion library in `FeatureFlag.Tests` — do not
-  use `Assert.*` anywhere in the test projects
-- All unit test methods carry `[Trait("Category", "Unit")]`; all integration test
-  methods carry `[Trait("Category", "Integration")]` — required for CI filters
-- `appsettings.Development.json` is intentionally committed — local Docker defaults only
+- `GetByNameAsync` has a named route — used by `CreatedAtRoute` in POST; do not remove
+- `public partial class Program { }` is required for `WebApplicationFactory<Program>`
 - Connection string uses `Host=postgres` — do not change to `localhost`
-- Both Infrastructure and Api projects require `Microsoft.EntityFrameworkCore.Design`
-  with `PrivateAssets=all`
-- Do not use `FluentValidation.AspNetCore` or `.Transform()` — deprecated/removed in v12
-- Any spec referencing ProblemDetails must specify `application/problem+json`
+- Both Infrastructure and Api require `Microsoft.EntityFrameworkCore.Design` with
+  `PrivateAssets=all`
+- Do not use `FluentValidation.AspNetCore`, `AddFluentValidationAutoValidation()`,
+  or `.Transform()`
+- Any spec with ProblemDetails must specify `application/problem+json`
 - Any spec with uniqueness checks must address TOCTOU and designate the correct layer
-- Any spec providing `JsonDocument` code must use `using JsonDocument doc = ...`
-- Any spec with optional DTO fields must explicitly state whether the field is `string?`
-  or `string` and what `null` means on the wire
+- Any spec with `JsonDocument` code must use `using JsonDocument doc = ...`
+- Any spec with optional DTO fields must state nullability explicitly
+- `HashUserId` is `internal static` on `FeatureFlagService` — never log raw `UserId`
+- `EvaluationReason` must be an explicit named log dimension — never infer from message shape
+- Any new `EvaluationResult` subtype requires a `LogResult` branch; omission throws
+  `UnreachableException` at runtime
+- CI restore uses `--locked-mode` — do not remove; `packages.lock.json` must be
+  committed when adding new packages (CI does not use `NuGet.config` to override)
