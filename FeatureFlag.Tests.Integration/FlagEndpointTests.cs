@@ -20,7 +20,7 @@ public sealed class FlagEndpointTests : IntegrationTestBase
 
     [Fact]
     [Trait("Category", "Integration")]
-    public async Task CreateFlag_ValidRequest_Returns201WithLocationHeader()
+    public async Task CreateFlag_ValidRequest_Returns201WithLocationHeaderAsync()
     {
         // Arrange
         var payload = new
@@ -62,7 +62,7 @@ public sealed class FlagEndpointTests : IntegrationTestBase
 
     [Fact]
     [Trait("Category", "Integration")]
-    public async Task CreateFlag_NoneStrategyNullConfig_Returns201()
+    public async Task CreateFlag_NoneStrategyNullConfig_Returns201Async()
     {
         // Arrange
         var payload = new
@@ -90,7 +90,7 @@ public sealed class FlagEndpointTests : IntegrationTestBase
 
     [Fact]
     [Trait("Category", "Integration")]
-    public async Task CreateFlag_InvalidName_Returns400WithValidationErrors()
+    public async Task CreateFlag_InvalidName_Returns400WithValidationErrorsAsync()
     {
         // Arrange
         var payload = new
@@ -117,7 +117,7 @@ public sealed class FlagEndpointTests : IntegrationTestBase
 
     [Fact]
     [Trait("Category", "Integration")]
-    public async Task CreateFlag_DuplicateNameAndEnvironment_Returns409()
+    public async Task CreateFlag_DuplicateNameAndEnvironment_Returns409Async()
     {
         // Arrange
         await CreateFlagAsync(name: "duplicate-flag");
@@ -145,7 +145,7 @@ public sealed class FlagEndpointTests : IntegrationTestBase
 
     [Fact]
     [Trait("Category", "Integration")]
-    public async Task CreateFlag_InvalidPercentageConfig_Returns400()
+    public async Task CreateFlag_InvalidPercentageConfig_Returns400Async()
     {
         // Arrange
         var payload = new
@@ -172,7 +172,7 @@ public sealed class FlagEndpointTests : IntegrationTestBase
 
     [Fact]
     [Trait("Category", "Integration")]
-    public async Task GetAllFlags_WithFlags_Returns200WithList()
+    public async Task GetAllFlags_WithFlags_Returns200WithListAsync()
     {
         // Arrange
         await CreateFlagAsync(name: "flag-a");
@@ -193,7 +193,7 @@ public sealed class FlagEndpointTests : IntegrationTestBase
 
     [Fact]
     [Trait("Category", "Integration")]
-    public async Task GetAllFlags_NoFlags_Returns200EmptyArray()
+    public async Task GetAllFlags_NoFlags_Returns200EmptyArrayAsync()
     {
         // Arrange
 
@@ -211,7 +211,7 @@ public sealed class FlagEndpointTests : IntegrationTestBase
 
     [Fact]
     [Trait("Category", "Integration")]
-    public async Task GetAllFlags_FiltersByEnvironment_ReturnsOnlyMatching()
+    public async Task GetAllFlags_FiltersByEnvironment_ReturnsOnlyMatchingAsync()
     {
         // Arrange
         await CreateFlagAsync(name: "dev-flag", environment: EnvironmentType.Development);
@@ -233,7 +233,7 @@ public sealed class FlagEndpointTests : IntegrationTestBase
 
     [Fact]
     [Trait("Category", "Integration")]
-    public async Task GetAllFlags_ExcludesArchivedFlags()
+    public async Task GetAllFlags_ExcludesArchivedFlagsAsync()
     {
         // Arrange
         await CreateFlagAsync(name: "archived-flag");
@@ -256,7 +256,7 @@ public sealed class FlagEndpointTests : IntegrationTestBase
 
     [Fact]
     [Trait("Category", "Integration")]
-    public async Task GetFlagByName_Exists_Returns200WithCorrectBody()
+    public async Task GetFlagByName_Exists_Returns200WithCorrectBodyAsync()
     {
         // Arrange
         FlagResponse created = await CreateFlagAsync(name: "by-name-flag");
@@ -276,7 +276,7 @@ public sealed class FlagEndpointTests : IntegrationTestBase
 
     [Fact]
     [Trait("Category", "Integration")]
-    public async Task GetFlagByName_NotFound_Returns404ProblemDetails()
+    public async Task GetFlagByName_NotFound_Returns404ProblemDetailsAsync()
     {
         // Arrange
 
@@ -293,7 +293,7 @@ public sealed class FlagEndpointTests : IntegrationTestBase
 
     [Fact]
     [Trait("Category", "Integration")]
-    public async Task GetFlagByName_InvalidRouteName_Returns400ProblemDetails()
+    public async Task GetFlagByName_InvalidRouteName_Returns400ProblemDetailsAsync()
     {
         // Arrange
 
@@ -311,7 +311,7 @@ public sealed class FlagEndpointTests : IntegrationTestBase
 
     [Fact]
     [Trait("Category", "Integration")]
-    public async Task UpdateFlag_ValidRequest_Returns204()
+    public async Task UpdateFlag_ValidRequest_Returns204Async()
     {
         // Arrange
         await CreateFlagAsync(name: "update-flag");
@@ -340,7 +340,7 @@ public sealed class FlagEndpointTests : IntegrationTestBase
 
     [Fact]
     [Trait("Category", "Integration")]
-    public async Task UpdateFlag_NotFound_Returns404()
+    public async Task UpdateFlag_NotFound_Returns404Async()
     {
         // Arrange
         var payload = new
@@ -365,7 +365,7 @@ public sealed class FlagEndpointTests : IntegrationTestBase
 
     [Fact]
     [Trait("Category", "Integration")]
-    public async Task UpdateFlag_InvalidStrategyConfig_Returns400()
+    public async Task UpdateFlag_InvalidStrategyConfig_Returns400Async()
     {
         // Arrange
         await CreateFlagAsync(name: "update-invalid-config");
@@ -391,7 +391,7 @@ public sealed class FlagEndpointTests : IntegrationTestBase
 
     [Fact]
     [Trait("Category", "Integration")]
-    public async Task ArchiveFlag_Exists_Returns204AndExcludedFromGetAll()
+    public async Task ArchiveFlag_Exists_Returns204AndExcludedFromGetAllAsync()
     {
         // Arrange
         await CreateFlagAsync(name: "archive-flag");
@@ -416,7 +416,7 @@ public sealed class FlagEndpointTests : IntegrationTestBase
 
     [Fact]
     [Trait("Category", "Integration")]
-    public async Task ArchiveFlag_AllowsNameReuse_ReturnsCreatedOnRecreate()
+    public async Task ArchiveFlag_AllowsNameReuse_ReturnsCreatedOnRecreateAsync()
     {
         // Arrange
         FlagResponse original = await CreateFlagAsync(name: "reusable-flag");
@@ -435,7 +435,7 @@ public sealed class FlagEndpointTests : IntegrationTestBase
 
     [Fact]
     [Trait("Category", "Integration")]
-    public async Task GetAllFlags_InvalidEnvironment_Returns400ProblemDetails()
+    public async Task GetAllFlags_InvalidEnvironment_Returns400ProblemDetailsAsync()
     {
         // Arrange
 
@@ -450,7 +450,7 @@ public sealed class FlagEndpointTests : IntegrationTestBase
 
     [Fact]
     [Trait("Category", "Integration")]
-    public async Task GetFlagByName_InvalidEnvironment_Returns400ProblemDetails()
+    public async Task GetFlagByName_InvalidEnvironment_Returns400ProblemDetailsAsync()
     {
         // Arrange
 
@@ -467,7 +467,7 @@ public sealed class FlagEndpointTests : IntegrationTestBase
 
     [Fact]
     [Trait("Category", "Integration")]
-    public async Task UpdateFlag_InvalidRouteName_Returns400ProblemDetails()
+    public async Task UpdateFlag_InvalidRouteName_Returns400ProblemDetailsAsync()
     {
         // Arrange
         var payload = new
@@ -493,7 +493,7 @@ public sealed class FlagEndpointTests : IntegrationTestBase
 
     [Fact]
     [Trait("Category", "Integration")]
-    public async Task UpdateFlag_InvalidEnvironment_Returns400ProblemDetails()
+    public async Task UpdateFlag_InvalidEnvironment_Returns400ProblemDetailsAsync()
     {
         // Arrange
         var payload = new
@@ -518,7 +518,7 @@ public sealed class FlagEndpointTests : IntegrationTestBase
 
     [Fact]
     [Trait("Category", "Integration")]
-    public async Task ArchiveFlag_NotFound_Returns404ProblemDetails()
+    public async Task ArchiveFlag_NotFound_Returns404ProblemDetailsAsync()
     {
         // Arrange
 
@@ -535,7 +535,7 @@ public sealed class FlagEndpointTests : IntegrationTestBase
 
     [Fact]
     [Trait("Category", "Integration")]
-    public async Task ArchiveFlag_InvalidRouteName_Returns400ProblemDetails()
+    public async Task ArchiveFlag_InvalidRouteName_Returns400ProblemDetailsAsync()
     {
         // Arrange
 
@@ -553,7 +553,7 @@ public sealed class FlagEndpointTests : IntegrationTestBase
 
     [Fact]
     [Trait("Category", "Integration")]
-    public async Task ArchiveFlag_InvalidEnvironment_Returns400ProblemDetails()
+    public async Task ArchiveFlag_InvalidEnvironment_Returns400ProblemDetailsAsync()
     {
         // Arrange
 
