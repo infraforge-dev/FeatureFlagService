@@ -11,7 +11,9 @@
       "Bash(git:*)",
       "Bash(dotnet format:*)",
       "Bash(dotnet test:*)",
-      "Bash(dotnet csharpier:*)"
+      "Bash(dotnet csharpier:*)",
+      "Bash(find /workspaces/FeatureFlagService/FeatureFlag.Tests -name \"*.cs\" -type f -exec grep -l \"new FeatureFlagService\\\\|Mock\\\\|Moq\" {} \\\\;)",
+      "Bash(grep -r \"FeatureFlagService\" /workspaces/FeatureFlagService/FeatureFlag.Tests* --include=\"*.cs\")"
     ]
   }
 }
