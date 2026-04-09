@@ -10,7 +10,7 @@ namespace FeatureFlag.Application.Strategies;
 
 public sealed class PercentageStrategy : IRolloutStrategy
 {
-    private static readonly JsonSerializerOptions _options = new()
+    private static readonly JsonSerializerOptions Options = new()
     {
         PropertyNameCaseInsensitive = true,
     };
@@ -22,7 +22,7 @@ public sealed class PercentageStrategy : IRolloutStrategy
         PercentageConfig? config;
         try
         {
-            config = JsonSerializer.Deserialize<PercentageConfig>(flag.StrategyConfig, _options);
+            config = JsonSerializer.Deserialize<PercentageConfig>(flag.StrategyConfig, Options);
         }
         catch (JsonException)
         {

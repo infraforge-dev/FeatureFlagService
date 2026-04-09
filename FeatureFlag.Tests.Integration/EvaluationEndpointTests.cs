@@ -17,7 +17,7 @@ public sealed class EvaluationEndpointTests : IntegrationTestBase
 
     [Fact]
     [Trait("Category", "Integration")]
-    public async Task Evaluate_EnabledNoneStrategy_ReturnsTrue()
+    public async Task Evaluate_EnabledNoneStrategy_ReturnsTrueAsync()
     {
         // Arrange
         await CreateFlagAsync(name: "enabled-none-flag");
@@ -46,7 +46,7 @@ public sealed class EvaluationEndpointTests : IntegrationTestBase
 
     [Fact]
     [Trait("Category", "Integration")]
-    public async Task Evaluate_DisabledFlag_ReturnsFalse()
+    public async Task Evaluate_DisabledFlag_ReturnsFalseAsync()
     {
         // Arrange
         await CreateFlagAsync(name: "disabled-flag", isEnabled: false);
@@ -75,7 +75,7 @@ public sealed class EvaluationEndpointTests : IntegrationTestBase
 
     [Fact]
     [Trait("Category", "Integration")]
-    public async Task Evaluate_PercentageStrategy_ReturnsDeterministicResult()
+    public async Task Evaluate_PercentageStrategy_ReturnsDeterministicResultAsync()
     {
         // Arrange
         await CreateFlagAsync(
@@ -118,7 +118,7 @@ public sealed class EvaluationEndpointTests : IntegrationTestBase
 
     [Fact]
     [Trait("Category", "Integration")]
-    public async Task Evaluate_RoleStrategy_MatchingRole_ReturnsTrue()
+    public async Task Evaluate_RoleStrategy_MatchingRole_ReturnsTrueAsync()
     {
         // Arrange
         await CreateFlagAsync(
@@ -151,7 +151,7 @@ public sealed class EvaluationEndpointTests : IntegrationTestBase
 
     [Fact]
     [Trait("Category", "Integration")]
-    public async Task Evaluate_RoleStrategy_NoMatchingRole_ReturnsFalse()
+    public async Task Evaluate_RoleStrategy_NoMatchingRole_ReturnsFalseAsync()
     {
         // Arrange
         await CreateFlagAsync(
@@ -184,7 +184,7 @@ public sealed class EvaluationEndpointTests : IntegrationTestBase
 
     [Fact]
     [Trait("Category", "Integration")]
-    public async Task Evaluate_FlagNotFound_Returns404()
+    public async Task Evaluate_FlagNotFound_Returns404Async()
     {
         // Arrange
         var request = new EvaluationRequest(
@@ -209,7 +209,7 @@ public sealed class EvaluationEndpointTests : IntegrationTestBase
 
     [Fact]
     [Trait("Category", "Integration")]
-    public async Task Evaluate_MissingUserId_Returns400()
+    public async Task Evaluate_MissingUserId_Returns400Async()
     {
         // Arrange
         await CreateFlagAsync(name: "missing-user-id-flag");

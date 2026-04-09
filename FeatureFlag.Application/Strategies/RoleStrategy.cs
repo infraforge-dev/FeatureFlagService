@@ -8,7 +8,7 @@ namespace FeatureFlag.Application.Strategies;
 
 public sealed class RoleStrategy : IRolloutStrategy
 {
-    private static readonly JsonSerializerOptions _options = new()
+    private static readonly JsonSerializerOptions Options = new()
     {
         PropertyNameCaseInsensitive = true,
     };
@@ -20,7 +20,7 @@ public sealed class RoleStrategy : IRolloutStrategy
         RoleConfig? config;
         try
         {
-            config = JsonSerializer.Deserialize<RoleConfig>(flag.StrategyConfig, _options);
+            config = JsonSerializer.Deserialize<RoleConfig>(flag.StrategyConfig, Options);
         }
         catch (JsonException)
         {

@@ -416,10 +416,15 @@ dotnet_diagnostic.IDE0005.severity = warning
 
 dotnet_diagnostic.IDE0046.severity = none
 
+# IDE1006: Naming Styles
+dotnet_diagnostic.IDE1006.severity = warning
 
 # ============================================================
 # Project files, config, and data files
 # ============================================================
+
+
+
 [*.{csproj,vbproj,vcxproj,props,targets}]
 indent_size = 2
 

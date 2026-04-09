@@ -11,7 +11,7 @@ public sealed class UpdateFlagRequestValidatorTests
 {
     [Fact]
     [Trait("Category", "Unit")]
-    public async Task Validate_WhenStrategyIsNoneButConfigIsProvided_ReturnsInvalid()
+    public async Task Validate_WhenStrategyIsNoneButConfigIsProvided_ReturnsInvalidAsync()
     {
         // Arrange
         var validator = new UpdateFlagRequestValidator();
@@ -27,7 +27,7 @@ public sealed class UpdateFlagRequestValidatorTests
 
     [Fact]
     [Trait("Category", "Unit")]
-    public async Task Validate_WhenStrategyIsNoneAndConfigIsNull_ReturnsValid()
+    public async Task Validate_WhenStrategyIsNoneAndConfigIsNull_ReturnsValidAsync()
     {
         // Arrange
         var validator = new UpdateFlagRequestValidator();
@@ -42,7 +42,7 @@ public sealed class UpdateFlagRequestValidatorTests
 
     [Fact]
     [Trait("Category", "Unit")]
-    public async Task Validate_WhenStrategyIsPercentageWithValidConfig_ReturnsValid()
+    public async Task Validate_WhenStrategyIsPercentageWithValidConfig_ReturnsValidAsync()
     {
         // Arrange
         var validator = new UpdateFlagRequestValidator();
@@ -61,7 +61,7 @@ public sealed class UpdateFlagRequestValidatorTests
 
     [Fact]
     [Trait("Category", "Unit")]
-    public async Task Validate_WhenStrategyIsPercentageWithNullConfig_ReturnsInvalid()
+    public async Task Validate_WhenStrategyIsPercentageWithNullConfig_ReturnsInvalidAsync()
     {
         // Arrange
         var validator = new UpdateFlagRequestValidator();
@@ -77,7 +77,7 @@ public sealed class UpdateFlagRequestValidatorTests
 
     [Fact]
     [Trait("Category", "Unit")]
-    public async Task Validate_WhenStrategyIsPercentageWithInvalidConfig_ReturnsInvalid()
+    public async Task Validate_WhenStrategyIsPercentageWithInvalidConfig_ReturnsInvalidAsync()
     {
         // Arrange
         var validator = new UpdateFlagRequestValidator();
@@ -97,7 +97,7 @@ public sealed class UpdateFlagRequestValidatorTests
 
     [Fact]
     [Trait("Category", "Unit")]
-    public async Task Validate_WhenStrategyIsRoleBasedWithValidConfig_ReturnsValid()
+    public async Task Validate_WhenStrategyIsRoleBasedWithValidConfig_ReturnsValidAsync()
     {
         // Arrange
         var validator = new UpdateFlagRequestValidator();
@@ -116,7 +116,7 @@ public sealed class UpdateFlagRequestValidatorTests
 
     [Fact]
     [Trait("Category", "Unit")]
-    public async Task Validate_WhenStrategyIsRoleBasedWithNullConfig_ReturnsInvalid()
+    public async Task Validate_WhenStrategyIsRoleBasedWithNullConfig_ReturnsInvalidAsync()
     {
         // Arrange
         var validator = new UpdateFlagRequestValidator();
@@ -132,7 +132,7 @@ public sealed class UpdateFlagRequestValidatorTests
 
     [Fact]
     [Trait("Category", "Unit")]
-    public async Task Validate_WhenStrategyIsRoleBasedWithInvalidConfig_ReturnsInvalid()
+    public async Task Validate_WhenStrategyIsRoleBasedWithInvalidConfig_ReturnsInvalidAsync()
     {
         // Arrange
         var validator = new UpdateFlagRequestValidator();
@@ -152,7 +152,7 @@ public sealed class UpdateFlagRequestValidatorTests
 
     [Fact]
     [Trait("Category", "Unit")]
-    public async Task Validate_WhenStrategyConfigExceedsMaxLength_ReturnsInvalid()
+    public async Task Validate_WhenStrategyConfigExceedsMaxLength_ReturnsInvalidAsync()
     {
         // Arrange
         var validator = new UpdateFlagRequestValidator();
