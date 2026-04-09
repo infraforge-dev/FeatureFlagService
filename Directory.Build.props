@@ -7,5 +7,6 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <!-- Suppress CS1591: missing XML doc comments — not required on all members -->
     <NoWarn>$(NoWarn);1591</NoWarn>
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
   </PropertyGroup>
 </Project>

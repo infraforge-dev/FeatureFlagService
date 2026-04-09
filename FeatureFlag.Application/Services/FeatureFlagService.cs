@@ -1,3 +1,6 @@
+using System.Diagnostics;
+using System.Security.Cryptography;
+using System.Text;
 using FeatureFlag.Application.DTOs;
 using FeatureFlag.Application.Evaluation;
 using FeatureFlag.Application.Interfaces;
@@ -7,6 +10,7 @@ using FeatureFlag.Domain.Enums;
 using FeatureFlag.Domain.Exceptions;
 using FeatureFlag.Domain.Interfaces;
 using FeatureFlag.Domain.ValueObjects;
+using Microsoft.Extensions.Logging;
 
 namespace FeatureFlag.Application.Services;
 
@@ -14,11 +18,17 @@ public sealed class FeatureFlagService : IFeatureFlagService
 {
     private readonly IFeatureFlagRepository _repository;
     private readonly FeatureEvaluator _evaluator;
+    private readonly ILogger<FeatureFlagService> _logger;
 
-    public FeatureFlagService(IFeatureFlagRepository repository, FeatureEvaluator evaluator)
+    public FeatureFlagService(
+        IFeatureFlagRepository repository,
+        FeatureEvaluator evaluator,
+        ILogger<FeatureFlagService> logger
+    )
     {
         _repository = repository;
         _evaluator = evaluator;
+        _logger = logger;
     }
 
     public async Task<FlagResponse> GetFlagAsync(
@@ -51,16 +61,43 @@ public sealed class FeatureFlagService : IFeatureFlagService
             environment: context.Environment
         );
 
-        Flag flag =
-            await _repository.GetByNameAsync(flagName, sanitizedContext.Environment, ct)
-            ?? throw new FlagNotFoundException(flagName);
+        Flag? flag = await _repository.GetByNameAsync(flagName, sanitizedContext.Environment, ct);
+
+        if (flag is null)
+        {
+            _logger.LogWarning(
+                "Flag evaluation: not found. Flag={FlagName} Environment={Environment}",
+                flagName,
+                sanitizedContext.Environment
+            );
+
+            throw new FlagNotFoundException(flagName);
+        }
 
         if (!flag.IsEnabled)
         {
+            var result = new FlagDisabled(
+                FlagName: flagName,
+                Environment: sanitizedContext.Environment,
+                UserId: sanitizedContext.UserId
+            );
+
+            LogResult(result);
             return false;
         }
 
-        return _evaluator.Evaluate(flag, sanitizedContext);
+        bool isEnabled = _evaluator.Evaluate(flag, sanitizedContext);
+
+        var strategyResult = new StrategyEvaluated(
+            FlagName: flagName,
+            Environment: sanitizedContext.Environment,
+            UserId: sanitizedContext.UserId,
+            IsEnabled: isEnabled,
+            StrategyType: flag.StrategyType
+        );
+
+        LogResult(strategyResult);
+        return isEnabled;
     }
 
     public async Task<IReadOnlyList<FlagResponse>> GetAllFlagsAsync(
@@ -134,5 +171,61 @@ public sealed class FeatureFlagService : IFeatureFlagService
 
         flag.Archive();
         await _repository.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// Writes a structured log entry for a completed evaluation outcome.
+    /// UserId is hashed to a short SHA256 surrogate and never logged raw.
+    /// Each branch logs only the fields meaningful to that outcome.
+    /// </summary>
+    private void LogResult(EvaluationResult result)
+    {
+        if (!_logger.IsEnabled(LogLevel.Information))
+        {
+            return;
+        }
+
+        switch (result)
+        {
+            case FlagDisabled d:
+                _logger.LogInformation(
+                    "Flag evaluation complete. Flag={FlagName} Environment={Environment} "
+                        + "UserId={UserId} Reason={Reason}",
+                    d.FlagName,
+                    d.Environment,
+                    HashUserId(d.UserId),
+                    d.Reason
+                );
+                break;
+
+            case StrategyEvaluated s:
+                _logger.LogInformation(
+                    "Flag evaluation complete. Flag={FlagName} Environment={Environment} "
+                        + "UserId={UserId} Reason={Reason} Result={Result} Strategy={StrategyType}",
+                    s.FlagName,
+                    s.Environment,
+                    HashUserId(s.UserId),
+                    s.Reason,
+                    s.IsEnabled ? "enabled" : "disabled",
+                    s.StrategyType
+                );
+                break;
+
+            default:
+                throw new UnreachableException(
+                    $"Unhandled EvaluationResult subtype: {result.GetType().Name}. "
+                        + "Add a logging branch for every new EvaluationResult subtype."
+                );
+        }
+    }
+
+    /// <summary>
+    /// Returns a short deterministic SHA256 fingerprint of the raw UserId.
+    /// Deterministic output enables correlation without logging the original value.
+    /// </summary>
+    private static string HashUserId(string userId)
+    {
+        byte[] bytes = SHA256.HashData(Encoding.UTF8.GetBytes(userId));
+        return Convert.ToHexString(bytes)[..8].ToLowerInvariant();
     }
 }
