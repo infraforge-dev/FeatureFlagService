@@ -236,11 +236,11 @@ All responses use `application/json`. All errors use `application/problem+json` 
 
 | Method | Route | Description |
 |--------|-------|-------------|
-| `GET` | `/api/flags/{environment}` | List all active flags in an environment |
-| `GET` | `/api/flags/{environment}/{name}` | Get a specific flag by name |
+| `GET` | `/api/flags?environment=Development` | List all active flags in an environment |
+| `GET` | `/api/flags/{name}?environment=Development` | Get a specific flag by name |
 | `POST` | `/api/flags` | Create a new feature flag |
-| `PUT` | `/api/flags/{environment}/{name}` | Update an existing flag |
-| `DELETE` | `/api/flags/{environment}/{name}` | Archive a flag (soft delete) |
+| `PUT` | `/api/flags/{name}?environment=Development` | Update an existing flag |
+| `DELETE` | `/api/flags/{name}?environment=Development` | Archive a flag (soft delete) |
 
 ### Evaluation
 
@@ -256,7 +256,7 @@ POST /api/evaluate
   "flagName": "dark-mode",
   "environment": "Production",
   "userId": "user-123",
-  "roles": ["beta-tester", "admin"]
+  "userRoles": ["beta-tester", "admin"]
 }
 ```
 
@@ -316,7 +316,7 @@ All errors return RFC 9457 `ProblemDetails` with `Content-Type: application/prob
   "title": "Flag Not Found",
   "status": 404,
   "detail": "Flag 'dark-mode' not found in Production.",
-  "instance": "/api/flags/Production/dark-mode"
+  "instance": "/api/flags/dark-mode?environment=Production"
 }
 ```
 
