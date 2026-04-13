@@ -1,41 +1,84 @@
-### Create Flag
-POST http://localhost:5227/api/flags
+@host = http://localhost:5227
+@environment = Development
+@percentageFlagName = checkout-redesign
+@roleFlagName = admin-beta-dashboard
+@missingFlagName = does-not-exist
+
+# Smoke test walkthrough for local development.
+# Run the requests in order to exercise the full CRUD + evaluation flow on port 5227.
+
+# =========================
+# Setup
+# =========================
+
+### Create a percentage rollout flag
+POST {{host}}/api/flags
 Content-Type: application/json
 
 {
-  "name": "dark-mode",
-  "environment": "Development",
+  "name": "{{percentageFlagName}}",
+  "environment": "{{environment}}",
   "isEnabled": true,
-  "strategyType": "None",
-  "strategyConfig": "{}"
+  "strategyType": "Percentage",
+  "strategyConfig": "{\"percentage\": 50}"
 }
 
-### Get All Flags
-GET http://localhost:5227/api/flags?environment=Development
+### Create a role-based flag for admins and beta users
+POST {{host}}/api/flags
+Content-Type: application/json
 
-### Get By Name
-GET http://localhost:5227/api/flags/dark-mode?environment=Development
+{
+  "name": "{{roleFlagName}}",
+  "environment": "{{environment}}",
+  "isEnabled": true,
+  "strategyType": "RoleBased",
+  "strategyConfig": "{\"roles\": [\"admin\", \"beta\"]}"
+}
 
-### Update Flag
-PUT http://localhost:5227/api/flags/dark-mode?environment=Development
+### Update the percentage rollout to a wider audience
+PUT {{host}}/api/flags/{{percentageFlagName}}?environment={{environment}}
 Content-Type: application/json
 
 {
   "isEnabled": true,
-  "strategyType": "None",
-  "strategyConfig": "{}"
+  "strategyType": "Percentage",
+  "strategyConfig": "{\"percentage\": 75}"
 }
 
-### Evaluate Flag
-POST http://localhost:5227/api/evaluate
+# =========================
+# Read
+# =========================
+
+### Get all active flags for the development environment
+GET {{host}}/api/flags?environment={{environment}}
+
+### Get the updated percentage flag by name
+GET {{host}}/api/flags/{{percentageFlagName}}?environment={{environment}}
+
+### Confirm missing flags return 404
+GET {{host}}/api/flags/{{missingFlagName}}?environment={{environment}}
+
+# =========================
+# Evaluate
+# =========================
+
+### Evaluate the role-based flag with a matching beta role
+POST {{host}}/api/evaluate
 Content-Type: application/json
 
 {
-  "flagName": "dark-mode",
-  "userId": "user-123",
-  "userRoles": ["admin"],
-  "environment": "Development"
+  "flagName": "{{roleFlagName}}",
+  "userId": "onboarding-user-42",
+  "userRoles": ["viewer", "beta"],
+  "environment": "{{environment}}"
 }
 
-### Archive Flag
-DELETE http://localhost:5227/api/flags/dark-mode?environment=Development
+# =========================
+# Teardown
+# =========================
+
+### Archive the percentage rollout flag
+DELETE {{host}}/api/flags/{{percentageFlagName}}?environment={{environment}}
+
+### Archive the role-based flag
+DELETE {{host}}/api/flags/{{roleFlagName}}?environment={{environment}}
