@@ -3,6 +3,7 @@ using System;
 using FeatureFlag.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace FeatureFlag.Infrastructure.Migrations
 {
     [DbContext(typeof(FeatureFlagDbContext))]
-    partial class FeatureFlagDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260413213416_AddIsSeededToFlag")]
+    partial class AddIsSeededToFlag
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

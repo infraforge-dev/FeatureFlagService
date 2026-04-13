@@ -1,5 +1,6 @@
 using FeatureFlag.Domain.Interfaces;
 using FeatureFlag.Infrastructure.Persistence;
+using FeatureFlag.Infrastructure.Seeding;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -18,6 +19,7 @@ public static class DependencyInjection
         );
 
         services.AddScoped<IFeatureFlagRepository, FeatureFlagRepository>();
+        services.AddScoped<DatabaseSeeder>();
 
         return services;
     }
