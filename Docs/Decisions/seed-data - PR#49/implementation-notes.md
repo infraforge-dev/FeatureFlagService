@@ -5,7 +5,7 @@
 **Spec reference:** `Docs/Decisions/seed-data - PR###/spec-v3.md`
 **Build status:** Passed — 0 warnings, 0 errors
 **Tests:** 113/113 passing (81 unit + 32 integration)
-**PR:** `PR###` — update after PR creation
+**PR:** [Pull Request #49](https://github.com/amodelandme/FeatureFlagService/pull/49)
 
 ---
 
