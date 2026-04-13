@@ -1,6 +1,8 @@
+using FeatureFlag.Api.Extensions;
 using FeatureFlag.Api.OpenApi;
 using FeatureFlag.Application;
 using FeatureFlag.Infrastructure;
+using FeatureFlag.Infrastructure.Seeding;
 using Scalar.AspNetCore;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
@@ -40,6 +42,16 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 app.UseAuthorization();
 app.MapControllers();
+
+if (app.Environment.IsDevelopment())
+{
+    await app.MigrateAsync();
+
+    using IServiceScope scope = app.Services.CreateScope();
+    DatabaseSeeder seeder = scope.ServiceProvider.GetRequiredService<DatabaseSeeder>();
+    bool reset = Environment.GetEnvironmentVariable("SEED_RESET") == "true";
+    await seeder.SeedAsync(reset);
+}
 
 app.Run();
 
