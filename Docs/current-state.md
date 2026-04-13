@@ -11,6 +11,7 @@
 - [Current Focus](#-current-focus)
 - [What Not To Do Right Now](#-what-not-to-do-right-now)
 - [Definition of Done — Phase 1](#-definition-of-done--phase-1)
+- [Spec Writing — Lessons Learned](#-spec-writing--lessons-learned)
 - [Notes for AI Assistants](#-notes-for-ai-assistants)
 
 ---
@@ -28,19 +29,14 @@
 **Phase 1 — Integration Tests (PR #39): ✅ Complete**
 **Phase 1 — Evaluation Decision Logging (PR #48): ✅ Complete**
 **Phase 1 — NuGet Locked Restore (rolled into PR #48): ✅ Complete**
+**Phase 1 — Seed Data for Local Development (PR #49): ✅ Complete**
 
-110/110 tests passing (79 unit + 31 integration). Evaluation outcomes are now modeled
-as a discriminated union (`EvaluationResult` → `FlagDisabled` | `StrategyEvaluated`)
-with an explicit `EvaluationReason` dimension on every log entry. Raw `UserId` values
-are never logged — a SHA256 surrogate (`HashedUserId`, 8 hex chars) is used throughout.
-NuGet locked restore is now enforced in CI via `--locked-mode`; `packages.lock.json`
-is committed for all projects.
+113/113 tests passing (81 unit + 32 integration).
 
-**Two tasks remain before Phase 1 DoD is declared complete:**
-1. `.http` smoke test file
-2. Seed data for local development
+**One task remains before Phase 1 DoD is declared complete:**
+1. `.http` smoke test file (`requests/smoke-test.http`)
 
-Phase 1.5 begins immediately after both are shipped.
+Phase 1.5 begins immediately after the smoke test file is committed.
 
 ---
 
@@ -50,6 +46,10 @@ Phase 1.5 begins immediately after both are shipped.
 
 - `Flag` entity with controlled mutation (private setters, explicit mutation methods)
 - `Flag.Update()` — atomic method that sets enabled state, strategy, and `UpdatedAt`
+- `Flag.IsSeeded` — provenance marker (`bool`, default `false`); stamped `true` by
+  `DatabaseSeeder` at insert time; never exposed on any DTO or API response
+- `Flag` constructor overload accepting `isSeeded` — used by seeder only; existing
+  constructor unchanged, defaults `isSeeded` to `false`
 - `FeatureEvaluationContext` value object — `IEquatable<T>`, guard clauses, immutable roles
 - `RolloutStrategy` enum (None, Percentage, RoleBased)
 - `EnvironmentType` enum (None = 0 sentinel, Development, Staging, Production)
@@ -68,161 +68,97 @@ Phase 1.5 begins immediately after both are shipped.
 - `IFeatureFlagService` — async signatures with `CancellationToken`, full CRUD + evaluation
 - `DependencyInjection.cs` — `AddApplication()` extension method
 - DTOs: `CreateFlagRequest`, `UpdateFlagRequest`, `FlagResponse`, `EvaluationRequest`,
-  `FlagMappings`
+  `EvaluationResponse`, `FlagMappings`
 - `InputSanitizer` — single source of truth for HTTP boundary sanitization
 - `EnvironmentRules` — single source of truth for environment validation
 - `StrategyConfigRules` — single source of truth for strategy config validation
 - Validators: `CreateFlagRequestValidator`, `UpdateFlagRequestValidator`,
   `EvaluationRequestValidator` (FluentValidation v12)
-
-### Evaluation Logging (PR #48)
-
-- `EvaluationResult.cs` — discriminated union in `FeatureFlag.Application/Evaluation/`:
-  - `EvaluationReason` enum (`FlagDisabled`, `StrategyEvaluated`)
-  - `EvaluationResult` abstract base record
-  - `FlagDisabled` sealed record — carries `FlagName`, `Environment`, `HashedUserId`,
-    `Reason`
-  - `StrategyEvaluated` sealed record — additionally carries `IsEnabled`, `StrategyType`
-- `FeatureFlagService` updated:
-  - `ILogger<FeatureFlagService>` injected
-  - `HashUserId(string)` — `internal static`, SHA256, 8 hex chars, lowercase
-  - `LogResult(EvaluationResult)` — structured log, `Reason` as explicit dimension,
-    `default: throw UnreachableException` for exhaustiveness
-  - `LogWarning` before `FlagNotFoundException` (flag-not-found path)
-  - `IsEnabled(LogLevel.Information)` guard in `LogResult` (CA1873)
-  - Raw `UserId` never appears in any log entry
-- `AssemblyInfo.cs` — `InternalsVisibleTo("FeatureFlag.Tests")`
-- `Microsoft.Extensions.Diagnostics.Testing` added to `FeatureFlag.Tests` (`10.4.0`,
-  pinned) — provides `FakeLogger<T>` for structured log assertions
-- New unit tests: `EvaluationResultTests` (8 tests) + `UserIdHashTests` (4 tests) +
-  `FeatureFlagServiceLoggingTests` (4 tests) = 16 new unit tests
-
-### NuGet Locked Restore (rolled into PR #48)
-
-- `RestorePackagesWithLockFile=true` added to `Directory.Build.props`
-- `packages.lock.json` committed for all projects
-- CI restore steps updated to `dotnet restore FeatureFlagService.sln --locked-mode`
-- NuGet caching re-enabled in both `lint-format` and `build-test` CI jobs
+- `EvaluationResult` discriminated union — `FlagDisabled` | `StrategyEvaluated`
+- `EvaluationReason` enum — explicit reason dimension on every evaluation log entry
 
 ### Infrastructure Layer
 
-- `FeatureFlagRepository` — EF Core, async, filters archived flags on all reads
-- `FlagDbContext` + `FlagConfiguration` — Fluent API, enums as strings, `StrategyConfig`
-  as `jsonb`
-- Partial unique index on `(Name, Environment)` filtered to `IsArchived = false`
-- `SaveChangesAsync` catches Postgres `23505` → rethrows `DuplicateFlagNameException`
+- `FeatureFlagDbContext` — EF Core, Postgres, `ApplyConfigurationsFromAssembly`
+- `FeatureFlagDbContextFactory` — design-time factory for `dotnet ef` tooling
+- `FlagConfiguration` — EF Core Fluent API mapping; partial unique index
+  `HasFilter("\"IsArchived\" = false")` prevents archived rows from blocking name reuse;
+  `IsSeeded` column mapped with `HasDefaultValue(false)`
+- `AddIsSeededToFlag` migration — adds `IsSeeded bool NOT NULL DEFAULT false`;
+  existing rows receive `false` automatically
+- `FeatureFlagRepository` — async CRUD + `ExistsAsync`; `SaveChangesAsync` catches
+  Postgres `23505` and rethrows as `DuplicateFlagNameException`
+- `DatabaseSeeder` (`public sealed`) — runs on startup in Development only;
+  per-record backfill in normal mode; `SEED_RESET=true` wipes `IsSeeded = true`
+  rows and re-inserts; skips slots occupied by non-seeded active flags with a
+  `Warning` log; seeds six representative flags across all three strategies and
+  two environments
+- `DependencyInjection.cs` — `AddInfrastructure()` registers `FeatureFlagRepository`
+  and `DatabaseSeeder`
 
-### API Layer
+### Api Layer
 
-- `FeatureFlagsController` — 5 endpoints, zero `try/catch`, happy path only
-- `EvaluationController` — `POST /api/evaluate`, zero `try/catch`
-- `GlobalExceptionMiddleware` — RFC 9457 `ProblemDetails`, `application/problem+json`
-- `RouteParameterGuard` — compiled regex, called first in GET/PUT/DELETE by name
-- Swagger/OpenAPI at `/openapi/v1.json`
+- `FeatureFlagsController` — full CRUD (Create, GetAll, GetByName, Update, Archive)
+- `EvaluationController` — POST `/api/evaluate`
+- `GlobalExceptionMiddleware` — catches domain exceptions, maps to RFC 9457
+  `ProblemDetails` with `Content-Type: application/problem+json`
+- `RouteParameterGuard` — compiled regex allowlist; called first in GetByName,
+  Update, Archive
+- OpenAPI enrichment — Scalar UI, `EnumSchemaTransformer`, `ApiInfoTransformer`,
+  XML doc comments, `[ProducesResponseType]` attributes
+- `WebApplicationExtensions.MigrateAsync()` — runs `db.Database.MigrateAsync()`
+  in a scoped service provider; called in Development startup block before seeder
+- `Program.cs` Development startup block — runs migration then seeder on every
+  startup; `SEED_RESET` env var controls reset mode
 
 ### CI/CD
 
-- `lint-format` job — CSharpier check + zero-warning build
-- `build-test` job — unit tests via `--filter "Category=Unit"`
-- `integration-test` job — integration tests via `--filter "Category=Integration"`,
-  Testcontainers Postgres
-- `ai-review` job — Claude API reviewer, activated by `ai-review` label, fail-open
-- `--locked-mode` on all restore steps
-- NuGet caching active
+- `lint-format` job — CSharpier check, blocks on violations
+- `build-test` job — `dotnet build` with `-p:TreatWarningsAsErrors=true`,
+  `dotnet test` for unit and integration suites
+- `integration-test` job — Testcontainers Postgres, 32 integration tests
+- `ai-review` job — activated by `ai-review` label; Claude API code review
+  posted as PR comment; depends on all three prior jobs
+- NuGet locked restore enforced via `--locked-mode`; `packages.lock.json` committed
 
 ### Tests
 
-- `FeatureFlag.Tests` — 79/79 unit tests passing (`[Trait("Category", "Unit")]`)
-- `FeatureFlag.Tests.Integration` — 31/31 integration tests passing
-  (`[Trait("Category", "Integration")]`)
-- **Total: 110/110 passing**
-- Build: ✅ 0 warnings, 0 errors
-- CSharpier: ✅ 0 violations
-
----
-
-## ❌ What Is Not Yet Built (Phase 1 Remaining)
+- 81 unit tests — strategies, evaluator, validators
+- 32 integration tests — all 6 endpoints via Testcontainers Postgres
+- 2 production bugs caught by unit tests (PR #38)
+- 2 production bugs caught by integration tests (PR #39)
 
 ### Developer Experience
 
-- `.http` smoke test request file (`requests/smoke-test.http`)
-- Seed data for local development
+- `requests/smoke-test.http` — partial; covers all 6 endpoints (needs final review)
+- `DatabaseSeeder` — six seed flags available immediately on `docker compose up`
 
 ---
 
-## ⚠️ Known Issues
+## 🚧 What Is Not Yet Built — Phase 1 Remaining
 
-### KI-002 — `FeatureEvaluator.Evaluate` Has an Implicit Precondition
-
-**Severity:** Low
-**Status:** Documented
-
-Callers must check `Flag.IsEnabled` before calling `Evaluate`. Documented via XML
-doc comment. If a second caller of `FeatureEvaluator` is introduced, re-evaluate
-whether a guard clause should be added.
+- [ ] `.http` smoke test file reviewed and finalized (`requests/smoke-test.http`)
 
 ---
 
-### KI-006 — `Microsoft.EntityFrameworkCore.Design` Required on Both Projects
+## 🐛 Known Issues
 
-**Severity:** Low — spec convention, not a runtime issue
-**Status:** Documented
+### KI-007 — devcontainer network requires `Host=postgres`
 
-Any spec with EF Core migration steps must list this package on both Infrastructure
-and Api projects with `PrivateAssets=all`.
+The connection string must use `Host=postgres` (the Docker Compose service name),
+not `localhost`. This is correct for the devcontainer environment. Do not change it.
 
----
-
-### KI-007 — Devcontainer Networking Requires Postgres to Start First
-
-**Severity:** Low — inconvenience, not a bug
-**Status:** Mitigated — `postStartCommand` automates the network join
-
-**Workaround:** Run `docker compose up -d` before opening the devcontainer.
 **Longer-term fix:** Full docker-compose devcontainer setup. Deferred to Phase 8.
-
----
-
-## Spec Writing — Lessons Learned
-
-**Audit all service methods in AC-6-style tasks:** When a spec instructs updating
-methods that throw or return null, explicitly list every affected method.
-
-**ProblemDetails responses require `application/problem+json`:** RFC 9457 §8.1.
-Future specs must specify `"application/problem+json"` explicitly.
-
-**Address race conditions (TOCTOU) in uniqueness checks:** Designate the correct
-layer for the catch — `DbUpdateException` belongs in Infrastructure.
-
-**Dispose `JsonDocument` after parsing:** Always wrap with `using JsonDocument doc = ...`.
-
-**DTO nullability must match wire contract:** Explicitly state nullability on DTO
-fields when the field is optional on the wire.
-
-**Log PII defensively from day one:** Raw user identifiers must not appear in log
-output. Use a SHA256 surrogate (`HashedUserId`) from the start — retrofitting
-pseudonymization after logs are flowing into a telemetry sink is painful.
-
-**`EvaluationReason` must be a first-class log dimension:** Inferring reason from
-branch shape or message template presence/absence is fragile for App Insights
-queries and unusable for the Phase 4 trace endpoint. Always log `Reason` explicitly.
-
-**`IsEnabled` guard before logging:** Add `if (!_logger.IsEnabled(level)) return;`
-in any void log helper method (CA1873) to avoid unnecessary work on hot paths.
-
-**Pin test package versions explicitly:** Floating NuGet references in test projects
-cause CI drift. Pin to an exact version and commit `packages.lock.json`.
 
 ---
 
 ## 🎯 Current Focus
 
-**Phase 1 — Final Two Tasks**
+**Phase 1 — Final Task**
 
-1. `.http` smoke test file (`requests/smoke-test.http`)
-2. Seed data for local development
+1. `.http` smoke test file reviewed, finalized, and committed (`requests/smoke-test.http`)
 
-Phase 1 DoD is complete when both are shipped. Phase 1.5 begins immediately after.
+Phase 1 DoD is complete when this is shipped. Phase 1.5 begins immediately after.
 
 ---
 
@@ -242,6 +178,8 @@ Phase 1 DoD is complete when both are shipped. Phase 1.5 begins immediately afte
 - Do not log raw `UserId` — always use `HashUserId()` and log `HashedUserId`
 - Do not add new `EvaluationResult` subtypes without adding a `LogResult` branch and
   updating the `UnreachableException` message
+- Do not expose `IsSeeded` on any DTO or API response
+- Do not set `IsSeeded = true` anywhere outside `DatabaseSeeder`
 
 ---
 
@@ -255,16 +193,63 @@ Phase 1 DoD is complete when both are shipped. Phase 1.5 begins immediately afte
 - [x] AI reviewer job live (PR #35) — activated by `ai-review` label
 - [x] `ANTHROPIC_API_KEY` secret added to GitHub repo
 - [x] Global exception middleware in place
-- [x] Standardized `ProblemDetails` error response shape
-- [x] Name uniqueness check with TOCTOU backstop (PR #37)
-- [x] Route parameter guard — closes KI-008 (PR #37)
-- [x] `StrategyConfigRules` extracted — closes KI-NEW-001 (PR #37)
-- [x] Unit tests — 79/79 passing (PR #38 + PR #48)
-- [x] Integration tests — 31/31 passing (PR #39)
-- [x] NuGet locked restore — `--locked-mode` in CI, lock files committed
-- [x] Evaluation decision logging (PR #48)
-- [ ] `.http` smoke test file committed
-- [ ] Seed data for local development
+- [x] Standardized `ProblemDetails` error responses with `application/problem+json`
+- [x] `RouteParameterGuard` — route parameter allowlist with compiled regex
+- [x] `DuplicateFlagNameException` — TOCTOU-safe uniqueness via `DbUpdateException` catch
+- [x] Unit tests — 81 passing; 2 production bugs caught and fixed
+- [x] Integration tests — 32 passing; 2 production bugs caught and fixed
+- [x] `integration-test` CI job live; `ai-review` depends on all three jobs
+- [x] Evaluation decision logging — discriminated union result, `EvaluationReason`,
+      SHA256 `HashedUserId`, structured log output
+- [x] NuGet locked restore enforced in CI
+- [x] Seed data for local development — `DatabaseSeeder`, six flags, `IsSeeded`
+      provenance marker, reset mode via `SEED_RESET=true` (PR #49)
+- [x] `MigrateAsync()` on startup in Development — schema guaranteed before seeding
+- [ ] `.http` smoke test file committed and finalized
+
+---
+
+## 📚 Spec Writing — Lessons Learned
+
+**Audit all service methods in AC-6-style tasks:** When a spec instructs updating
+methods that throw or return null, explicitly list every affected method.
+
+**ProblemDetails responses require `application/problem+json`:** RFC 9457 §8.1.
+Future specs must specify `"application/problem+json"` explicitly.
+
+**Address race conditions (TOCTOU) in uniqueness checks:** Designate the correct
+layer for the catch — `DbUpdateException` belongs in Infrastructure.
+
+**Dispose `JsonDocument` after parsing:** Always wrap with `using JsonDocument doc = ...`.
+
+**DTO nullability must match wire contract:** Explicitly state nullability on DTO
+fields when the field is optional on the wire.
+
+**Log PII defensively from day one:** Raw user identifiers must not appear in log
+output. Use a SHA256 surrogate (`HashedUserId`) from the start.
+
+**`EvaluationReason` must be a first-class log dimension:** Always log `Reason`
+explicitly — inferring it from branch shape is fragile.
+
+**`IsEnabled` guard before logging:** Add `if (!_logger.IsEnabled(level)) return;`
+in any void log helper method (CA1873).
+
+**Pin test package versions explicitly:** Floating NuGet references in test projects
+cause CI drift. Pin to exact version; commit `packages.lock.json`.
+
+**Provenance markers beat name-matching for seeder ownership:** A seeder that
+identifies its rows by name cannot distinguish seeded from manually-created flags
+that share the same identity. An `IsSeeded` column is unambiguous, cheap, and
+self-documenting.
+
+**`internal` does not cross assembly boundaries:** `internal` is assembly-scoped.
+A type in `Infrastructure` marked `internal` is not accessible from `Api` without
+`InternalsVisibleTo`. Prefer constructor overloads or narrowly scoped public members.
+
+**Seed identities are reserved baseline slots, not enforced constraints:** The
+seeder treats its manifest identities as the expected local dev baseline, but
+does not block developers from occupying those slots. Reset skips occupied slots
+and logs a clear override warning rather than failing or deleting manual data.
 
 ---
 
@@ -272,29 +257,30 @@ Phase 1 DoD is complete when both are shipped. Phase 1.5 begins immediately afte
 
 - Architecture follows Clean Architecture: Api → Application → Domain ← Infrastructure
 - `IFeatureFlagService` speaks entirely in DTOs — no `Flag` entity crosses the boundary
-- `GlobalExceptionMiddleware` is registered first in `Program.cs` — wraps entire pipeline
-- Controllers contain only the happy path — zero `try/catch` blocks anywhere in Api
+- Domain logic is intentionally strict — no public setters, explicit mutation methods
+- Strategy pattern is central to extensibility — new strategies require zero changes to evaluator
+- Evaluation must remain deterministic and testable
+- `GlobalExceptionMiddleware` wraps the entire pipeline — controllers contain only happy path
 - All error responses return `ProblemDetails` with `Content-Type: application/problem+json`
-- `RouteParameterGuard.ValidateName(name)` is the first call in GET/PUT/DELETE by name
+- `RouteParameterGuard.ValidateName(name)` is the first call in `GetByNameAsync`,
+  `UpdateAsync`, and `ArchiveAsync` — do not remove or reorder
 - `StrategyConfigRules` is the single source of truth for strategy config validation
 - `EnvironmentRules` is the single source of truth for environment validation
-- `SaveChangesAsync` catches Postgres `23505` → `DuplicateFlagNameException` — do not remove
-- `ExistsAsync` checks non-archived flags only
+- `SaveChangesAsync` in `FeatureFlagRepository` catches Postgres `23505` and rethrows
+  as `DuplicateFlagNameException` — intentional TOCTOU handling, do not remove
+- `ExistsAsync` checks non-archived flags only — archived flags do not block name reuse
 - `CreateFlagRequest.StrategyConfig` and `UpdateFlagRequest.StrategyConfig` are `string?`
 - `GetByNameAsync` has a named route — used by `CreatedAtRoute` in POST; do not remove
 - `public partial class Program { }` is required for `WebApplicationFactory<Program>`
 - Connection string uses `Host=postgres` — do not change to `localhost`
-- Both Infrastructure and Api require `Microsoft.EntityFrameworkCore.Design` with
-  `PrivateAssets=all`
+- Both Infrastructure and Api projects require `Microsoft.EntityFrameworkCore.Design`
+  with `PrivateAssets=all`
 - Do not use `FluentValidation.AspNetCore`, `AddFluentValidationAutoValidation()`,
-  or `.Transform()`
-- Any spec with ProblemDetails must specify `application/problem+json`
+  or `.Transform()` — all deprecated or removed in FluentValidation v12
+- Any spec referencing ProblemDetails must specify `application/problem+json`
 - Any spec with uniqueness checks must address TOCTOU and designate the correct layer
-- Any spec with `JsonDocument` code must use `using JsonDocument doc = ...`
-- Any spec with optional DTO fields must state nullability explicitly
-- `HashUserId` is `internal static` on `FeatureFlagService` — never log raw `UserId`
-- `EvaluationReason` must be an explicit named log dimension — never infer from message shape
-- Any new `EvaluationResult` subtype requires a `LogResult` branch; omission throws
-  `UnreachableException` at runtime
-- CI restore uses `--locked-mode` — do not remove; `packages.lock.json` must be
-  committed when adding new packages (CI does not use `NuGet.config` to override)
+- `IsSeeded` must never appear on `FlagResponse` or any DTO
+- `DatabaseSeeder` is `public sealed` — required for resolution from `FeatureFlag.Api`
+  across the assembly boundary; `internal` would cause `CS0122`
+- `MigrateAsync()` runs before `SeedAsync()` in the Development startup block —
+  order is load-bearing; do not swap
