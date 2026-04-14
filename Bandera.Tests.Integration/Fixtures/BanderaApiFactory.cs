@@ -38,8 +38,7 @@ public sealed class BanderaApiFactory : WebApplicationFactory<Program>, IAsyncLi
         _ = base.CreateClient(FactoryClientOptions);
 
         using IServiceScope scope = Services.CreateScope();
-        BanderaDbContext dbContext =
-            scope.ServiceProvider.GetRequiredService<BanderaDbContext>();
+        BanderaDbContext dbContext = scope.ServiceProvider.GetRequiredService<BanderaDbContext>();
         await dbContext.Database.MigrateAsync();
     }
 

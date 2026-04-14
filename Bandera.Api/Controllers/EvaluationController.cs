@@ -14,10 +14,7 @@ public sealed class EvaluationController : ControllerBase
     private readonly IBanderaService _service;
     private readonly IValidator<EvaluationRequest> _validator;
 
-    public EvaluationController(
-        IBanderaService service,
-        IValidator<EvaluationRequest> validator
-    )
+    public EvaluationController(IBanderaService service, IValidator<EvaluationRequest> validator)
     {
         _service = service;
         _validator = validator;

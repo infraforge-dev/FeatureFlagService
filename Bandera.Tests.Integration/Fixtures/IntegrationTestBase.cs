@@ -39,8 +39,7 @@ public abstract class IntegrationTestBase : IAsyncLifetime
     public async Task InitializeAsync()
     {
         using IServiceScope scope = _factory.Services.CreateScope();
-        BanderaDbContext dbContext =
-            scope.ServiceProvider.GetRequiredService<BanderaDbContext>();
+        BanderaDbContext dbContext = scope.ServiceProvider.GetRequiredService<BanderaDbContext>();
         await dbContext.Database.ExecuteSqlRawAsync("DELETE FROM flags");
     }
 
