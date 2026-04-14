@@ -20,9 +20,9 @@ covered all six API endpoints through the full HTTP pipeline, added a new CI
 support the tested contract.
 
 ## Implemented Scope
-- Added `Bandera.Tests.Integration` and registered it in `Bandera.sln`.
+- Added `Banderas.Tests.Integration` and registered it in `Banderas.sln`.
 - Added shared test infrastructure:
-  `BanderaApiFactory`, `IntegrationTestCollection`, and `IntegrationTestBase`.
+  `BanderasApiFactory`, `IntegrationTestCollection`, and `IntegrationTestBase`.
 - Implemented 24 flag-endpoint integration tests and 7 evaluation-endpoint
   integration tests.
 - Added `public partial class Program { }` for `WebApplicationFactory<Program>`.
@@ -35,9 +35,9 @@ During implementation, we revisited where `EnvironmentType` validation should li
 The spec revision originally allowed a narrow controller-layer fix in
 `BanderasController`, but we chose a stronger Application-layer design instead:
 
-- Added `Bandera.Application/Validation/EnvironmentRules.cs`
+- Added `Banderas.Application/Validation/EnvironmentRules.cs`
 - Reused `EnvironmentRules.IsValid(...)` in validators
-- Enforced `EnvironmentRules.RequireValid(...)` in `Bandera`
+- Enforced `EnvironmentRules.RequireValid(...)` in `Banderas`
 - Removed controller-local `ValidateEnvironment(...)` duplication
 
 Why this was better:
@@ -78,9 +78,9 @@ integration suite.
 The implementation was verified with:
 
 ```bash
-dotnet build Bandera.sln -p:TreatWarningsAsErrors=true
-dotnet test Bandera.sln --filter "Category=Integration" --logger "console;verbosity=normal"
-dotnet test Bandera.sln --filter "Category!=Integration" --logger "console;verbosity=normal"
+dotnet build Banderas.sln -p:TreatWarningsAsErrors=true
+dotnet test Banderas.sln --filter "Category=Integration" --logger "console;verbosity=normal"
+dotnet test Banderas.sln --filter "Category!=Integration" --logger "console;verbosity=normal"
 dotnet tool restore
 dotnet csharpier format .
 dotnet csharpier check .

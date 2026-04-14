@@ -36,7 +36,7 @@ Three open validation gaps resolved in a single PR:
    `GlobalExceptionMiddleware`.
 
 3. **Name uniqueness** — `DuplicateFlagNameException` was defined in
-   `Bandera.Domain/Exceptions/` but never thrown. A duplicate `POST` fell through
+   `Banderas.Domain/Exceptions/` but never thrown. A duplicate `POST` fell through
    to the database, which returned a `500` from an unhandled Postgres unique
    constraint violation. The service layer now calls `ExistsAsync` before `AddAsync`
    and throws `DuplicateFlagNameException` on a match. A concurrent-request race
@@ -66,7 +66,7 @@ between that check returning `false` and `SaveChangesAsync` completing, a concur
 request can create the same flag. The DB unique constraint then fires, EF Core throws
 `DbUpdateException`, and the middleware returns `500`.
 
-The fix lives in `BanderaRepository.SaveChangesAsync`. The repository captures
+The fix lives in `BanderasRepository.SaveChangesAsync`. The repository captures
 any pending `Added` entries before the save, then intercepts
 `DbUpdateException` wrapping a `PostgresException` with `SqlState "23505"` and
 rethrows as `DuplicateFlagNameException` with full name and environment context.
@@ -81,7 +81,7 @@ violating Clean Architecture.
 The spec's `RouteParameterGuard.ValidateName` called `Regex.IsMatch(name)` without
 a null check. ASP.NET Core model binding will not produce a null route segment under
 normal operation, but a null input would throw `ArgumentNullException` rather than
-`BanderaValidationException`, producing an unintended `500`. Added
+`BanderasValidationException`, producing an unintended `500`. Added
 `ArgumentNullException.ThrowIfNull(name)` as the first line of the method.
 
 ---
@@ -101,7 +101,7 @@ no behavioural change. Included in this PR.
 The spec does not address the concurrent-request race condition. When the decision was
 made to handle it, the natural location appeared to be `CreateFlagAsync` in the service.
 However, the Application layer has no EF Core reference. To avoid introducing that
-dependency, the catch was placed in `BanderaRepository.SaveChangesAsync` instead,
+dependency, the catch was placed in `BanderasRepository.SaveChangesAsync` instead,
 where `DbUpdateException` and `PostgresException` are already in scope.
 
 ---
@@ -112,22 +112,22 @@ where `DbUpdateException` and `PostgresException` are already in scope.
 
 | File | Purpose |
 |---|---|
-| `Bandera.Application/Validators/StrategyConfigRules.cs` | Shared `internal static` class — `BeValidPercentageConfig` and `BeValidRoleConfig` extracted from both validators |
-| `Bandera.Domain/Exceptions/BanderaValidationException.cs` | 400 domain exception for route parameter allowlist failures |
-| `Bandera.Api/Helpers/RouteParameterGuard.cs` | Static guard — compiled regex allowlist on `{name}` route parameters |
+| `Banderas.Application/Validators/StrategyConfigRules.cs` | Shared `internal static` class — `BeValidPercentageConfig` and `BeValidRoleConfig` extracted from both validators |
+| `Banderas.Domain/Exceptions/BanderasValidationException.cs` | 400 domain exception for route parameter allowlist failures |
+| `Banderas.Api/Helpers/RouteParameterGuard.cs` | Static guard — compiled regex allowlist on `{name}` route parameters |
 
 ### Modified files
 
 | File | Change |
 |---|---|
-| `Bandera.Application/Validators/CreateFlagRequestValidator.cs` | Removed `BeValidPercentageConfig` and `BeValidRoleConfig` private methods; `.Must()` calls updated to `StrategyConfigRules.*`; removed unused `using System.Text.Json` |
-| `Bandera.Application/Validators/UpdateFlagRequestValidator.cs` | Same as above |
-| `Bandera.Domain/Interfaces/IBanderaRepository.cs` | Added `ExistsAsync(string name, EnvironmentType environment, CancellationToken ct)` with XML doc comment |
-| `Bandera.Domain/Exceptions/DuplicateFlagNameException.cs` | Constructor updated from `(string flagName)` to `(string flagName, EnvironmentType environment)`; message now includes environment |
-| `Bandera.Infrastructure/Persistence/BanderaRepository.cs` | Implemented `ExistsAsync` using `AnyAsync`; `SaveChangesAsync` catches `DbUpdateException` wrapping Postgres `23505` and rethrows as `DuplicateFlagNameException` |
-| `Bandera.Application/Services/BanderaService.cs` | `CreateFlagAsync` — sanitize name, call `ExistsAsync`, throw `DuplicateFlagNameException` on match, then construct and persist |
-| `Bandera.Api/Controllers/BanderasController.cs` | `RouteParameterGuard.ValidateName(name)` added as first statement in `GetByNameAsync`, `UpdateAsync`, and `ArchiveAsync`; added `using Bandera.Api.Helpers` |
-| `Bandera.Api/Middleware/GlobalExceptionMiddleware.cs` | Verified — `409 Conflict` case already present; no change required |
+| `Banderas.Application/Validators/CreateFlagRequestValidator.cs` | Removed `BeValidPercentageConfig` and `BeValidRoleConfig` private methods; `.Must()` calls updated to `StrategyConfigRules.*`; removed unused `using System.Text.Json` |
+| `Banderas.Application/Validators/UpdateFlagRequestValidator.cs` | Same as above |
+| `Banderas.Domain/Interfaces/IBanderasRepository.cs` | Added `ExistsAsync(string name, EnvironmentType environment, CancellationToken ct)` with XML doc comment |
+| `Banderas.Domain/Exceptions/DuplicateFlagNameException.cs` | Constructor updated from `(string flagName)` to `(string flagName, EnvironmentType environment)`; message now includes environment |
+| `Banderas.Infrastructure/Persistence/BanderasRepository.cs` | Implemented `ExistsAsync` using `AnyAsync`; `SaveChangesAsync` catches `DbUpdateException` wrapping Postgres `23505` and rethrows as `DuplicateFlagNameException` |
+| `Banderas.Application/Services/BanderasService.cs` | `CreateFlagAsync` — sanitize name, call `ExistsAsync`, throw `DuplicateFlagNameException` on match, then construct and persist |
+| `Banderas.Api/Controllers/BanderasController.cs` | `RouteParameterGuard.ValidateName(name)` added as first statement in `GetByNameAsync`, `UpdateAsync`, and `ArchiveAsync`; added `using Banderas.Api.Helpers` |
+| `Banderas.Api/Middleware/GlobalExceptionMiddleware.cs` | Verified — `409 Conflict` case already present; no change required |
 
 ---
 
@@ -137,11 +137,11 @@ where `DbUpdateException` and `PostgresException` are already in scope.
 - [x] Both duplicated private methods removed from `CreateFlagRequestValidator`
 - [x] Both duplicated private methods removed from `UpdateFlagRequestValidator`
 - [x] Both validators call `StrategyConfigRules.BeValidPercentageConfig` and `StrategyConfigRules.BeValidRoleConfig` in their `.Must()` chains
-- [x] `BanderaValidationException` created in `Bandera.Domain/Exceptions/`
-- [x] `RouteParameterGuard.ValidateName()` created in `Bandera.Api/Helpers/`
+- [x] `BanderasValidationException` created in `Banderas.Domain/Exceptions/`
+- [x] `RouteParameterGuard.ValidateName()` created in `Banderas.Api/Helpers/`
 - [x] `RouteParameterGuard.ValidateName(name)` is the first call in `GetByNameAsync`, `UpdateAsync`, and `ArchiveAsync`
-- [x] `ExistsAsync` added to `IBanderaRepository` with XML doc comment
-- [x] `ExistsAsync` implemented in `BanderaRepository` using `AnyAsync`
+- [x] `ExistsAsync` added to `IBanderasRepository` with XML doc comment
+- [x] `ExistsAsync` implemented in `BanderasRepository` using `AnyAsync`
 - [x] `DuplicateFlagNameException` constructor updated to accept `(string flagName, EnvironmentType environment)`
 - [x] `CreateFlagAsync` calls `ExistsAsync` and throws `DuplicateFlagNameException` before `AddAsync`
 - [x] `GlobalExceptionMiddleware.GetTitleForStatusCode` contains the `409` case — verified, already present
@@ -149,6 +149,6 @@ where `DbUpdateException` and `PostgresException` are already in scope.
 - [ ] `GET /api/flags/{name}` with `name = "bad name!"` returns `400` with `application/problem+json` — verified by integration test (Phase 2)
 - [ ] `PUT /api/flags/{name}` with `name = "bad name!"` returns `400` with `application/problem+json` — verified by integration test (Phase 2)
 - [ ] `DELETE /api/flags/{name}` with `name = "bad name!"` returns `400` with `application/problem+json` — verified by integration test (Phase 2)
-- [x] `dotnet build Bandera.sln` → 0 errors, 0 warnings
+- [x] `dotnet build Banderas.sln` → 0 errors, 0 warnings
 - [x] All existing tests passing: `dotnet test --filter "Category!=Integration"` → 8/8
 - [x] `dotnet csharpier check .` → 0 violations

@@ -11,13 +11,13 @@
 
 ## What Was Implemented
 
-- `InputSanitizer` — internal static helper in `Bandera.Application/Validators/`
+- `InputSanitizer` — internal static helper in `Banderas.Application/Validators/`
 - `CreateFlagRequestValidator` — Name regex + length, env sentinel, StrategyConfig cross-field rules
 - `UpdateFlagRequestValidator` — StrategyConfig cross-field rules
 - `EvaluationRequestValidator` — FlagName/UserId length + empty, UserRoles null/count/per-role length
 - `DependencyInjection.cs` — explicit `IValidator<T>` registrations
-- `BanderaService.IsEnabledAsync` — sanitizes `UserId` and `UserRoles` before building context
-- `BanderaService.CreateFlagAsync` — sanitizes `Name` before constructing `Flag`
+- `BanderasService.IsEnabledAsync` — sanitizes `UserId` and `UserRoles` before building context
+- `BanderasService.CreateFlagAsync` — sanitizes `Name` before constructing `Flag`
 - `BanderasController` — manual `ValidateAsync` on POST and PUT
 - `EvaluationController` — manual `ValidateAsync` before `FeatureEvaluationContext` is constructed
 
@@ -89,7 +89,7 @@ same `Must()` pattern — validate structural constraints raw, run cleaned value
 identically in both `CreateFlagRequestValidator` and `UpdateFlagRequestValidator`.
 
 **Candidate fix:** Extract to a `StrategyConfigRules` internal static class in
-`Bandera.Application/Validators/`. Both validators call the shared methods.
+`Banderas.Application/Validators/`. Both validators call the shared methods.
 
 **Deferred:** Not a Phase 1 blocker. Candidate for a small cleanup spec.
 
@@ -97,7 +97,7 @@ identically in both `CreateFlagRequestValidator` and `UpdateFlagRequestValidator
 
 ## Notes
 
-- `InputSanitizer` is `internal` — accessible from `Bandera` (same project)
+- `InputSanitizer` is `internal` — accessible from `Banderas` (same project)
   but not from the Api project. This is intentional.
 - `StrategyConfig` is intentionally not sanitized — it is JSON, stored verbatim; only
   its length and internal structure are validated.

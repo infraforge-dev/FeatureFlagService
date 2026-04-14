@@ -134,7 +134,7 @@ calling the seeder during startup orchestration.
 | # | What | File(s) Affected |
 |---|------|-----------------|
 | 1 | `DatabaseSeeder` class | `Infrastructure/Seeding/DatabaseSeeder.cs` |
-| 2 | Startup wiring | `Bandera.Api/Program.cs` |
+| 2 | Startup wiring | `Banderas.Api/Program.cs` |
 | 3 | Seed record manifest (inline) | `Infrastructure/Seeding/DatabaseSeeder.cs` |
 
 No new migrations. No new DTOs. No new endpoints. No changes to existing domain
@@ -165,7 +165,7 @@ an immediately meaningful API to explore.
 
 ### AC-1: DatabaseSeeder Class
 
-**File:** `Bandera.Infrastructure/Seeding/DatabaseSeeder.cs`
+**File:** `Banderas.Infrastructure/Seeding/DatabaseSeeder.cs`
 
 - Class is `internal sealed`
 - Constructor accepts `AppDbContext` and `ILogger<DatabaseSeeder>`
@@ -224,7 +224,7 @@ untouched regardless of reset mode.
 
 ### AC-4: Environment Guard
 
-**File:** `Bandera.Api/Program.cs`
+**File:** `Banderas.Api/Program.cs`
 
 - The seeder is only invoked if `app.Environment.IsDevelopment()` returns `true`
 - If not in Development, no seeding code executes and no log output is produced
@@ -305,14 +305,14 @@ No raw user data is logged. Seed records contain no user-identifying information
 ## File Layout
 
 ```
-Bandera.Infrastructure/
+Banderas.Infrastructure/
   Seeding/
     DatabaseSeeder.cs         ← new
 
-Bandera.Api/
+Banderas.Api/
   Program.cs                  ← modified (environment guard + seeder call)
 
-Bandera.Infrastructure/
+Banderas.Infrastructure/
   DependencyInjection.cs      ← modified (register DatabaseSeeder as scoped)
 ```
 
@@ -321,7 +321,7 @@ Bandera.Infrastructure/
 ## Implementation Notes
 
 - The seeder uses `AppDbContext` directly — do not route through
-  `IBanderaRepository`. The repository interface is the Application layer's
+  `IBanderasRepository`. The repository interface is the Application layer's
   boundary; the seeder lives in Infrastructure and may call `DbContext` directly.
 - `ExecuteDeleteAsync` requires EF Core 7+. Already available in this project
   (EF Core 10).

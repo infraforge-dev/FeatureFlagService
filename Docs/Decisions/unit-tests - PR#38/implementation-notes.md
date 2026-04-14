@@ -24,7 +24,7 @@
 A full unit test suite covering all evaluation strategies, the evaluator registry,
 and all three request validators. 75 tests across 7 test files.
 
-- **`FlagBuilder`** — internal static factory in `Bandera.Tests/Helpers/` that
+- **`FlagBuilder`** — internal static factory in `Banderas.Tests/Helpers/` that
   creates `Flag` instances with sensible defaults. Tests override only the properties
   relevant to the scenario under test.
 
@@ -64,7 +64,7 @@ and all three request validators. 75 tests across 7 test files.
 
 ## Production Bugs Discovered and Fixed
 
-The test session exposed two bugs in `Bandera.Application/Strategies/` that
+The test session exposed two bugs in `Banderas.Application/Strategies/` that
 caused all real flag evaluations to silently return `false`.
 
 ### Bug 1 — Strategies not fail-closed on malformed JSON
@@ -135,7 +135,7 @@ consistent value without throwing. Comment in the test explains the design inten
 
 ### Gap 3 — Strategy modifications required despite "DO NOT modify src/"
 
-The spec says "DO NOT modify any file in src/ (Bandera.Domain, Application,
+The spec says "DO NOT modify any file in src/ (Banderas.Domain, Application,
 Infrastructure, Api)". The tests for PS-2, PS-3, RS-2, RS-3 (empty/malformed config
 returns `false`) cannot pass without try/catch in the strategies, and the tests for
 PS-6, RS-5, RS-7, FE-2, FE-3 (valid config returns correct result) cannot pass without
@@ -155,27 +155,27 @@ Percentage or RoleBased flag was evaluated.
 | File | Purpose |
 |---|---|
 | `Docs/Decisions/unit-tests - PR#38/implementation-notes.md` | This document |
-| `Bandera.Tests/Helpers/FlagBuilder.cs` | Internal static factory for `Flag` test instances |
-| `Bandera.Tests/Strategies/NoneStrategyTests.cs` | 4 unit tests for `NoneStrategy` |
-| `Bandera.Tests/Strategies/PercentageStrategyTests.cs` | 9 unit tests for `PercentageStrategy` |
-| `Bandera.Tests/Strategies/RoleStrategyTests.cs` | 9 unit tests for `RoleStrategy` |
-| `Bandera.Tests/Evaluation/FeatureEvaluatorTests.cs` | 4 unit tests for `FeatureEvaluator` |
-| `Bandera.Tests/Validators/CreateFlagRequestValidatorTests.cs` | 17 unit tests for `CreateFlagRequestValidator` |
-| `Bandera.Tests/Validators/UpdateFlagRequestValidatorTests.cs` | 9 unit tests for `UpdateFlagRequestValidator` |
-| `Bandera.Tests/Validators/EvaluationRequestValidatorTests.cs` | 10 unit tests for `EvaluationRequestValidator` |
+| `Banderas.Tests/Helpers/FlagBuilder.cs` | Internal static factory for `Flag` test instances |
+| `Banderas.Tests/Strategies/NoneStrategyTests.cs` | 4 unit tests for `NoneStrategy` |
+| `Banderas.Tests/Strategies/PercentageStrategyTests.cs` | 9 unit tests for `PercentageStrategy` |
+| `Banderas.Tests/Strategies/RoleStrategyTests.cs` | 9 unit tests for `RoleStrategy` |
+| `Banderas.Tests/Evaluation/FeatureEvaluatorTests.cs` | 4 unit tests for `FeatureEvaluator` |
+| `Banderas.Tests/Validators/CreateFlagRequestValidatorTests.cs` | 17 unit tests for `CreateFlagRequestValidator` |
+| `Banderas.Tests/Validators/UpdateFlagRequestValidatorTests.cs` | 9 unit tests for `UpdateFlagRequestValidator` |
+| `Banderas.Tests/Validators/EvaluationRequestValidatorTests.cs` | 10 unit tests for `EvaluationRequestValidator` |
 
 ### Modified files
 
 | File | Change |
 |---|---|
-| `Bandera.Application/Strategies/PercentageStrategy.cs` | Added `try/catch (JsonException)` around `Deserialize`; added `PropertyNameCaseInsensitive = true` options — fixes Bug 1 and Bug 2 |
-| `Bandera.Application/Strategies/RoleStrategy.cs` | Same as above |
+| `Banderas.Application/Strategies/PercentageStrategy.cs` | Added `try/catch (JsonException)` around `Deserialize`; added `PropertyNameCaseInsensitive = true` options — fixes Bug 1 and Bug 2 |
+| `Banderas.Application/Strategies/RoleStrategy.cs` | Same as above |
 
 ---
 
 ## Definition of Done — Status
 
-- [x] `FlagBuilder.cs` exists in `Bandera.Tests/Helpers/`
+- [x] `FlagBuilder.cs` exists in `Banderas.Tests/Helpers/`
 - [x] All 7 test files exist in their specified locations
 - [x] Every test class and method carries `[Trait("Category", "Unit")]`
 - [x] All assertions use FluentAssertions — no `Assert.*` calls
@@ -187,7 +187,7 @@ Percentage or RoleBased flag was evaluated.
 - [x] `CreateFlagRequestValidatorTests`: 17/17 passing
 - [x] `UpdateFlagRequestValidatorTests`: 9/9 passing
 - [x] `EvaluationRequestValidatorTests`: 10/10 passing
-- [x] `dotnet test Bandera.sln --filter "Category=Unit"` exits 0 — 75/75 passing
-- [x] `dotnet build Bandera.sln -warnaserror` exits 0 — 0 warnings, 0 errors
+- [x] `dotnet test Banderas.sln --filter "Category=Unit"` exits 0 — 75/75 passing
+- [x] `dotnet build Banderas.sln -warnaserror` exits 0 — 0 warnings, 0 errors
 - [x] `dotnet csharpier check .` exits 0 — 0 violations
 - [ ] Integration tests for all 6 endpoints (Phase 2 — out of scope for this PR)

@@ -5,18 +5,18 @@
 **Status:** Ready for implementation
 **Implementation notes:** `docs/Decisions/evaluation-engine/implementation-notes.md`
 
-[Pull Request #22](https://github.com/amodelandme/Bandera/pull/22)
+[Pull Request #22](https://github.com/amodelandme/Banderas/pull/22)
 
 ---
 
 ## 1. Purpose of This Document
 
-This is the implementation spec for the Bandera evaluation engine. It is intended to be read by Claude Code at the start of the implementation session before any code is written.
+This is the implementation spec for the Banderas evaluation engine. It is intended to be read by Claude Code at the start of the implementation session before any code is written.
 
 It covers every class, interface, design decision, and wiring detail needed to implement the evaluation layer from scratch — without ambiguity.
 
 > **SCOPE**  
-> This spec covers: `FeatureEvaluator`, `PercentageStrategy`, `RoleStrategy`, `NoneStrategy`, `DependencyInjection` extension methods, and the `Bandera` orchestration class.  
+> This spec covers: `FeatureEvaluator`, `PercentageStrategy`, `RoleStrategy`, `NoneStrategy`, `DependencyInjection` extension methods, and the `Banderas` orchestration class.  
 > It does **not** cover EF Core setup, controllers, or Swagger — those are separate sessions.
 
 ---
@@ -27,14 +27,14 @@ Before writing any code, understand the dependency rules that govern this projec
 
 | Layer | Responsibility |
 |---|---|
-| `Bandera.Domain` | Entities, enums, value objects, interfaces. Zero outward dependencies. |
-| `Bandera.Application` | Use cases, service interfaces, evaluator, strategies. Depends on Domain only. |
-| `Bandera.Infrastructure` | EF Core, repositories. Depends on Domain + Application. |
-| `Bandera.Api` | Controllers, Program.cs, DI wiring. Depends on Application + Infrastructure. |
-| `Bandera.Tests` | Unit tests. Depends on Domain + Application. |
+| `Banderas.Domain` | Entities, enums, value objects, interfaces. Zero outward dependencies. |
+| `Banderas.Application` | Use cases, service interfaces, evaluator, strategies. Depends on Domain only. |
+| `Banderas.Infrastructure` | EF Core, repositories. Depends on Domain + Application. |
+| `Banderas.Api` | Controllers, Program.cs, DI wiring. Depends on Application + Infrastructure. |
+| `Banderas.Tests` | Unit tests. Depends on Domain + Application. |
 
 > **RULE**  
-> `IRolloutStrategy` lives in **Domain**. `FeatureEvaluator`, `PercentageStrategy`, `RoleStrategy`, `NoneStrategy`, and `IBanderaService` live in **Application**. `DependencyInjection` extension methods live in Application and Infrastructure respectively. Do not move any of these.
+> `IRolloutStrategy` lives in **Domain**. `FeatureEvaluator`, `PercentageStrategy`, `RoleStrategy`, `NoneStrategy`, and `IBanderasService` live in **Application**. `DependencyInjection` extension methods live in Application and Infrastructure respectively. Do not move any of these.
 
 ---
 
@@ -44,10 +44,10 @@ The following interfaces are already committed to the repo. Do **NOT** redefine 
 
 ### 3.1 IRolloutStrategy (Domain)
 
-**Location:** `Bandera.Domain/Interfaces/IRolloutStrategy.cs`
+**Location:** `Banderas.Domain/Interfaces/IRolloutStrategy.cs`
 
 ```csharp
-namespace Bandera.Domain.Interfaces;
+namespace Banderas.Domain.Interfaces;
 
 public interface IRolloutStrategy
 {
@@ -62,14 +62,14 @@ public interface IRolloutStrategy
 
 ---
 
-### 3.2 IBanderaService (Application)
+### 3.2 IBanderasService (Application)
 
-**Location:** `Bandera.Application/Interfaces/IBanderaService.cs`
+**Location:** `Banderas.Application/Interfaces/IBanderasService.cs`
 
 ```csharp
-namespace Bandera.Application.Interfaces;
+namespace Banderas.Application.Interfaces;
 
-public interface IBanderaService
+public interface IBanderasService
 {
     Flag GetFlag(string name, EnvironmentType environment);
     bool IsEnabled(string flagName, FeatureEvaluationContext context);
@@ -78,16 +78,16 @@ public interface IBanderaService
 
 ---
 
-### 3.3 IBanderaRepository (Domain) — CREATE THIS FILE
+### 3.3 IBanderasRepository (Domain) — CREATE THIS FILE
 
-**Location:** `Bandera.Domain/Interfaces/IBanderaRepository.cs`
+**Location:** `Banderas.Domain/Interfaces/IBanderasRepository.cs`
 
 This interface belongs in Domain so Infrastructure can implement it without creating an illegal dependency. This is the standard Clean Architecture repository pattern.
 
 ```csharp
-namespace Bandera.Domain.Interfaces;
+namespace Banderas.Domain.Interfaces;
 
-public interface IBanderaRepository
+public interface IBanderasRepository
 {
     Flag? GetByName(string name, EnvironmentType environment);
     IReadOnlyList<Flag> GetAll(EnvironmentType environment);
@@ -102,7 +102,7 @@ public interface IBanderaRepository
 
 | Property | Value |
 |---|---|
-| File location | `Bandera.Application/Strategies/PercentageStrategy.cs` |
+| File location | `Banderas.Application/Strategies/PercentageStrategy.cs` |
 | Implements | `IRolloutStrategy` |
 | `StrategyType` property | `RolloutStrategy.Percentage` |
 | Purpose | Deterministically assign users to a rollout percentage using SHA256 hashing |
@@ -143,12 +143,12 @@ private sealed record PercentageConfig(int Percentage);
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
-using Bandera.Domain.Entities;
-using Bandera.Domain.Enums;
-using Bandera.Domain.Interfaces;
-using Bandera.Domain.ValueObjects;
+using Banderas.Domain.Entities;
+using Banderas.Domain.Enums;
+using Banderas.Domain.Interfaces;
+using Banderas.Domain.ValueObjects;
 
-namespace Bandera.Application.Strategies;
+namespace Banderas.Application.Strategies;
 
 public sealed class PercentageStrategy : IRolloutStrategy
 {
@@ -178,7 +178,7 @@ public sealed class PercentageStrategy : IRolloutStrategy
 
 | Property | Value |
 |---|---|
-| File location | `Bandera.Application/Strategies/RoleStrategy.cs` |
+| File location | `Banderas.Application/Strategies/RoleStrategy.cs` |
 | Implements | `IRolloutStrategy` |
 | `StrategyType` property | `RolloutStrategy.RoleBased` |
 | Purpose | Grant access to users whose roles intersect with the configured allowed roles |
@@ -206,12 +206,12 @@ public sealed class PercentageStrategy : IRolloutStrategy
 
 ```csharp
 using System.Text.Json;
-using Bandera.Domain.Entities;
-using Bandera.Domain.Enums;
-using Bandera.Domain.Interfaces;
-using Bandera.Domain.ValueObjects;
+using Banderas.Domain.Entities;
+using Banderas.Domain.Enums;
+using Banderas.Domain.Interfaces;
+using Banderas.Domain.ValueObjects;
 
-namespace Bandera.Application.Strategies;
+namespace Banderas.Application.Strategies;
 
 public sealed class RoleStrategy : IRolloutStrategy
 {
@@ -243,17 +243,17 @@ When `RolloutStrategy` is `None`, the flag is on for everyone. Rather than handl
 
 | Property | Value |
 |---|---|
-| File location | `Bandera.Application/Strategies/NoneStrategy.cs` |
+| File location | `Banderas.Application/Strategies/NoneStrategy.cs` |
 | Implements | `IRolloutStrategy` |
 | `StrategyType` property | `RolloutStrategy.None` |
 | Purpose | Passthrough — flag is on, no targeting rules apply |
 
 ```csharp
-using Bandera.Domain.Entities;
-using Bandera.Domain.Interfaces;
-using Bandera.Domain.ValueObjects;
+using Banderas.Domain.Entities;
+using Banderas.Domain.Interfaces;
+using Banderas.Domain.ValueObjects;
 
-namespace Bandera.Application.Strategies;
+namespace Banderas.Application.Strategies;
 
 public sealed class NoneStrategy : IRolloutStrategy
 {
@@ -272,7 +272,7 @@ public sealed class NoneStrategy : IRolloutStrategy
 
 | Property | Value |
 |---|---|
-| File location | `Bandera.Application/Evaluation/FeatureEvaluator.cs` |
+| File location | `Banderas.Application/Evaluation/FeatureEvaluator.cs` |
 | Purpose | Dispatch evaluation to the correct `IRolloutStrategy` based on `Flag.StrategyType` |
 | DI Lifetime | Singleton — stateless, safe to share across requests |
 | Dependencies | `IEnumerable<IRolloutStrategy>` — injected by DI container |
@@ -282,12 +282,12 @@ public sealed class NoneStrategy : IRolloutStrategy
 The constructor receives all registered `IRolloutStrategy` implementations via `IEnumerable<IRolloutStrategy>`. It builds a dictionary keyed by each strategy's `StrategyType` property. At evaluation time it looks up the correct strategy in O(1) and delegates.
 
 ```csharp
-using Bandera.Domain.Entities;
-using Bandera.Domain.Enums;
-using Bandera.Domain.Interfaces;
-using Bandera.Domain.ValueObjects;
+using Banderas.Domain.Entities;
+using Banderas.Domain.Enums;
+using Banderas.Domain.Interfaces;
+using Banderas.Domain.ValueObjects;
 
-namespace Bandera.Application.Evaluation;
+namespace Banderas.Application.Evaluation;
 
 public sealed class FeatureEvaluator
 {
@@ -319,36 +319,36 @@ public sealed class FeatureEvaluator
 
 ---
 
-### 4.5 Bandera
+### 4.5 Banderas
 
 | Property | Value |
 |---|---|
-| File location | `Bandera.Application/Services/BanderaService.cs` |
-| Implements | `IBanderaService` |
-| DI Lifetime | **Scoped** — depends on `IBanderaRepository` which is Scoped |
-| Dependencies | `IBanderaRepository`, `FeatureEvaluator` |
+| File location | `Banderas.Application/Services/BanderasService.cs` |
+| Implements | `IBanderasService` |
+| DI Lifetime | **Scoped** — depends on `IBanderasRepository` which is Scoped |
+| Dependencies | `IBanderasRepository`, `FeatureEvaluator` |
 | Purpose | Orchestrate: fetch flag from repository, pass to evaluator, return result |
 
 > **LIFETIME WARNING**  
-> `Bandera` must be **Scoped**, not Singleton. It depends on `IBanderaRepository` which wraps EF Core `DbContext` — a Scoped service. If `Bandera` were Singleton, the repository would be captured inside it and never released. ASP.NET Core will throw an `InvalidOperationException` at startup if this is wrong.
+> `Banderas` must be **Scoped**, not Singleton. It depends on `IBanderasRepository` which wraps EF Core `DbContext` — a Scoped service. If `Banderas` were Singleton, the repository would be captured inside it and never released. ASP.NET Core will throw an `InvalidOperationException` at startup if this is wrong.
 
 ```csharp
-using Bandera.Application.Evaluation;
-using Bandera.Application.Interfaces;
-using Bandera.Domain.Entities;
-using Bandera.Domain.Enums;
-using Bandera.Domain.Interfaces;
-using Bandera.Domain.ValueObjects;
+using Banderas.Application.Evaluation;
+using Banderas.Application.Interfaces;
+using Banderas.Domain.Entities;
+using Banderas.Domain.Enums;
+using Banderas.Domain.Interfaces;
+using Banderas.Domain.ValueObjects;
 
-namespace Bandera.Application.Services;
+namespace Banderas.Application.Services;
 
-public sealed class BanderaService : IBanderaService
+public sealed class BanderasService : IBanderasService
 {
-    private readonly IBanderaRepository _repository;
+    private readonly IBanderasRepository _repository;
     private readonly FeatureEvaluator _evaluator;
 
-    public BanderaService(
-        IBanderaRepository repository,
+    public BanderasService(
+        IBanderasRepository repository,
         FeatureEvaluator evaluator)
     {
         _repository = repository;
@@ -381,17 +381,17 @@ Each layer owns its own DI registration. `Program.cs` calls the extension method
 
 ### 5.1 Application Layer — DependencyInjection.cs
 
-**Location:** `Bandera.Application/DependencyInjection.cs`
+**Location:** `Banderas.Application/DependencyInjection.cs`
 
 ```csharp
-using Bandera.Application.Evaluation;
-using Bandera.Application.Interfaces;
-using Bandera.Application.Services;
-using Bandera.Application.Strategies;
-using Bandera.Domain.Interfaces;
+using Banderas.Application.Evaluation;
+using Banderas.Application.Interfaces;
+using Banderas.Application.Services;
+using Banderas.Application.Strategies;
+using Banderas.Domain.Interfaces;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Bandera.Application;
+namespace Banderas.Application;
 
 public static class DependencyInjection
 {
@@ -406,7 +406,7 @@ public static class DependencyInjection
         services.AddSingleton<FeatureEvaluator>();
 
         // Service — Scoped: depends on Scoped repository
-        services.AddScoped<IBanderaService, BanderaService>();
+        services.AddScoped<IBanderasService, BanderasService>();
 
         return services;
     }
@@ -417,7 +417,7 @@ public static class DependencyInjection
 
 ### 5.2 Infrastructure Layer — DependencyInjection.cs (stub)
 
-**Location:** `Bandera.Infrastructure/DependencyInjection.cs`
+**Location:** `Banderas.Infrastructure/DependencyInjection.cs`
 
 EF Core and `DbContext` are out of scope for this session. Create this stub so the solution compiles and the wiring pattern is in place.
 
@@ -425,7 +425,7 @@ EF Core and `DbContext` are out of scope for this session. Create this stub so t
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Bandera.Infrastructure;
+namespace Banderas.Infrastructure;
 
 public static class DependencyInjection
 {
@@ -433,8 +433,8 @@ public static class DependencyInjection
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        // TODO: services.AddDbContext<BanderaDbContext>(...)
-        // TODO: services.AddScoped<IBanderaRepository, BanderaRepository>()
+        // TODO: services.AddDbContext<BanderasDbContext>(...)
+        // TODO: services.AddScoped<IBanderasRepository, BanderasRepository>()
 
         return services;
     }
@@ -445,7 +445,7 @@ public static class DependencyInjection
 
 ### 5.3 Program.cs — Composition Root
 
-**Location:** `Bandera.Api/Program.cs`
+**Location:** `Banderas.Api/Program.cs`
 
 Replace the two commented-out lines that already exist in the file:
 
@@ -459,25 +459,25 @@ builder.Services.AddInfrastructure(builder.Configuration);
 ## 6. Folder Structure After Implementation
 
 ```
-Bandera.Application/
+Banderas.Application/
   DependencyInjection.cs
   Evaluation/
     FeatureEvaluator.cs
   Interfaces/
-    IBanderaService.cs
+    IBanderasService.cs
   Services/
-    BanderaService.cs
+    BanderasService.cs
   Strategies/
     NoneStrategy.cs
     PercentageStrategy.cs
     RoleStrategy.cs
 
-Bandera.Domain/
+Banderas.Domain/
   Interfaces/
     IRolloutStrategy.cs          ← UPDATE: add StrategyType property
-    IBanderaRepository.cs    ← CREATE
+    IBanderasRepository.cs    ← CREATE
 
-Bandera.Infrastructure/
+Banderas.Infrastructure/
   DependencyInjection.cs         ← CREATE (stub only)
 ```
 
@@ -495,8 +495,8 @@ Bandera.Infrastructure/
 | `HashSet` for role lookup | O(1) lookup vs O(n) for `List`. `OrdinalIgnoreCase` handles provider mismatches like `"Admin"` vs `"admin"` silently and correctly. |
 | Fail closed on bad config | Both strategies return `false` when config is null, malformed, or out of range. A broken flag disables the feature — it does not grant access. |
 | `NoneStrategy` as a class | Avoids a conditional in `FeatureEvaluator`. Every enum value maps to a strategy. The evaluator stays free of branching logic. |
-| Scoped service lifetime | `Bandera` depends on `IBanderaRepository` which wraps EF Core `DbContext` — a Scoped service. Matching lifetimes prevents the captive dependency bug. |
-| `IBanderaRepository` in Domain | Infrastructure implements it. Domain defines it. Application consumes it. This is the Dependency Inversion Principle — high-level policy does not depend on low-level detail. |
+| Scoped service lifetime | `Banderas` depends on `IBanderasRepository` which wraps EF Core `DbContext` — a Scoped service. Matching lifetimes prevents the captive dependency bug. |
+| `IBanderasRepository` in Domain | Infrastructure implements it. Domain defines it. Application consumes it. This is the Dependency Inversion Principle — high-level policy does not depend on low-level detail. |
 
 ---
 
@@ -513,14 +513,14 @@ Read the following before writing any code:
 Then implement in this order:
 
 1. Update `IRolloutStrategy` in Domain — add the `StrategyType` property
-2. Create `IBanderaRepository` in Domain
+2. Create `IBanderasRepository` in Domain
 3. Implement `NoneStrategy`, `PercentageStrategy`, and `RoleStrategy` in `Application/Strategies/`
 4. Implement `FeatureEvaluator` in `Application/Evaluation/`
-5. Implement `Bandera` in `Application/Services/`
+5. Implement `Banderas` in `Application/Services/`
 6. Create `DependencyInjection.cs` in Application with `AddApplication()` extension method
 7. Create `DependencyInjection.cs` stub in Infrastructure with `AddInfrastructure()` extension method
 8. Wire up `AddApplication()` and `AddInfrastructure()` in `Program.cs`
-9. Verify the solution builds: `dotnet build Bandera.sln`
+9. Verify the solution builds: `dotnet build Banderas.sln`
 
 > **DO NOT**  
 > Do not implement EF Core, `DbContext`, or the real repository — that is a separate session.  
@@ -531,4 +531,4 @@ Then implement in this order:
 
 ---
 
-*Bandera | feature/evaluation-engine | Phase 0*
+*Banderas | feature/evaluation-engine | Phase 0*

@@ -85,7 +85,7 @@
           rmatted those files. When the branch was later rebased onto `dev` (which had the PR #33 versions), conflicts arose in 5 files. Resolving with `--theirs` (origin/dev) correctly restored the CSharpier-formatted state but discarded the IDE0011/IDE000
           8 fixes that had been applied locally.
        79
-       80 **Fix applied:** Re-ran `dotnet format Bandera.sln --diagnostics IDE0011 IDE0008` after the rebase, then re-ran `dotnet csharpier format .` to reconcile any line-length disagreements introduced by `dotnet format`.
+       80 **Fix applied:** Re-ran `dotnet format Banderas.sln --diagnostics IDE0011 IDE0008` after the rebase, then re-ran `dotnet csharpier format .` to reconcile any line-length disagreements introduced by `dotnet format`.
        81
        82 ---
        83
@@ -110,6 +110,6 @@
        99
       100 ## Build Verification
       101
-      102 - `dotnet build Bandera.sln --no-incremental -p:TreatWarningsAsErrors=true` → **0 errors, 0 warnings**
+      102 - `dotnet build Banderas.sln --no-incremental -p:TreatWarningsAsErrors=true` → **0 errors, 0 warnings**
       103 - `dotnet csharpier check .` → **41 files checked, 0 violations**
-      104 - `dotnet test Bandera.sln --filter "Category!=Integration"` → **8/8 passing**
+      104 - `dotnet test Banderas.sln --filter "Category!=Integration"` → **8/8 passing**
