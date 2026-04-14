@@ -18,7 +18,7 @@
 - [Design Decisions](#design-decisions)
 - [Scope](#scope)
 - [Exception Hierarchy](#exception-hierarchy)
-  - [AC-1 FeatureFlagException — Base Class](#ac-1-featureflagexception--base-class)
+  - [AC-1 BanderaException — Base Class](#ac-1-featureflagexception--base-class)
   - [AC-2 FlagNotFoundException](#ac-2-flagnotfoundexception)
   - [AC-3 DuplicateFlagNameException](#ac-3-duplicateflagnamexception)
 - [Middleware](#middleware)
@@ -37,7 +37,7 @@
 
 ## User Story
 
-> As a developer integrating with FeatureFlagService, I want every error response
+> As a developer integrating with Bandera, I want every error response
 > to have a consistent, predictable shape — so I can handle failures reliably
 > without inspecting each endpoint individually.
 
@@ -58,9 +58,9 @@ creates three problems:
 
 This spec replaces all of the above with:
 
-- A **domain exception hierarchy** in `FeatureFlag.Domain` that gives every
+- A **domain exception hierarchy** in `Bandera.Domain` that gives every
   failure mode an explicit name and HTTP status code.
-- A **single `GlobalExceptionMiddleware`** in `FeatureFlag.Api` that catches
+- A **single `GlobalExceptionMiddleware`** in `Bandera.Api` that catches
   everything, maps domain exceptions to `ProblemDetails`, logs unexpected
   errors, and returns a safe `500` for anything else.
 - **Controllers with no error handling** — they contain only the happy path.
@@ -69,7 +69,7 @@ This spec replaces all of the above with:
 
 ## Design Decisions
 
-### Why domain exceptions in `FeatureFlag.Domain` and not `FeatureFlag.Application`?
+### Why domain exceptions in `Bandera.Domain` and not `Bandera.Application`?
 
 Domain is the innermost layer. Every other layer already references it. Placing
 exceptions here means `Application`, `Infrastructure`, and `Api` can all throw
@@ -100,7 +100,7 @@ they can parse reliably across all endpoints.
 
 RFC 9457 recommends `about:blank` for standard HTTP errors with no additional
 domain-specific semantics. It requires zero maintenance — no RFC section numbers
-to track or get wrong. Custom URIs pointing to FeatureFlagService documentation
+to track or get wrong. Custom URIs pointing to Bandera documentation
 will be introduced in Phase 1.5 for domain-specific error types.
 
 ### Why `StatusCodes` constants instead of magic numbers?
@@ -118,33 +118,33 @@ and intentional trade-off documented here.
 
 | # | What | File(s) |
 |---|---|---|
-| 1 | `FeatureFlagException` base class | `Domain/Exceptions/FeatureFlagException.cs` |
+| 1 | `BanderaException` base class | `Domain/Exceptions/BanderaException.cs` |
 | 2 | `FlagNotFoundException` | `Domain/Exceptions/FlagNotFoundException.cs` |
 | 3 | `DuplicateFlagNameException` | `Domain/Exceptions/DuplicateFlagNameException.cs` |
 | 4 | `GlobalExceptionMiddleware` | `Api/Middleware/GlobalExceptionMiddleware.cs` |
 | 5 | Middleware registration | `Api/Program.cs` |
-| 6 | Service layer — throw instead of return null | `Application/Services/FeatureFlagService.cs` |
-| 7 | Controller cleanup — remove all try/catch | `Api/Controllers/FeatureFlagsController.cs`, `Api/Controllers/EvaluationController.cs` |
+| 6 | Service layer — throw instead of return null | `Application/Services/BanderaService.cs` |
+| 7 | Controller cleanup — remove all try/catch | `Api/Controllers/BanderasController.cs`, `Api/Controllers/EvaluationController.cs` |
 
 ---
 
 ## Exception Hierarchy
 
-### AC-1: `FeatureFlagException` — Base Class
+### AC-1: `BanderaException` — Base Class
 
-**File:** `FeatureFlag.Domain/Exceptions/FeatureFlagException.cs`
+**File:** `Bandera.Domain/Exceptions/BanderaException.cs`
 
 ```csharp
-namespace FeatureFlag.Domain.Exceptions;
+namespace Bandera.Domain.Exceptions;
 
 /// 
 
-/// Base class for all domain exceptions in FeatureFlagService.
+/// Base class for all domain exceptions in Bandera.
 /// Carries the HTTP status code that the middleware will use
 /// when building the ProblemDetails response.
 /// 
 
-public abstract class FeatureFlagException : Exception
+public abstract class BanderaException : Exception
 {
     /// 
 
@@ -153,7 +153,7 @@ public abstract class FeatureFlagException : Exception
 
     public int StatusCode { get; }
 
-    protected FeatureFlagException(string message, int statusCode)
+    protected BanderaException(string message, int statusCode)
         : base(message)
     {
         StatusCode = statusCode;
@@ -170,12 +170,12 @@ public abstract class FeatureFlagException : Exception
 
 ### AC-2: `FlagNotFoundException`
 
-**File:** `FeatureFlag.Domain/Exceptions/FlagNotFoundException.cs`
+**File:** `Bandera.Domain/Exceptions/FlagNotFoundException.cs`
 
 ```csharp
 using Microsoft.AspNetCore.Http;
 
-namespace FeatureFlag.Domain.Exceptions;
+namespace Bandera.Domain.Exceptions;
 
 /// 
 
@@ -183,7 +183,7 @@ namespace FeatureFlag.Domain.Exceptions;
 /// Maps to HTTP 404 Not Found.
 /// 
 
-public sealed class FlagNotFoundException : FeatureFlagException
+public sealed class FlagNotFoundException : BanderaException
 {
     public FlagNotFoundException(string flagName)
         : base(
@@ -202,12 +202,12 @@ public sealed class FlagNotFoundException : FeatureFlagException
 
 ### AC-3: `DuplicateFlagNameException`
 
-**File:** `FeatureFlag.Domain/Exceptions/DuplicateFlagNameException.cs`
+**File:** `Bandera.Domain/Exceptions/DuplicateFlagNameException.cs`
 
 ```csharp
 using Microsoft.AspNetCore.Http;
 
-namespace FeatureFlag.Domain.Exceptions;
+namespace Bandera.Domain.Exceptions;
 
 /// 
 
@@ -216,7 +216,7 @@ namespace FeatureFlag.Domain.Exceptions;
 /// Maps to HTTP 409 Conflict.
 /// 
 
-public sealed class DuplicateFlagNameException : FeatureFlagException
+public sealed class DuplicateFlagNameException : BanderaException
 {
     public DuplicateFlagNameException(string flagName)
         : base(
@@ -242,15 +242,15 @@ public sealed class DuplicateFlagNameException : FeatureFlagException
 
 ### AC-4: `GlobalExceptionMiddleware`
 
-**File:** `FeatureFlag.Api/Middleware/GlobalExceptionMiddleware.cs`
+**File:** `Bandera.Api/Middleware/GlobalExceptionMiddleware.cs`
 
 ```csharp
-using FeatureFlag.Domain.Exceptions;
+using Bandera.Domain.Exceptions;
 using Microsoft.AspNetCore.Mvc;
 using System.Net.Mime;
 using System.Text.Json;
 
-namespace FeatureFlag.Api.Middleware;
+namespace Bandera.Api.Middleware;
 
 /// 
 
@@ -279,7 +279,7 @@ public sealed class GlobalExceptionMiddleware
         {
             await _next(context);
         }
-        catch (FeatureFlagException ex)
+        catch (BanderaException ex)
         {
             await WriteProblemDetailsAsync(
                 context,
@@ -345,7 +345,7 @@ public sealed class GlobalExceptionMiddleware
 ```
 
 **Rules:**
-- `FeatureFlagException` path: no logging — these are expected, named failures
+- `BanderaException` path: no logging — these are expected, named failures
 - `Exception` path: `LogError` with full exception — operators need the stack trace
 - The 500 `detail` string must never include `ex.Message` — information disclosure risk
 - `ProblemDetails.Instance` must be set to `context.Request.Path`
@@ -355,7 +355,7 @@ public sealed class GlobalExceptionMiddleware
 
 ### AC-5: Middleware Registration
 
-**File:** `FeatureFlag.Api/Program.cs`
+**File:** `Bandera.Api/Program.cs`
 
 Register `GlobalExceptionMiddleware` as the **first** middleware in the pipeline,
 before all other `Use*` calls.
@@ -376,7 +376,7 @@ app.MapControllers();
 
 ### AC-6: Throw Instead of Return Null
 
-**File:** `FeatureFlag.Application/Services/FeatureFlagService.cs`
+**File:** `Bandera.Application/Services/BanderaService.cs`
 
 Replace null returns and `KeyNotFoundException` handling with explicit
 `FlagNotFoundException` throws in the following methods:
@@ -411,8 +411,8 @@ if (flag is null)
 Same pattern as `UpdateFlagAsync`.
 
 **Rules:**
-- `using FeatureFlag.Domain.Exceptions;` added to the using block
-- No `try/catch` remains in `FeatureFlagService` after this change
+- `using Bandera.Domain.Exceptions;` added to the using block
+- No `try/catch` remains in `Bandera` after this change
 - `KeyNotFoundException` must not be thrown or caught anywhere in the Application layer
 
 ---
@@ -422,8 +422,8 @@ Same pattern as `UpdateFlagAsync`.
 ### AC-7: Remove try/catch From All Controllers
 
 **Files:**
-- `FeatureFlag.Api/Controllers/FeatureFlagsController.cs`
-- `FeatureFlag.Api/Controllers/EvaluationController.cs`
+- `Bandera.Api/Controllers/BanderasController.cs`
+- `Bandera.Api/Controllers/EvaluationController.cs`
 
 Every action method should contain only the happy path. Before and after:
 
@@ -454,7 +454,7 @@ Apply the same pattern to `Update`, `Archive`, and `Evaluate`.
 
 **Rules:**
 - Zero `try/catch` blocks remain in any controller after this change
-- Zero `catch (KeyNotFoundException)` references remain anywhere in `FeatureFlag.Api`
+- Zero `catch (KeyNotFoundException)` references remain anywhere in `Bandera.Api`
 - `return NotFound()` is removed from controllers
 - FluentValidation `ValidateAsync` calls and their `400` returns are **not** removed —
   those are input validation, not exception handling, and belong in the controller
@@ -464,23 +464,23 @@ Apply the same pattern to `Update`, `Archive`, and `Evaluate`.
 ## File Layout
 
 ```
-FeatureFlag.Domain/
+Bandera.Domain/
   Exceptions/
-    FeatureFlagException.cs          ← new
+    BanderaException.cs          ← new
     FlagNotFoundException.cs         ← new
     DuplicateFlagNameException.cs    ← new
 
-FeatureFlag.Api/
+Bandera.Api/
   Middleware/
     GlobalExceptionMiddleware.cs     ← new
   Program.cs                         ← modified (middleware registration)
   Controllers/
-    FeatureFlagsController.cs        ← modified (remove try/catch)
+    BanderasController.cs        ← modified (remove try/catch)
     EvaluationController.cs          ← modified (remove try/catch)
 
-FeatureFlag.Application/
+Bandera.Application/
   Services/
-    FeatureFlagService.cs            ← modified (throw FlagNotFoundException)
+    BanderaService.cs            ← modified (throw FlagNotFoundException)
 ```
 
 ---
@@ -491,7 +491,7 @@ FeatureFlag.Application/
 
 `FlagNotFoundException` and `DuplicateFlagNameException` reference
 `Microsoft.AspNetCore.Http.StatusCodes`. Add a framework reference to
-`FeatureFlag.Domain.csproj` if not already present:
+`Bandera.Domain.csproj` if not already present:
 
 ```xml
 <ItemGroup>
@@ -507,7 +507,7 @@ not a package reference.
 Always run in this order:
 
 ```bash
-dotnet build FeatureFlagService.sln
+dotnet build Bandera.sln
 dotnet test --filter "Category!=Integration"
 dotnet csharpier format .
 dotnet csharpier check .
@@ -531,12 +531,12 @@ then CSharpier.
 
 ## Definition of Done
 
-- [ ] `FeatureFlag.Domain/Exceptions/` folder created with all three exception classes
-- [ ] `FrameworkReference` added to `FeatureFlag.Domain.csproj`
-- [ ] `GlobalExceptionMiddleware` created in `FeatureFlag.Api/Middleware/`
+- [ ] `Bandera.Domain/Exceptions/` folder created with all three exception classes
+- [ ] `FrameworkReference` added to `Bandera.Domain.csproj`
+- [ ] `GlobalExceptionMiddleware` created in `Bandera.Api/Middleware/`
 - [ ] Middleware registered first in `Program.cs`
-- [ ] `FeatureFlagService` throws `FlagNotFoundException` — no `KeyNotFoundException` references remain in Application
-- [ ] `FeatureFlagsController` has zero `try/catch` blocks
+- [ ] `Bandera` throws `FlagNotFoundException` — no `KeyNotFoundException` references remain in Application
+- [ ] `BanderasController` has zero `try/catch` blocks
 - [ ] `EvaluationController` has zero `try/catch` blocks
 - [ ] `GET /api/flags/{name}` with unknown name returns `ProblemDetails` 404
 - [ ] `PUT /api/flags/{name}` with unknown name returns `ProblemDetails` 404
@@ -546,6 +546,6 @@ then CSharpier.
 - [ ] `LogError` fires for the 500 path with full exception details
 - [ ] `ProblemDetails` responses include `instance` set to the request path
 - [ ] `Content-Type: application/json` on all error responses
-- [ ] `dotnet build FeatureFlagService.sln` → 0 errors, 0 warnings
+- [ ] `dotnet build Bandera.sln` → 0 errors, 0 warnings
 - [ ] All existing tests passing: `dotnet test --filter "Category!=Integration"`
 - [ ] CSharpier: `dotnet csharpier check .` → 0 violations

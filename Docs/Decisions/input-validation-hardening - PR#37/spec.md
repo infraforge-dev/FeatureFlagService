@@ -17,12 +17,12 @@
 - [Scope](#scope)
 - [AC-1: StrategyConfigRules — Extract Shared Validator Logic](#ac-1-strategyconfigrules--extract-shared-validator-logic)
 - [AC-2: Update Both Validators to Call StrategyConfigRules](#ac-2-update-both-validators-to-call-strategyconfigrules)
-- [AC-3: IFeatureFlagRepository — Add ExistsAsync](#ac-3-ifeatureflagrepository--add-existsasync)
-- [AC-4: FeatureFlagRepository — Implement ExistsAsync](#ac-4-featureflagrepository--implement-existsasync)
-- [AC-5: FeatureFlagService — Enforce Name Uniqueness on Create](#ac-5-featureflagservice--enforce-name-uniqueness-on-create)
+- [AC-3: IBanderaRepository — Add ExistsAsync](#ac-3-ifeatureflagrepository--add-existsasync)
+- [AC-4: BanderaRepository — Implement ExistsAsync](#ac-4-featureflagrepository--implement-existsasync)
+- [AC-5: Bandera — Enforce Name Uniqueness on Create](#ac-5-bandera--enforce-name-uniqueness-on-create)
 - [AC-6: GlobalExceptionMiddleware — Register 409 Title](#ac-6-globalexceptionmiddleware--register-409-title)
 - [AC-7: RouteParameterGuard — Allowlist Validation on URL Parameters](#ac-7-routeparameterguard--allowlist-validation-on-url-parameters)
-- [AC-8: FeatureFlagsController — Call RouteParameterGuard](#ac-8-featureflagscontroller--call-routeparameterguard)
+- [AC-8: BanderasController — Call RouteParameterGuard](#ac-8-featureflagscontroller--call-routeparameterguard)
 - [File Layout](#file-layout)
 - [What NOT to Do](#what-not-to-do)
 - [Definition of Done](#definition-of-done)
@@ -31,7 +31,7 @@
 
 ## User Story
 
-> As a developer integrating with FeatureFlagService, I want invalid flag names
+> As a developer integrating with Bandera, I want invalid flag names
 > rejected at the URL boundary, and duplicate flag names rejected with a clear
 > `409 Conflict` before the database is touched — so I receive actionable error
 > responses and no garbage reaches the application internals.
@@ -48,7 +48,7 @@ Three open issues remain in the input validation layer:
    prevent SQL injection, but unexpected characters reach logs and the repository.
 
 2. **Name uniqueness** — `DuplicateFlagNameException` is defined in
-   `FeatureFlag.Domain/Exceptions/` but is never thrown. A duplicate `POST` reaches
+   `Bandera.Domain/Exceptions/` but is never thrown. A duplicate `POST` reaches
    the database, which throws a PostgreSQL unique constraint violation, which the
    middleware catches as an unhandled `Exception` and returns a `500`. The correct
    response is `409 Conflict`.
@@ -66,20 +66,20 @@ This spec addresses all three in a single focused PR. No new packages are requir
 
 | # | What | Layer | File(s) |
 |---|---|---|---|
-| 1 | Extract `StrategyConfigRules` shared class | Application | `FeatureFlag.Application/Validators/StrategyConfigRules.cs` |
+| 1 | Extract `StrategyConfigRules` shared class | Application | `Bandera.Application/Validators/StrategyConfigRules.cs` |
 | 2 | Remove duplicated methods from both validators | Application | `CreateFlagRequestValidator.cs`, `UpdateFlagRequestValidator.cs` |
-| 3 | Add `RouteParameterGuard` helper | Api | `FeatureFlag.Api/Helpers/RouteParameterGuard.cs` |
-| 4 | Call `RouteParameterGuard.ValidateName()` in controller | Api | `FeatureFlag.Api/Controllers/FeatureFlagsController.cs` |
-| 5 | Add `ExistsAsync` to `IFeatureFlagRepository` | Domain | `FeatureFlag.Domain/Interfaces/IFeatureFlagRepository.cs` |
-| 6 | Implement `ExistsAsync` in `FeatureFlagRepository` | Infrastructure | `FeatureFlag.Infrastructure/Repositories/FeatureFlagRepository.cs` |
-| 7 | Call `ExistsAsync` + throw in `CreateFlagAsync` | Application | `FeatureFlag.Application/Services/FeatureFlagService.cs` |
-| 8 | Add `409` title to middleware switch | Api | `FeatureFlag.Api/Middleware/GlobalExceptionMiddleware.cs` |
+| 3 | Add `RouteParameterGuard` helper | Api | `Bandera.Api/Helpers/RouteParameterGuard.cs` |
+| 4 | Call `RouteParameterGuard.ValidateName()` in controller | Api | `Bandera.Api/Controllers/BanderasController.cs` |
+| 5 | Add `ExistsAsync` to `IBanderaRepository` | Domain | `Bandera.Domain/Interfaces/IBanderaRepository.cs` |
+| 6 | Implement `ExistsAsync` in `BanderaRepository` | Infrastructure | `Bandera.Infrastructure/Repositories/BanderaRepository.cs` |
+| 7 | Call `ExistsAsync` + throw in `CreateFlagAsync` | Application | `Bandera.Application/Services/BanderaService.cs` |
+| 8 | Add `409` title to middleware switch | Api | `Bandera.Api/Middleware/GlobalExceptionMiddleware.cs` |
 
 ---
 
 ## AC-1: StrategyConfigRules — Extract Shared Validator Logic
 
-**File:** `FeatureFlag.Application/Validators/StrategyConfigRules.cs` *(new)*
+**File:** `Bandera.Application/Validators/StrategyConfigRules.cs` *(new)*
 
 Extract the two private static methods currently duplicated in both validators
 into a single shared `internal static` class.
@@ -87,7 +87,7 @@ into a single shared `internal static` class.
 ```csharp
 using System.Text.Json;
 
-namespace FeatureFlag.Application.Validators;
+namespace Bandera.Application.Validators;
 
 /// <summary>
 /// Shared strategy config validation rules. Called by both
@@ -148,7 +148,7 @@ internal static class StrategyConfigRules
 
 **Rules:**
 - `internal static` — not part of the public API; accessible within
-  `FeatureFlag.Application` only
+  `Bandera.Application` only
 - No constructor, no state — pure static methods
 - XML doc comments required on both methods
 - `using System.Text.Json` at the top — do not use the fully qualified
@@ -159,8 +159,8 @@ internal static class StrategyConfigRules
 ## AC-2: Update Both Validators to Call StrategyConfigRules
 
 **Files:**
-- `FeatureFlag.Application/Validators/CreateFlagRequestValidator.cs` *(modify)*
-- `FeatureFlag.Application/Validators/UpdateFlagRequestValidator.cs` *(modify)*
+- `Bandera.Application/Validators/CreateFlagRequestValidator.cs` *(modify)*
+- `Bandera.Application/Validators/UpdateFlagRequestValidator.cs` *(modify)*
 
 In **both** validators:
 
@@ -179,9 +179,9 @@ No other changes to either file.
 
 ---
 
-## AC-3: IFeatureFlagRepository — Add ExistsAsync
+## AC-3: IBanderaRepository — Add ExistsAsync
 
-**File:** `FeatureFlag.Domain/Interfaces/IFeatureFlagRepository.cs` *(modify)*
+**File:** `Bandera.Domain/Interfaces/IBanderaRepository.cs` *(modify)*
 
 Add one method to the interface:
 
@@ -200,12 +200,12 @@ Task<bool> ExistsAsync(
 The full interface after the change:
 
 ```csharp
-using FeatureFlag.Domain.Entities;
-using FeatureFlag.Domain.Enums;
+using Bandera.Domain.Entities;
+using Bandera.Domain.Enums;
 
-namespace FeatureFlag.Domain.Interfaces;
+namespace Bandera.Domain.Interfaces;
 
-public interface IFeatureFlagRepository
+public interface IBanderaRepository
 {
     Task<Flag?> GetByNameAsync(
         string name,
@@ -234,9 +234,9 @@ public interface IFeatureFlagRepository
 
 ---
 
-## AC-4: FeatureFlagRepository — Implement ExistsAsync
+## AC-4: BanderaRepository — Implement ExistsAsync
 
-**File:** `FeatureFlag.Infrastructure/Repositories/FeatureFlagRepository.cs` *(modify)*
+**File:** `Bandera.Infrastructure/Repositories/BanderaRepository.cs` *(modify)*
 
 Add the implementation for `ExistsAsync`. Use `AnyAsync` — do not fetch the full
 entity when a boolean is sufficient.
@@ -259,14 +259,14 @@ public async Task<bool> ExistsAsync(
 - The `Where` clause must filter on all three conditions: `Name`, `Environment`,
   and `!IsArchived`.
 - No `ToListAsync`, no materialisation of entities.
-- `_context` is the existing injected `FeatureFlagDbContext` field — do not change
+- `_context` is the existing injected `BanderaDbContext` field — do not change
   its name or type.
 
 ---
 
-## AC-5: FeatureFlagService — Enforce Name Uniqueness on Create
+## AC-5: Bandera — Enforce Name Uniqueness on Create
 
-**File:** `FeatureFlag.Application/Services/FeatureFlagService.cs` *(modify)*
+**File:** `Bandera.Application/Services/BanderaService.cs` *(modify)*
 
 In `CreateFlagAsync`, add an existence check before the `AddAsync` call.
 
@@ -305,29 +305,29 @@ public async Task<FlagResponse> CreateFlagAsync(
   and non-whitespace before the service is reached.
 - Throw `DuplicateFlagNameException` — not `InvalidOperationException`,
   not a string message. The exception is already defined in
-  `FeatureFlag.Domain/Exceptions/DuplicateFlagNameException.cs`.
+  `Bandera.Domain/Exceptions/DuplicateFlagNameException.cs`.
 - `DuplicateFlagNameException` constructor currently accepts `(string flagName)`.
   Update the constructor to also accept `EnvironmentType environment` so the
   error message can include the environment. See constructor update below.
-- Add `using FeatureFlag.Domain.Exceptions;` if not already present.
+- Add `using Bandera.Domain.Exceptions;` if not already present.
 
 ### DuplicateFlagNameException constructor update
 
-**File:** `FeatureFlag.Domain/Exceptions/DuplicateFlagNameException.cs` *(modify)*
+**File:** `Bandera.Domain/Exceptions/DuplicateFlagNameException.cs` *(modify)*
 
 Update the constructor signature and message to include the environment:
 
 ```csharp
 using Microsoft.AspNetCore.Http;
-using FeatureFlag.Domain.Enums;
+using Bandera.Domain.Enums;
 
-namespace FeatureFlag.Domain.Exceptions;
+namespace Bandera.Domain.Exceptions;
 
 /// <summary>
 /// Thrown when a flag with the given name already exists in the specified
 /// environment. Maps to HTTP 409 Conflict.
 /// </summary>
-public sealed class DuplicateFlagNameException : FeatureFlagException
+public sealed class DuplicateFlagNameException : BanderaException
 {
     public DuplicateFlagNameException(string flagName, EnvironmentType environment)
         : base(
@@ -339,13 +339,13 @@ public sealed class DuplicateFlagNameException : FeatureFlagException
 }
 ```
 
-Add `using FeatureFlag.Domain.Enums;` to the file.
+Add `using Bandera.Domain.Enums;` to the file.
 
 ---
 
 ## AC-6: GlobalExceptionMiddleware — Register 409 Title
 
-**File:** `FeatureFlag.Api/Middleware/GlobalExceptionMiddleware.cs` *(modify)*
+**File:** `Bandera.Api/Middleware/GlobalExceptionMiddleware.cs` *(modify)*
 
 The `GetTitleForStatusCode` switch already handles `400` and `404`. Confirm that
 `409` is present. The current implementation in the codebase already includes it:
@@ -368,15 +368,15 @@ add it. This is a verification step, not a guaranteed code change.
 
 ## AC-7: RouteParameterGuard — Allowlist Validation on URL Parameters
 
-**File:** `FeatureFlag.Api/Helpers/RouteParameterGuard.cs` *(new)*
+**File:** `Bandera.Api/Helpers/RouteParameterGuard.cs` *(new)*
 
-Create the `Helpers/` folder under `FeatureFlag.Api/` if it does not exist.
+Create the `Helpers/` folder under `Bandera.Api/` if it does not exist.
 
 ```csharp
 using System.Text.RegularExpressions;
-using FeatureFlag.Domain.Exceptions;
+using Bandera.Domain.Exceptions;
 
-namespace FeatureFlag.Api.Helpers;
+namespace Bandera.Api.Helpers;
 
 /// <summary>
 /// Guards route parameters against values that do not conform to the
@@ -389,40 +389,40 @@ public static class RouteParameterGuard
         new(@"^[a-zA-Z0-9\-_]+$", RegexOptions.Compiled);
 
     /// <summary>
-    /// Throws <see cref="FeatureFlagValidationException"/> if <paramref name="name"/>
+    /// Throws <see cref="BanderaValidationException"/> if <paramref name="name"/>
     /// contains characters outside the allowed set (letters, digits, hyphens,
     /// underscores). Callers should return the resulting 400 response immediately.
     /// </summary>
-    /// <exception cref="FeatureFlagValidationException">
+    /// <exception cref="BanderaValidationException">
     /// Thrown when <paramref name="name"/> fails the allowlist check.
     /// </exception>
     public static void ValidateName(string name)
     {
         if (!NamePattern.IsMatch(name))
-            throw new FeatureFlagValidationException(
+            throw new BanderaValidationException(
                 "Flag name may only contain letters, numbers, hyphens, and underscores."
             );
     }
 }
 ```
 
-### FeatureFlagValidationException — new domain exception
+### BanderaValidationException — new domain exception
 
-**File:** `FeatureFlag.Domain/Exceptions/FeatureFlagValidationException.cs` *(new)*
+**File:** `Bandera.Domain/Exceptions/BanderaValidationException.cs` *(new)*
 
 ```csharp
 using Microsoft.AspNetCore.Http;
 
-namespace FeatureFlag.Domain.Exceptions;
+namespace Bandera.Domain.Exceptions;
 
 /// <summary>
 /// Thrown when a request parameter fails allowlist or structural validation
 /// outside the FluentValidation pipeline (e.g. route parameters).
 /// Maps to HTTP 400 Bad Request.
 /// </summary>
-public sealed class FeatureFlagValidationException : FeatureFlagException
+public sealed class BanderaValidationException : BanderaException
 {
-    public FeatureFlagValidationException(string message)
+    public BanderaValidationException(string message)
         : base(message, StatusCodes.Status400BadRequest)
     {
     }
@@ -434,16 +434,16 @@ the controller?**
 
 Controllers must contain only the happy path — no conditional returns, no
 `if (bad) return BadRequest(...)` inline. `GlobalExceptionMiddleware` already
-handles all `FeatureFlagException` subclasses and maps them to the correct
-`ProblemDetails` response. `FeatureFlagValidationException` follows the same
+handles all `BanderaException` subclasses and maps them to the correct
+`ProblemDetails` response. `BanderaValidationException` follows the same
 Open/Closed pattern established in PR #36: add a new exception subclass,
 and the middleware handles it automatically without modification.
 
 ---
 
-## AC-8: FeatureFlagsController — Call RouteParameterGuard
+## AC-8: BanderasController — Call RouteParameterGuard
 
-**File:** `FeatureFlag.Api/Controllers/FeatureFlagsController.cs` *(modify)*
+**File:** `Bandera.Api/Controllers/BanderasController.cs` *(modify)*
 
 Add `RouteParameterGuard.ValidateName(name)` as the **first line** of
 `GetByNameAsync`, `UpdateAsync`, and `ArchiveAsync`. No other changes to any action.
@@ -490,8 +490,8 @@ public async Task<IActionResult> ArchiveAsync(
 - `RouteParameterGuard.ValidateName(name)` must be the first statement in all
   three actions — before `ValidateAsync`, before any service call.
 - Do not add `try/catch`. `GlobalExceptionMiddleware` catches
-  `FeatureFlagValidationException` and returns the `400 ProblemDetails` response.
-- Add `using FeatureFlag.Api.Helpers;` to the controller file.
+  `BanderaValidationException` and returns the `400 ProblemDetails` response.
+- Add `using Bandera.Api.Helpers;` to the controller file.
 - Do not add the guard to `GetAllAsync` or `CreateAsync` — those actions take
   no `{name}` route parameter.
 
@@ -500,31 +500,31 @@ public async Task<IActionResult> ArchiveAsync(
 ## File Layout
 
 ```
-FeatureFlag.Domain/
+Bandera.Domain/
   Exceptions/
-    FeatureFlagException.cs              (existing — no change)
+    BanderaException.cs              (existing — no change)
     FlagNotFoundException.cs             (existing — no change)
     DuplicateFlagNameException.cs        (existing — modify constructor)
-    FeatureFlagValidationException.cs    (NEW)
+    BanderaValidationException.cs    (NEW)
 
-FeatureFlag.Application/
+Bandera.Application/
   Validators/
     InputSanitizer.cs                    (existing — no change)
     StrategyConfigRules.cs               (NEW)
     CreateFlagRequestValidator.cs        (modify — remove duplicated methods)
     UpdateFlagRequestValidator.cs        (modify — remove duplicated methods)
   Services/
-    FeatureFlagService.cs                (modify — add uniqueness check)
+    BanderaService.cs                (modify — add uniqueness check)
 
-FeatureFlag.Infrastructure/
+Bandera.Infrastructure/
   Repositories/
-    FeatureFlagRepository.cs             (modify — implement ExistsAsync)
+    BanderaRepository.cs             (modify — implement ExistsAsync)
 
-FeatureFlag.Api/
+Bandera.Api/
   Helpers/
     RouteParameterGuard.cs               (NEW)
   Controllers/
-    FeatureFlagsController.cs            (modify — add guard calls)
+    BanderasController.cs            (modify — add guard calls)
   Middleware/
     GlobalExceptionMiddleware.cs         (verify 409 present)
 ```
@@ -556,12 +556,12 @@ FeatureFlag.Api/
 - [ ] Both duplicated private methods removed from `UpdateFlagRequestValidator`
 - [ ] Both validators call `StrategyConfigRules.BeValidPercentageConfig` and
       `StrategyConfigRules.BeValidRoleConfig` in their `.Must()` chains
-- [ ] `FeatureFlagValidationException` created in `FeatureFlag.Domain/Exceptions/`
-- [ ] `RouteParameterGuard.ValidateName()` created in `FeatureFlag.Api/Helpers/`
+- [ ] `BanderaValidationException` created in `Bandera.Domain/Exceptions/`
+- [ ] `RouteParameterGuard.ValidateName()` created in `Bandera.Api/Helpers/`
 - [ ] `RouteParameterGuard.ValidateName(name)` is the first call in
       `GetByNameAsync`, `UpdateAsync`, and `ArchiveAsync`
-- [ ] `ExistsAsync` added to `IFeatureFlagRepository` with XML doc comment
-- [ ] `ExistsAsync` implemented in `FeatureFlagRepository` using `AnyAsync`
+- [ ] `ExistsAsync` added to `IBanderaRepository` with XML doc comment
+- [ ] `ExistsAsync` implemented in `BanderaRepository` using `AnyAsync`
 - [ ] `DuplicateFlagNameException` constructor updated to accept
       `(string flagName, EnvironmentType environment)`
 - [ ] `CreateFlagAsync` calls `ExistsAsync` and throws
@@ -576,10 +576,10 @@ FeatureFlag.Api/
       `application/problem+json`
 - [ ] `DELETE /api/flags/{name}` with `name = "bad name!"` returns `400` with
       `application/problem+json`
-- [ ] `dotnet build FeatureFlagService.sln` → 0 errors, 0 warnings
+- [ ] `dotnet build Bandera.sln` → 0 errors, 0 warnings
 - [ ] All existing tests passing: `dotnet test --filter "Category!=Integration"`
 - [ ] `dotnet csharpier check .` → 0 violations
 
 ---
 
-*FeatureFlagService | fix/input-validation-hardening | Phase 1 | v1.0*
+*Bandera | fix/input-validation-hardening | Phase 1 | v1.0*

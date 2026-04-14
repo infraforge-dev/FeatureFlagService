@@ -57,9 +57,9 @@ This is semantically equivalent and correctly flows into the XML documentation f
 
 ### DEV-004 — Pre-existing CS1574 in `FeatureEvaluator.cs`
 
-**Root cause:** Enabling `GenerateDocumentationFile` on `FeatureFlag.Application` surfaced a pre-existing CS1574 warning: a `<see cref="FeatureFlagService"/>` reference that could not be resolved without a qualified name.
+**Root cause:** Enabling `GenerateDocumentationFile` on `Bandera.Application` surfaced a pre-existing CS1574 warning: a `<see cref="Bandera"/>` reference that could not be resolved without a qualified name.
 
-**Fix applied:** Updated to `<see cref="Services.FeatureFlagService"/>`, which resolves correctly within the `FeatureFlag.Application` assembly.
+**Fix applied:** Updated to `<see cref="Services.Bandera"/>`, which resolves correctly within the `Bandera.Application` assembly.
 
 ---
 
@@ -77,5 +77,5 @@ The `<param>` approach is the correct C# pattern and produces identical output i
 
 ## Build Verification
 
-- `dotnet build FeatureFlagService.sln` → **0 errors, 0 warnings**
+- `dotnet build Bandera.sln` → **0 errors, 0 warnings**
 - `dotnet test` → **8/8 passing**

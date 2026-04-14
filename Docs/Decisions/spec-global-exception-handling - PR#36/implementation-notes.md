@@ -66,31 +66,31 @@ This is strictly correct — no behavioural change.
 
 | File | Purpose |
 |---|---|
-| `FeatureFlag.Domain/Exceptions/FeatureFlagException.cs` | Abstract base — carries `StatusCode`, no ASP.NET Core reference |
-| `FeatureFlag.Domain/Exceptions/FlagNotFoundException.cs` | 404 — thrown on null flag lookup |
-| `FeatureFlag.Domain/Exceptions/DuplicateFlagNameException.cs` | 409 — defined, not yet thrown (name uniqueness is a separate task) |
-| `FeatureFlag.Api/Middleware/GlobalExceptionMiddleware.cs` | Single catch-all handler — domain exceptions → named 4xx, everything else → safe 500 |
+| `Bandera.Domain/Exceptions/BanderaException.cs` | Abstract base — carries `StatusCode`, no ASP.NET Core reference |
+| `Bandera.Domain/Exceptions/FlagNotFoundException.cs` | 404 — thrown on null flag lookup |
+| `Bandera.Domain/Exceptions/DuplicateFlagNameException.cs` | 409 — defined, not yet thrown (name uniqueness is a separate task) |
+| `Bandera.Api/Middleware/GlobalExceptionMiddleware.cs` | Single catch-all handler — domain exceptions → named 4xx, everything else → safe 500 |
 
 ### Modified files
 
 | File | Change |
 |---|---|
-| `FeatureFlag.Domain/FeatureFlag.Domain.csproj` | Added `<FrameworkReference Include="Microsoft.AspNetCore.App" />` for `StatusCodes` constants |
-| `FeatureFlag.Api/Program.cs` | `app.UseMiddleware<GlobalExceptionMiddleware>()` registered first in pipeline |
-| `FeatureFlag.Application/Services/FeatureFlagService.cs` | All four `KeyNotFoundException` throws replaced with `FlagNotFoundException`; added `using FeatureFlag.Domain.Exceptions` |
-| `FeatureFlag.Api/Controllers/FeatureFlagsController.cs` | Removed `try/catch` from `GetByNameAsync`, `UpdateAsync`, `ArchiveAsync` |
-| `FeatureFlag.Api/Controllers/EvaluationController.cs` | Removed `try/catch` from `EvaluateAsync`; removed `e.Message` from error response |
+| `Bandera.Domain/Bandera.Domain.csproj` | Added `<FrameworkReference Include="Microsoft.AspNetCore.App" />` for `StatusCodes` constants |
+| `Bandera.Api/Program.cs` | `app.UseMiddleware<GlobalExceptionMiddleware>()` registered first in pipeline |
+| `Bandera.Application/Services/BanderaService.cs` | All four `KeyNotFoundException` throws replaced with `FlagNotFoundException`; added `using Bandera.Domain.Exceptions` |
+| `Bandera.Api/Controllers/BanderasController.cs` | Removed `try/catch` from `GetByNameAsync`, `UpdateAsync`, `ArchiveAsync` |
+| `Bandera.Api/Controllers/EvaluationController.cs` | Removed `try/catch` from `EvaluateAsync`; removed `e.Message` from error response |
 
 ---
 
 ## Definition of Done — Status
 
-- [x] `FeatureFlag.Domain/Exceptions/` folder created with all three exception classes
-- [x] `FrameworkReference` added to `FeatureFlag.Domain.csproj`
-- [x] `GlobalExceptionMiddleware` created in `FeatureFlag.Api/Middleware/`
+- [x] `Bandera.Domain/Exceptions/` folder created with all three exception classes
+- [x] `FrameworkReference` added to `Bandera.Domain.csproj`
+- [x] `GlobalExceptionMiddleware` created in `Bandera.Api/Middleware/`
 - [x] Middleware registered first in `Program.cs`
-- [x] `FeatureFlagService` throws `FlagNotFoundException` — no `KeyNotFoundException` references remain in Application
-- [x] `FeatureFlagsController` has zero `try/catch` blocks
+- [x] `Bandera` throws `FlagNotFoundException` — no `KeyNotFoundException` references remain in Application
+- [x] `BanderasController` has zero `try/catch` blocks
 - [x] `EvaluationController` has zero `try/catch` blocks
 - [ ] `GET /api/flags/{name}` with unknown name returns `ProblemDetails` 404 — verified by integration test (Phase 2)
 - [ ] `PUT /api/flags/{name}` with unknown name returns `ProblemDetails` 404 — verified by integration test (Phase 2)
@@ -100,7 +100,7 @@ This is strictly correct — no behavioural change.
 - [ ] `LogError` fires for the 500 path with full exception details — verified by integration test (Phase 2)
 - [x] `ProblemDetails` responses include `instance` set to the request path
 - [x] `Content-Type: application/problem+json` on all error responses
-- [x] `dotnet build FeatureFlagService.sln` → 0 errors, 0 warnings
+- [x] `dotnet build Bandera.sln` → 0 errors, 0 warnings
 - [x] All existing tests passing: `dotnet test --filter "Category!=Integration"` → 8/8
 - [x] CSharpier: `dotnet csharpier check .` → 0 violations
 

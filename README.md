@@ -1,4 +1,4 @@
-# FeatureFlagService
+# Bandera
 
 **Azure-native. .NET-first. AI-assisted feature flag management.**
 
@@ -8,7 +8,7 @@ with AI-assisted flag analysis and a first-class .NET SDK as core product featur
 
 [![.NET](https://img.shields.io/badge/.NET-10.0-512BD4?logo=dotnet)](https://dotnet.microsoft.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![CI](https://img.shields.io/github/actions/workflow/status/amodelandme/FeatureFlagService/ci.yml?label=CI&logo=github)](https://github.com/amodelandme/FeatureFlagService/actions)
+[![CI](https://img.shields.io/github/actions/workflow/status/amodelandme/Bandera/ci.yml?label=CI&logo=github)](https://github.com/amodelandme/Bandera/actions)
 [![Tests](https://img.shields.io/badge/Tests-113%20passing-brightgreen?logo=github)](#testing)
 [![Phase](https://img.shields.io/badge/Phase-1%20MVP%20%E2%80%94%20Final%20Stretch-blue)](#️-roadmap)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
@@ -44,7 +44,7 @@ Mid-market engineering teams running .NET on Azure are underserved by the featur
 | **Unleash** | Open source, but limited .NET SDK support and no Azure-native integration story. |
 | **Azure App Configuration** | Feature flags are a secondary concern — no rollout strategies, targeting rules, or evaluation analytics. |
 
-**FeatureFlagService is built to fill that gap.** Self-hostable, MIT-licensed, and designed specifically for .NET teams on Azure — with AI-assisted flag analysis built in from the start, not bolted on later.
+**Bandera is built to fill that gap.** Self-hostable, MIT-licensed, and designed specifically for .NET teams on Azure — with AI-assisted flag analysis built in from the start, not bolted on later.
 
 > **The target demo:** clone the repo, run `docker compose up`, have a working flag service with a .NET SDK, and ask *"which of my flags need attention?"* — all in under 15 minutes.
 
@@ -71,7 +71,7 @@ Self-hostable under MIT. No vendor lock-in. Managed hosting and enterprise featu
 
 ## 🏗️ Architecture
 
-FeatureFlagService follows Clean Architecture with strict unidirectional dependencies. Every layer has one job and knows nothing about the layers above it.
+Bandera follows Clean Architecture with strict unidirectional dependencies. Every layer has one job and knows nothing about the layers above it.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -87,7 +87,7 @@ FeatureFlagService follows Clean Architecture with strict unidirectional depende
 └──────────────────────────────┬──────────────────────────────┘
                                │ DTOs only — Flag entity never crosses this line
 ┌──────────────────────────────▼──────────────────────────────┐
-│              APPLICATION LAYER (IFeatureFlagService)         │
+│           APPLICATION LAYER (IBanderaService)      │
 │  • Orchestrates use cases                                    │
 │  • Owns DTO ↔ domain entity mapping                          │
 │  • InputSanitizer — two-point sanitization at HTTP boundary  │
@@ -96,7 +96,7 @@ FeatureFlagService follows Clean Architecture with strict unidirectional depende
                │                               │
 ┌──────────────▼──────────┐     ┌──────────────▼──────────────┐
 │   EVALUATION ENGINE      │     │   DATA ACCESS LAYER          │
-│   (FeatureEvaluator)     │     │   (IFeatureFlagRepository)   │
+│   (FeatureEvaluator)     │     │   (IBanderaRepository)   │
 │                          │     │                              │
 │  Registry dispatch →     │     │  EF Core + Npgsql            │
 │  IRolloutStrategy        │     │  jsonb for StrategyConfig    │
@@ -116,17 +116,17 @@ FeatureFlagService follows Clean Architecture with strict unidirectional depende
 ### Project Structure
 
 ```
-FeatureFlagService/
-├── FeatureFlag.Domain/          # Entities, enums, value objects, interfaces
+Bandera/
+├── Bandera.Domain/          # Entities, enums, value objects, interfaces
 │   └── Exceptions/              # Domain exception hierarchy (FlagNotFoundException, DuplicateFlagNameException, etc.)
-├── FeatureFlag.Application/     # Use cases, strategies, evaluator, DTOs, validators
+├── Bandera.Application/     # Use cases, strategies, evaluator, DTOs, validators
 │   ├── Evaluation/              # FeatureEvaluator + IRolloutStrategy implementations
 │   ├── Validators/              # FluentValidation v12 — CreateFlagRequest, UpdateFlagRequest, EvaluationRequest
-│   └── Services/                # IFeatureFlagService implementation
-├── FeatureFlag.Infrastructure/  # EF Core, Postgres, repository implementation
-├── FeatureFlag.Api/             # Controllers, middleware, DI composition root
+│   └── Services/                # IBanderaService implementation
+├── Bandera.Infrastructure/  # EF Core, Postgres, repository implementation
+├── Bandera.Api/             # Controllers, middleware, DI composition root
 │   └── Middleware/              # GlobalExceptionMiddleware, RouteParameterGuard
-└── FeatureFlag.Tests/           # 75 unit tests — xUnit + FluentAssertions v7
+└── Bandera.Tests/           # 75 unit tests — xUnit + FluentAssertions v7
 ```
 
 ---
@@ -143,7 +143,7 @@ Rollout strategies (`NoneStrategy`, `PercentageStrategy`, `RoleStrategy`) are re
 `FluentValidation.AspNetCore` is deprecated. All validators call `ValidateAsync()` explicitly in controllers before any service code runs. A shared `InputSanitizer` handles HTTP boundary sanitization. A shared `StrategyConfigRules` class keeps config validation logic DRY across create and update validators.
 
 ### RFC 9457 Problem Details (Error Responses)
-Every error returns an `application/problem+json` response conforming to RFC 9457. A domain exception hierarchy (`FeatureFlagException` → `FlagNotFoundException`, `DuplicateFlagNameException`, `FeatureFlagValidationException`) maps cleanly to HTTP status codes via `GlobalExceptionMiddleware`.
+Every error returns an `application/problem+json` response conforming to RFC 9457. A domain exception hierarchy (`BanderaException` → `FlagNotFoundException`, `DuplicateFlagNameException`, `BanderaValidationException`) maps cleanly to HTTP status codes via `GlobalExceptionMiddleware`.
 
 ### Route Parameter Hardening
 `RouteParameterGuard` enforces an allowlist on all route parameters — flag names, environments, and strategy types. Requests with characters outside the allowlist are rejected at the middleware boundary before reaching controllers.
@@ -172,7 +172,7 @@ Flags are never hard-deleted. `IsArchived = true` removes them from active queri
 | **Route parameter hardening** | `RouteParameterGuard` enforces character allowlists on all route parameters |
 | **Name uniqueness** | TOCTOU-safe via `ExistsAsync` check + Postgres constraint intercept in Infrastructure |
 | **Standardized error responses** | RFC 9457 `ProblemDetails` shape on every error (`application/problem+json`) |
-| **Domain exception hierarchy** | `FlagNotFoundException` (404), `DuplicateFlagNameException` (409), `FeatureFlagValidationException` (400) |
+| **Domain exception hierarchy** | `FlagNotFoundException` (404), `DuplicateFlagNameException` (409), `BanderaValidationException` (400) |
 | **Self-documenting API** | Enriched OpenAPI spec with Scalar UI at `/scalar/v1` |
 | **AI PR Reviewer** | Claude-powered code review on every PR — checks Clean Architecture, FluentValidation v12 patterns, and project conventions |
 | **CI pipeline** | GitHub Actions — format gate (CSharpier), zero-warnings build, 75 unit tests on every push |
@@ -190,7 +190,7 @@ Flags are never hard-deleted. `IsArchived = true` removes them from active queri
 | **3** | JWT authentication and RBAC |
 | **5** | User targeting, time-based activation, gradual rollout |
 | **6** | Redis caching layer |
-| **7** | .NET NuGet SDK — `UseFeatureFlags()`, `[RequireFlag]`, `services.AddFeatureFlagClient()` |
+| **7** | .NET NuGet SDK — `UseBanderas()`, `[RequireFlag]`, `services.AddBanderaClient()` |
 
 ---
 
@@ -205,8 +205,8 @@ Flags are never hard-deleted. `IsArchived = true` removes them from active queri
 ### One-Command Quickstart
 
 ```bash
-git clone https://github.com/amodelandme/FeatureFlagService.git
-cd FeatureFlagService
+git clone https://github.com/amodelandme/Bandera.git
+cd Bandera
 docker compose up -d
 ```
 
@@ -305,7 +305,7 @@ All errors return RFC 9457 `ProblemDetails` with `Content-Type: application/prob
 |----------|--------|------|
 | Flag not found | `404` | `FlagNotFoundException` |
 | Duplicate flag name | `409` | `DuplicateFlagNameException` |
-| Validation failure | `400` | `FeatureFlagValidationException` |
+| Validation failure | `400` | `BanderaValidationException` |
 | Invalid route parameter | `400` | `RouteParameterGuard` rejection |
 | Unexpected server error | `500` | Generic ProblemDetails |
 
@@ -320,7 +320,7 @@ All errors return RFC 9457 `ProblemDetails` with `Content-Type: application/prob
 }
 ```
 
-The exception hierarchy follows the **Open/Closed Principle** — new exception types extend `FeatureFlagException` without modifying `GlobalExceptionMiddleware`.
+The exception hierarchy follows the **Open/Closed Principle** — new exception types extend `BanderaException` without modifying `GlobalExceptionMiddleware`.
 
 ---
 
@@ -328,7 +328,7 @@ The exception hierarchy follows the **Open/Closed Principle** — new exception 
 
 ### Unit Tests — 75/75 Passing
 
-Tests live in `FeatureFlag.Tests/` and cover all pure logic — strategies, the evaluator, and all validators. Integration tests covering the full HTTP stack are in progress.
+Tests live in `Bandera.Tests/` and cover all pure logic — strategies, the evaluator, and all validators. Integration tests covering the full HTTP stack are in progress.
 
 | Test Class | Count | What It Covers |
 |------------|-------|----------------|
@@ -354,7 +354,7 @@ These bugs had no visible errors. They would have been invisible in production w
 ### Running Tests
 
 ```bash
-dotnet test FeatureFlagService.sln
+dotnet test Bandera.sln
 ```
 
 ---

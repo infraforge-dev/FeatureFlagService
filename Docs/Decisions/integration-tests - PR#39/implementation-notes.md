@@ -20,9 +20,9 @@ covered all six API endpoints through the full HTTP pipeline, added a new CI
 support the tested contract.
 
 ## Implemented Scope
-- Added `FeatureFlag.Tests.Integration` and registered it in `FeatureFlagService.sln`.
+- Added `Bandera.Tests.Integration` and registered it in `Bandera.sln`.
 - Added shared test infrastructure:
-  `FeatureFlagApiFactory`, `IntegrationTestCollection`, and `IntegrationTestBase`.
+  `BanderaApiFactory`, `IntegrationTestCollection`, and `IntegrationTestBase`.
 - Implemented 24 flag-endpoint integration tests and 7 evaluation-endpoint
   integration tests.
 - Added `public partial class Program { }` for `WebApplicationFactory<Program>`.
@@ -33,11 +33,11 @@ support the tested contract.
 During implementation, we revisited where `EnvironmentType` validation should live.
 
 The spec revision originally allowed a narrow controller-layer fix in
-`FeatureFlagsController`, but we chose a stronger Application-layer design instead:
+`BanderasController`, but we chose a stronger Application-layer design instead:
 
-- Added `FeatureFlag.Application/Validation/EnvironmentRules.cs`
+- Added `Bandera.Application/Validation/EnvironmentRules.cs`
 - Reused `EnvironmentRules.IsValid(...)` in validators
-- Enforced `EnvironmentRules.RequireValid(...)` in `FeatureFlagService`
+- Enforced `EnvironmentRules.RequireValid(...)` in `Bandera`
 - Removed controller-local `ValidateEnvironment(...)` duplication
 
 Why this was better:
@@ -78,9 +78,9 @@ integration suite.
 The implementation was verified with:
 
 ```bash
-dotnet build FeatureFlagService.sln -p:TreatWarningsAsErrors=true
-dotnet test FeatureFlagService.sln --filter "Category=Integration" --logger "console;verbosity=normal"
-dotnet test FeatureFlagService.sln --filter "Category!=Integration" --logger "console;verbosity=normal"
+dotnet build Bandera.sln -p:TreatWarningsAsErrors=true
+dotnet test Bandera.sln --filter "Category=Integration" --logger "console;verbosity=normal"
+dotnet test Bandera.sln --filter "Category!=Integration" --logger "console;verbosity=normal"
 dotnet tool restore
 dotnet csharpier format .
 dotnet csharpier check .

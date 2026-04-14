@@ -1,5 +1,5 @@
 # ============================================================
-# .csharpierignore — FeatureFlagService
+# .csharpierignore — Bandera
 #
 # CSharpier skips any path listed here.
 # Syntax is identical to .gitignore.

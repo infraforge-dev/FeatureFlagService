@@ -15,9 +15,9 @@
 
 **Spec says:** `DatabaseSeeder` is `internal sealed`.
 
-**What actually happened:** `Program.cs` in `FeatureFlag.Api` resolves `DatabaseSeeder`
-from DI and calls `SeedAsync(...)` directly during startup. `FeatureFlag.Api` and
-`FeatureFlag.Infrastructure` are separate assemblies, so an `internal` seeder type
+**What actually happened:** `Program.cs` in `Bandera.Api` resolves `DatabaseSeeder`
+from DI and calls `SeedAsync(...)` directly during startup. `Bandera.Api` and
+`Bandera.Infrastructure` are separate assemblies, so an `internal` seeder type
 and its members are not visible at the call site. The build fails with `CS0122`
 if `DatabaseSeeder` remains `internal`.
 
@@ -31,11 +31,11 @@ Infrastructure, used only from startup wiring, and not exposed on any API surfac
 
 ## Build Verification
 
-- `dotnet ef migrations add AddIsSeededToFlag --project "FeatureFlag.Infrastructure" --startup-project "FeatureFlag.Api"` -> passed
-- `dotnet ef database update --project "FeatureFlag.Infrastructure" --startup-project "FeatureFlag.Api" --connection "Host=postgres;Port=5432;Database=featureflags;Username=postgres;Password=postgres"` -> passed
+- `dotnet ef migrations add AddIsSeededToFlag --project "Bandera.Infrastructure" --startup-project "Bandera.Api"` -> passed
+- `dotnet ef database update --project "Bandera.Infrastructure" --startup-project "Bandera.Api" --connection "Host=postgres;Port=5432;Database=featureflags;Username=postgres;Password=postgres"` -> passed
 - `dotnet csharpier check .` -> passed
-- `dotnet build FeatureFlagService.sln -p:TreatWarningsAsErrors=true` -> 0 warnings, 0 errors
-- `dotnet test FeatureFlagService.sln` -> 113/113 passing
+- `dotnet build Bandera.sln -p:TreatWarningsAsErrors=true` -> 0 warnings, 0 errors
+- `dotnet test Bandera.sln` -> 113/113 passing
 
 ---
 

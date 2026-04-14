@@ -4,7 +4,7 @@
 **Phase:** 0 — Foundation (Completion)
 **Status:** Ready for implementation
 
-[Pull Request #24](https://github.com/amodelandme/FeatureFlagService/pull/24)
+[Pull Request #24](https://github.com/amodelandme/Bandera/pull/24)
 
 ---
 
@@ -17,9 +17,9 @@ When this session is complete, Phase 0 is done — the API will be running, conn
 to a real database, and fully documented via Swagger.
 
 > **SCOPE**
-> This spec covers: `docker-compose.yml`, `FeatureFlagDbContext`, `FlagConfiguration`,
-> `FeatureFlagRepository`, async updates to `IFeatureFlagRepository` and
-> `IFeatureFlagService`, DTOs, `FeatureFlagsController`, `EvaluationController`,
+> This spec covers: `docker-compose.yml`, `BanderaDbContext`, `FlagConfiguration`,
+> `BanderaRepository`, async updates to `IBanderaRepository` and
+> `IBanderaService`, DTOs, `BanderasController`, `EvaluationController`,
 > Swagger wiring, and the OpenApi package upgrade.
 >
 > It does **not** cover: authentication, validation beyond basic null checks,
@@ -33,14 +33,14 @@ Clean Architecture dependency rules remain unchanged. Review before writing any 
 
 | Layer | Responsibility |
 |---|---|
-| `FeatureFlag.Domain` | Entities, enums, value objects, interfaces. Zero outward dependencies. |
-| `FeatureFlag.Application` | Use cases, service interfaces, evaluator, strategies, DTOs. Depends on Domain only. |
-| `FeatureFlag.Infrastructure` | EF Core, DbContext, repositories. Depends on Domain + Application. |
-| `FeatureFlag.Api` | Controllers, Program.cs, DI wiring. Depends on Application + Infrastructure. |
-| `FeatureFlag.Tests` | Unit tests. Depends on Domain + Application. |
+| `Bandera.Domain` | Entities, enums, value objects, interfaces. Zero outward dependencies. |
+| `Bandera.Application` | Use cases, service interfaces, evaluator, strategies, DTOs. Depends on Domain only. |
+| `Bandera.Infrastructure` | EF Core, DbContext, repositories. Depends on Domain + Application. |
+| `Bandera.Api` | Controllers, Program.cs, DI wiring. Depends on Application + Infrastructure. |
+| `Bandera.Tests` | Unit tests. Depends on Domain + Application. |
 
 > **RULE**
-> `FeatureFlagDbContext` and `FlagConfiguration` live in **Infrastructure**.
+> `BanderaDbContext` and `FlagConfiguration` live in **Infrastructure**.
 > DTOs live in **Application**.
 > Controllers live in **Api**.
 > Domain entities are never returned directly from controllers — always map to DTOs.
@@ -154,19 +154,19 @@ Add a placeholder only — no real credentials:
 The following existing interfaces and implementations must be updated to async.
 This is a breaking change — update all callers in the same pass.
 
-### 6.1 IFeatureFlagRepository (Domain)
+### 6.1 IBanderaRepository (Domain)
 
-**File:** `FeatureFlag.Domain/Interfaces/IFeatureFlagRepository.cs`
+**File:** `Bandera.Domain/Interfaces/IBanderaRepository.cs`
 
 Replace the current synchronous signatures:
 
 ```csharp
-using FeatureFlag.Domain.Entities;
-using FeatureFlag.Domain.Enums;
+using Bandera.Domain.Entities;
+using Bandera.Domain.Enums;
 
-namespace FeatureFlag.Domain.Interfaces;
+namespace Bandera.Domain.Interfaces;
 
-public interface IFeatureFlagRepository
+public interface IBanderaRepository
 {
     Task<Flag?> GetByNameAsync(string name, EnvironmentType environment);
     Task<IReadOnlyList<Flag>> GetAllAsync(EnvironmentType environment);
@@ -179,18 +179,18 @@ public interface IFeatureFlagRepository
 > `AddAsync` and `SaveChangesAsync` are required for the CRUD endpoints.
 > The repository owns persistence — controllers must never touch DbContext directly.
 
-### 6.2 IFeatureFlagService (Application)
+### 6.2 IBanderaService (Application)
 
-**File:** `FeatureFlag.Application/Interfaces/IFeatureFlagService.cs`
+**File:** `Bandera.Application/Interfaces/IBanderaService.cs`
 
 ```csharp
-using FeatureFlag.Domain.Entities;
-using FeatureFlag.Domain.Enums;
-using FeatureFlag.Domain.ValueObjects;
+using Bandera.Domain.Entities;
+using Bandera.Domain.Enums;
+using Bandera.Domain.ValueObjects;
 
-namespace FeatureFlag.Application.Interfaces;
+namespace Bandera.Application.Interfaces;
 
-public interface IFeatureFlagService
+public interface IBanderaService
 {
     Task<Flag> GetFlagAsync(string name, EnvironmentType environment);
     Task<bool> IsEnabledAsync(string flagName, FeatureEvaluationContext context);
@@ -202,28 +202,28 @@ public interface IFeatureFlagService
 }
 ```
 
-### 6.3 FeatureFlagService (Application)
+### 6.3 Bandera (Application)
 
-**File:** `FeatureFlag.Application/Services/FeatureFlagService.cs`
+**File:** `Bandera.Application/Services/BanderaService.cs`
 
 Full replacement:
 
 ```csharp
-using FeatureFlag.Application.Evaluation;
-using FeatureFlag.Application.Interfaces;
-using FeatureFlag.Domain.Entities;
-using FeatureFlag.Domain.Enums;
-using FeatureFlag.Domain.Interfaces;
-using FeatureFlag.Domain.ValueObjects;
+using Bandera.Application.Evaluation;
+using Bandera.Application.Interfaces;
+using Bandera.Domain.Entities;
+using Bandera.Domain.Enums;
+using Bandera.Domain.Interfaces;
+using Bandera.Domain.ValueObjects;
 
-namespace FeatureFlag.Application.Services;
+namespace Bandera.Application.Services;
 
-public sealed class FeatureFlagService : IFeatureFlagService
+public sealed class BanderaService : IBanderaService
 {
-    private readonly IFeatureFlagRepository _repository;
+    private readonly IBanderaRepository _repository;
     private readonly FeatureEvaluator _evaluator;
 
-    public FeatureFlagService(IFeatureFlagRepository repository, FeatureEvaluator evaluator)
+    public BanderaService(IBanderaRepository repository, FeatureEvaluator evaluator)
     {
         _repository = repository;
         _evaluator = evaluator;
@@ -283,16 +283,16 @@ public sealed class FeatureFlagService : IFeatureFlagService
 
 ## 7. DTOs
 
-**Location:** `FeatureFlag.Application/DTOs/`
+**Location:** `Bandera.Application/DTOs/`
 
 Create four files.
 
 ### 7.1 CreateFlagRequest.cs
 
 ```csharp
-using FeatureFlag.Domain.Enums;
+using Bandera.Domain.Enums;
 
-namespace FeatureFlag.Application.DTOs;
+namespace Bandera.Application.DTOs;
 
 public sealed record CreateFlagRequest(
     string Name,
@@ -306,9 +306,9 @@ public sealed record CreateFlagRequest(
 ### 7.2 UpdateFlagRequest.cs
 
 ```csharp
-using FeatureFlag.Domain.Enums;
+using Bandera.Domain.Enums;
 
-namespace FeatureFlag.Application.DTOs;
+namespace Bandera.Application.DTOs;
 
 public sealed record UpdateFlagRequest(
     bool IsEnabled,
@@ -320,9 +320,9 @@ public sealed record UpdateFlagRequest(
 ### 7.3 FlagResponse.cs
 
 ```csharp
-using FeatureFlag.Domain.Enums;
+using Bandera.Domain.Enums;
 
-namespace FeatureFlag.Application.DTOs;
+namespace Bandera.Application.DTOs;
 
 public sealed record FlagResponse(
     Guid Id,
@@ -340,9 +340,9 @@ public sealed record FlagResponse(
 ### 7.4 EvaluationRequest.cs
 
 ```csharp
-using FeatureFlag.Domain.Enums;
+using Bandera.Domain.Enums;
 
-namespace FeatureFlag.Application.DTOs;
+namespace Bandera.Application.DTOs;
 
 public sealed record EvaluationRequest(
     string FlagName,
@@ -354,12 +354,12 @@ public sealed record EvaluationRequest(
 
 ### 7.5 Mapping Helper
 
-Add a static mapping extension in `FeatureFlag.Application/DTOs/FlagMappings.cs`:
+Add a static mapping extension in `Bandera.Application/DTOs/FlagMappings.cs`:
 
 ```csharp
-using FeatureFlag.Domain.Entities;
+using Bandera.Domain.Entities;
 
-namespace FeatureFlag.Application.DTOs;
+namespace Bandera.Application.DTOs;
 
 public static class FlagMappings
 {
@@ -384,15 +384,15 @@ public static class FlagMappings
 
 ### 8.1 FlagConfiguration
 
-**File:** `FeatureFlag.Infrastructure/Persistence/FlagConfiguration.cs`
+**File:** `Bandera.Infrastructure/Persistence/FlagConfiguration.cs`
 
 ```csharp
-using FeatureFlag.Domain.Entities;
-using FeatureFlag.Domain.Enums;
+using Bandera.Domain.Entities;
+using Bandera.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
-namespace FeatureFlag.Infrastructure.Persistence;
+namespace Bandera.Infrastructure.Persistence;
 
 public sealed class FlagConfiguration : IEntityTypeConfiguration<Flag>
 {
@@ -440,47 +440,47 @@ public sealed class FlagConfiguration : IEntityTypeConfiguration<Flag>
 }
 ```
 
-### 8.2 FeatureFlagDbContext
+### 8.2 BanderaDbContext
 
-**File:** `FeatureFlag.Infrastructure/Persistence/FeatureFlagDbContext.cs`
+**File:** `Bandera.Infrastructure/Persistence/BanderaDbContext.cs`
 
 ```csharp
-using FeatureFlag.Domain.Entities;
+using Bandera.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 
-namespace FeatureFlag.Infrastructure.Persistence;
+namespace Bandera.Infrastructure.Persistence;
 
-public sealed class FeatureFlagDbContext : DbContext
+public sealed class BanderaDbContext : DbContext
 {
-    public FeatureFlagDbContext(DbContextOptions<FeatureFlagDbContext> options)
+    public BanderaDbContext(DbContextOptions<BanderaDbContext> options)
         : base(options) { }
 
     public DbSet<Flag> Flags => Set<Flag>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        modelBuilder.ApplyConfigurationsFromAssembly(typeof(FeatureFlagDbContext).Assembly);
+        modelBuilder.ApplyConfigurationsFromAssembly(typeof(BanderaDbContext).Assembly);
     }
 }
 ```
 
-### 8.3 FeatureFlagRepository
+### 8.3 BanderaRepository
 
-**File:** `FeatureFlag.Infrastructure/Persistence/FeatureFlagRepository.cs`
+**File:** `Bandera.Infrastructure/Persistence/BanderaRepository.cs`
 
 ```csharp
-using FeatureFlag.Domain.Entities;
-using FeatureFlag.Domain.Enums;
-using FeatureFlag.Domain.Interfaces;
+using Bandera.Domain.Entities;
+using Bandera.Domain.Enums;
+using Bandera.Domain.Interfaces;
 using Microsoft.EntityFrameworkCore;
 
-namespace FeatureFlag.Infrastructure.Persistence;
+namespace Bandera.Infrastructure.Persistence;
 
-public sealed class FeatureFlagRepository : IFeatureFlagRepository
+public sealed class BanderaRepository : IBanderaRepository
 {
-    private readonly FeatureFlagDbContext _context;
+    private readonly BanderaDbContext _context;
 
-    public FeatureFlagRepository(FeatureFlagDbContext context)
+    public BanderaRepository(BanderaDbContext context)
     {
         _context = context;
     }
@@ -516,18 +516,18 @@ public sealed class FeatureFlagRepository : IFeatureFlagRepository
 
 ### 8.4 Updated AddInfrastructure()
 
-**File:** `FeatureFlag.Infrastructure/DependencyInjection.cs`
+**File:** `Bandera.Infrastructure/DependencyInjection.cs`
 
 Replace the stub:
 
 ```csharp
-using FeatureFlag.Domain.Interfaces;
-using FeatureFlag.Infrastructure.Persistence;
+using Bandera.Domain.Interfaces;
+using Bandera.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace FeatureFlag.Infrastructure;
+namespace Bandera.Infrastructure;
 
 public static class DependencyInjection
 {
@@ -535,10 +535,10 @@ public static class DependencyInjection
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        services.AddDbContext<FeatureFlagDbContext>(options =>
+        services.AddDbContext<BanderaDbContext>(options =>
             options.UseNpgsql(configuration.GetConnectionString("DefaultConnection")));
 
-        services.AddScoped<IFeatureFlagRepository, FeatureFlagRepository>();
+        services.AddScoped<IBanderaRepository, BanderaRepository>();
 
         return services;
     }
@@ -549,26 +549,26 @@ public static class DependencyInjection
 
 ## 9. Controllers
 
-**Location:** `FeatureFlag.Api/Controllers/`
+**Location:** `Bandera.Api/Controllers/`
 
-### 9.1 FeatureFlagsController
+### 9.1 BanderasController
 
 ```csharp
-using FeatureFlag.Application.DTOs;
-using FeatureFlag.Application.Interfaces;
-using FeatureFlag.Domain.Entities;
-using FeatureFlag.Domain.Enums;
+using Bandera.Application.DTOs;
+using Bandera.Application.Interfaces;
+using Bandera.Domain.Entities;
+using Bandera.Domain.Enums;
 using Microsoft.AspNetCore.Mvc;
 
-namespace FeatureFlag.Api.Controllers;
+namespace Bandera.Api.Controllers;
 
 [ApiController]
 [Route("api/flags")]
-public sealed class FeatureFlagsController : ControllerBase
+public sealed class BanderasController : ControllerBase
 {
-    private readonly IFeatureFlagService _service;
+    private readonly IBanderaService _service;
 
-    public FeatureFlagsController(IFeatureFlagService service)
+    public BanderasController(IBanderaService service)
     {
         _service = service;
     }
@@ -657,20 +657,20 @@ public sealed class FeatureFlagsController : ControllerBase
 ### 9.2 EvaluationController
 
 ```csharp
-using FeatureFlag.Application.DTOs;
-using FeatureFlag.Application.Interfaces;
-using FeatureFlag.Domain.ValueObjects;
+using Bandera.Application.DTOs;
+using Bandera.Application.Interfaces;
+using Bandera.Domain.ValueObjects;
 using Microsoft.AspNetCore.Mvc;
 
-namespace FeatureFlag.Api.Controllers;
+namespace Bandera.Api.Controllers;
 
 [ApiController]
 [Route("api/evaluate")]
 public sealed class EvaluationController : ControllerBase
 {
-    private readonly IFeatureFlagService _service;
+    private readonly IBanderaService _service;
 
-    public EvaluationController(IFeatureFlagService service)
+    public EvaluationController(IBanderaService service)
     {
         _service = service;
     }
@@ -693,13 +693,13 @@ public sealed class EvaluationController : ControllerBase
 
 ## 10. Swagger / OpenAPI Wiring
 
-**File:** `FeatureFlag.Api/Program.cs`
+**File:** `Bandera.Api/Program.cs`
 
 Replace the entire file:
 
 ```csharp
-using FeatureFlag.Application;
-using FeatureFlag.Infrastructure;
+using Bandera.Application;
+using Bandera.Infrastructure;
 using Microsoft.AspNetCore.Mvc;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -749,13 +749,13 @@ After the build passes, run migrations to create the database schema.
 ```bash
 # Add the initial migration
 dotnet ef migrations add InitialCreate \
-  --project FeatureFlag.Infrastructure \
-  --startup-project FeatureFlag.Api
+  --project Bandera.Infrastructure \
+  --startup-project Bandera.Api
 
 # Apply the migration to the database
 dotnet ef database update \
-  --project FeatureFlag.Infrastructure \
-  --startup-project FeatureFlag.Api
+  --project Bandera.Infrastructure \
+  --startup-project Bandera.Api
 ```
 
 > **PREREQUISITE:** Docker Compose must be running before applying the migration.
@@ -770,7 +770,7 @@ dotnet ef database update \
 ## 12. Folder Structure After Implementation
 
 ```
-FeatureFlag.Application/
+Bandera.Application/
   DTOs/
     CreateFlagRequest.cs      ← NEW
     UpdateFlagRequest.cs      ← NEW
@@ -778,24 +778,24 @@ FeatureFlag.Application/
     EvaluationRequest.cs      ← NEW
     FlagMappings.cs           ← NEW
   Interfaces/
-    IFeatureFlagService.cs    ← UPDATED (async)
+    IBanderaService.cs    ← UPDATED (async)
   Services/
-    FeatureFlagService.cs     ← UPDATED (async, new methods)
+    BanderaService.cs     ← UPDATED (async, new methods)
 
-FeatureFlag.Domain/
+Bandera.Domain/
   Interfaces/
-    IFeatureFlagRepository.cs ← UPDATED (async, AddAsync + SaveChangesAsync)
+    IBanderaRepository.cs ← UPDATED (async, AddAsync + SaveChangesAsync)
 
-FeatureFlag.Infrastructure/
+Bandera.Infrastructure/
   Persistence/
-    FeatureFlagDbContext.cs   ← NEW
+    BanderaDbContext.cs   ← NEW
     FlagConfiguration.cs      ← NEW
-    FeatureFlagRepository.cs  ← NEW
+    BanderaRepository.cs  ← NEW
   DependencyInjection.cs      ← UPDATED (real wiring)
 
-FeatureFlag.Api/
+Bandera.Api/
   Controllers/
-    FeatureFlagsController.cs ← NEW
+    BanderasController.cs ← NEW
     EvaluationController.cs   ← NEW
   Program.cs                  ← UPDATED
   appsettings.json            ← UPDATED (placeholder connection string)
@@ -815,20 +815,20 @@ Run these in order after implementation:
 docker compose up -d
 
 # 2. Build the solution
-dotnet build FeatureFlagService.sln
+dotnet build Bandera.sln
 # Expected: 0 errors, 0 warnings
 
 # 3. Run existing tests
-dotnet test FeatureFlagService.sln
+dotnet test Bandera.sln
 # Expected: 8/8 passing
 
 # 4. Apply migrations
 dotnet ef database update \
-  --project FeatureFlag.Infrastructure \
-  --startup-project FeatureFlag.Api
+  --project Bandera.Infrastructure \
+  --startup-project Bandera.Api
 
 # 5. Run the API
-dotnet run --project FeatureFlag.Api
+dotnet run --project Bandera.Api
 
 # 6. Open Swagger
 # Navigate to: http://localhost:5227/openapi/v1.json
@@ -880,21 +880,21 @@ Then implement in this order:
 1. Add NuGet packages to Infrastructure and Api projects
 2. Create `docker-compose.yml` at repo root
 3. Update `appsettings.json` and `appsettings.Development.json`
-4. Update `IFeatureFlagRepository` — async signatures + two new methods
-5. Update `IFeatureFlagService` — async signatures + new methods
-6. Update `FeatureFlagService` — async implementation
+4. Update `IBanderaRepository` — async signatures + two new methods
+5. Update `IBanderaService` — async signatures + new methods
+6. Update `Bandera` — async implementation
 7. Create DTOs in `Application/DTOs/`
 8. Create `FlagConfiguration` in Infrastructure
-9. Create `FeatureFlagDbContext` in Infrastructure
-10. Create `FeatureFlagRepository` in Infrastructure
+9. Create `BanderaDbContext` in Infrastructure
+10. Create `BanderaRepository` in Infrastructure
 11. Update `AddInfrastructure()` with real wiring
-12. Create `FeatureFlagsController` in Api
+12. Create `BanderasController` in Api
 13. Create `EvaluationController` in Api
 14. Update `Program.cs`
-15. Run `dotnet build FeatureFlagService.sln` — confirm 0 errors
-16. Run `dotnet test FeatureFlagService.sln` — confirm 8/8 passing
+15. Run `dotnet build Bandera.sln` — confirm 0 errors
+16. Run `dotnet test Bandera.sln` — confirm 8/8 passing
 17. Start Docker, run migrations, start API, verify Swagger loads
 
 ---
 
-*FeatureFlagService | feature/persistence-and-controllers | Phase 0 Completion*
+*Bandera | feature/persistence-and-controllers | Phase 0 Completion*

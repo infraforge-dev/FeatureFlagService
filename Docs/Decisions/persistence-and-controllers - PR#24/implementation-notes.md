@@ -6,7 +6,7 @@
 **Build status:** Passed — 0 warnings, 0 errors
 **Tests:** 8/8 passing
 
-[Pull Request #24](https://github.com/amodelandme/FeatureFlagService/pull/24)
+[Pull Request #24](https://github.com/amodelandme/Bandera/pull/24)
 
 ---
 
@@ -17,26 +17,26 @@ All items in scope per v2 of the spec were completed:
 | File | Status |
 |---|---|
 | `docker-compose.yml` | Created (repo root) |
-| `FeatureFlag.Api/appsettings.json` | Updated — placeholder connection string |
-| `FeatureFlag.Api/appsettings.Development.json` | Updated — local Docker connection string, intentionally committed |
-| `FeatureFlag.Domain/Entities/Flag.cs` | Updated — `Update()` atomic method added |
-| `FeatureFlag.Domain/Interfaces/IFeatureFlagRepository.cs` | Replaced — async signatures + `CancellationToken` + `AddAsync` + `SaveChangesAsync` |
-| `FeatureFlag.Application/Interfaces/IFeatureFlagService.cs` | Replaced — async signatures + `CancellationToken` + new CRUD methods |
-| `FeatureFlag.Application/Services/FeatureFlagService.cs` | Replaced — full async implementation, throws on missing flag |
-| `FeatureFlag.Application/DTOs/CreateFlagRequest.cs` | Created |
-| `FeatureFlag.Application/DTOs/UpdateFlagRequest.cs` | Created |
-| `FeatureFlag.Application/DTOs/FlagResponse.cs` | Created |
-| `FeatureFlag.Application/DTOs/EvaluationRequest.cs` | Created |
-| `FeatureFlag.Application/DTOs/FlagMappings.cs` | Created |
-| `FeatureFlag.Infrastructure/Persistence/FlagConfiguration.cs` | Created — partial unique index with `HasFilter` |
-| `FeatureFlag.Infrastructure/Persistence/FeatureFlagDbContext.cs` | Created |
-| `FeatureFlag.Infrastructure/Persistence/FeatureFlagDbContextFactory.cs` | Created |
-| `FeatureFlag.Infrastructure/Persistence/FeatureFlagRepository.cs` | Created — `CancellationToken` on all EF Core calls |
-| `FeatureFlag.Infrastructure/DependencyInjection.cs` | Replaced — real EF Core and repository wiring |
-| `FeatureFlag.Api/Controllers/FeatureFlagsController.cs` | Created |
-| `FeatureFlag.Api/Controllers/EvaluationController.cs` | Created — 404 for unknown flags |
-| `FeatureFlag.Api/Program.cs` | Replaced — JSON enum converter + root redirect |
-| `FeatureFlag.Infrastructure/Migrations/InitialCreate` | Generated |
+| `Bandera.Api/appsettings.json` | Updated — placeholder connection string |
+| `Bandera.Api/appsettings.Development.json` | Updated — local Docker connection string, intentionally committed |
+| `Bandera.Domain/Entities/Flag.cs` | Updated — `Update()` atomic method added |
+| `Bandera.Domain/Interfaces/IBanderaRepository.cs` | Replaced — async signatures + `CancellationToken` + `AddAsync` + `SaveChangesAsync` |
+| `Bandera.Application/Interfaces/IBanderaService.cs` | Replaced — async signatures + `CancellationToken` + new CRUD methods |
+| `Bandera.Application/Services/BanderaService.cs` | Replaced — full async implementation, throws on missing flag |
+| `Bandera.Application/DTOs/CreateFlagRequest.cs` | Created |
+| `Bandera.Application/DTOs/UpdateFlagRequest.cs` | Created |
+| `Bandera.Application/DTOs/FlagResponse.cs` | Created |
+| `Bandera.Application/DTOs/EvaluationRequest.cs` | Created |
+| `Bandera.Application/DTOs/FlagMappings.cs` | Created |
+| `Bandera.Infrastructure/Persistence/FlagConfiguration.cs` | Created — partial unique index with `HasFilter` |
+| `Bandera.Infrastructure/Persistence/BanderaDbContext.cs` | Created |
+| `Bandera.Infrastructure/Persistence/BanderaDbContextFactory.cs` | Created |
+| `Bandera.Infrastructure/Persistence/BanderaRepository.cs` | Created — `CancellationToken` on all EF Core calls |
+| `Bandera.Infrastructure/DependencyInjection.cs` | Replaced — real EF Core and repository wiring |
+| `Bandera.Api/Controllers/BanderasController.cs` | Created |
+| `Bandera.Api/Controllers/EvaluationController.cs` | Created — 404 for unknown flags |
+| `Bandera.Api/Program.cs` | Replaced — JSON enum converter + root redirect |
+| `Bandera.Infrastructure/Migrations/InitialCreate` | Generated |
 
 ---
 
@@ -49,7 +49,7 @@ Infrastructure project only. During migration generation, `dotnet ef` reported t
 startup project (Api) also requires a reference to this package:
 
 ```
-Your startup project 'FeatureFlag.Api' doesn't reference Microsoft.EntityFrameworkCore.Design.
+Your startup project 'Bandera.Api' doesn't reference Microsoft.EntityFrameworkCore.Design.
 ```
 
 This is expected behavior — `dotnet ef` loads the startup project's build output and looks for
@@ -91,9 +91,9 @@ reading the generated migration (see section 3 below).
 ```bash
 docker compose up -d
 dotnet ef database update \
-  --project FeatureFlag.Infrastructure \
-  --startup-project FeatureFlag.Api
-dotnet run --project FeatureFlag.Api
+  --project Bandera.Infrastructure \
+  --startup-project Bandera.Api
+dotnet run --project Bandera.Api
 # Navigate to: http://localhost:5227/openapi/v1.json
 ```
 
@@ -203,4 +203,4 @@ The definition of done from `docs/current-state.md`:
 
 ---
 
-*FeatureFlagService | feature/persistence-and-controllers | Phase 0 Completion | v2*
+*Bandera | feature/persistence-and-controllers | Phase 0 Completion | v2*

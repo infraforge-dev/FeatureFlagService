@@ -58,7 +58,7 @@ jobs:
         run: dotnet tool restore
 
       - name: Restore packages
-        run: dotnet restore FeatureFlagService.sln
+        run: dotnet restore Bandera.sln
 
       - name: Check formatting
         # CSharpier 1.x uses subcommand syntax: `check <path>` (not `--check <path>`).
@@ -70,7 +70,7 @@ jobs:
         # Do not use -warnaserror — it is not documented in the dotnet build CLI reference.
         # --no-incremental forces a full rebuild, preventing stale artifact false positives.
         run: >
-          dotnet build FeatureFlagService.sln
+          dotnet build Bandera.sln
           --no-restore
           --no-incremental
           -p:TreatWarningsAsErrors=true
@@ -97,7 +97,7 @@ jobs:
           # Enable with cache: true + RestorePackagesWithLockFile in Directory.Build.props.
 
       - name: Restore packages
-        run: dotnet restore FeatureFlagService.sln
+        run: dotnet restore Bandera.sln
 
       - name: Run unit tests
         # --filter "Category!=Integration" runs all tests except those explicitly
@@ -107,7 +107,7 @@ jobs:
         # --logger "console;verbosity=normal" surfaces test names and failure messages
         # directly in the Actions log without requiring a separate artifact download.
         run: >
-          dotnet test FeatureFlagService.sln
+          dotnet test Bandera.sln
           --no-restore
           --filter "Category!=Integration"
           --logger "console;verbosity=normal"
@@ -132,11 +132,11 @@ jobs:
           dotnet-version: '10.x'
 
       - name: Restore packages
-        run: dotnet restore FeatureFlagService.sln
+        run: dotnet restore Bandera.sln
 
       - name: Run integration tests
         run: >
-          dotnet test FeatureFlagService.sln
+          dotnet test Bandera.sln
           --no-restore
           --filter "Category=Integration"
           --logger "console;verbosity=normal"
