@@ -10,11 +10,12 @@ public sealed class BanderasDbContextFactory : IDesignTimeDbContextFactory<Bande
 {
     public BanderasDbContext CreateDbContext(string[] args)
     {
-        DbContextOptions<BanderasDbContext> options = new DbContextOptionsBuilder<BanderasDbContext>()
-            .UseNpgsql(
-                "Host=localhost;Port=5432;Database=featureflags;Username=postgres;Password=postgres"
-            )
-            .Options;
+        DbContextOptions<BanderasDbContext> options =
+            new DbContextOptionsBuilder<BanderasDbContext>()
+                .UseNpgsql(
+                    "Host=localhost;Port=5432;Database=featureflags;Username=postgres;Password=postgres"
+                )
+                .Options;
 
         return new BanderasDbContext(options);
     }
