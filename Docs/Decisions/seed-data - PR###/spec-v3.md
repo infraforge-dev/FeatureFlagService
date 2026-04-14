@@ -15,8 +15,8 @@
 | Finding | v2 | v3 Fix |
 |---------|-----|--------|
 | Reset collision on shared identity | Reset deleted `IsSeeded = true` rows then re-inserted unconditionally — would fail unique index if a manual flag occupied the same slot | Reset skips slots occupied by active non-seeded flags; logs a local override warning instead of failing |
-| Wrong DbContext class name | Spec referenced `AppDbContext` throughout | Corrected to `BanderaDbContext` everywhere |
-| Wrong FlagConfiguration path | Spec referenced `Persistence/Configurations/FlagConfiguration.cs` | Corrected to `Bandera.Infrastructure/Persistence/FlagConfiguration.cs` |
+| Wrong DbContext class name | Spec referenced `AppDbContext` throughout | Corrected to `BanderasDbContext` everywhere |
+| Wrong FlagConfiguration path | Spec referenced `Persistence/Configurations/FlagConfiguration.cs` | Corrected to `Banderas.Infrastructure/Persistence/FlagConfiguration.cs` |
 | `internal` across assembly boundary | AC-7 suggested `internal` setter — invalid across Domain/Infrastructure boundary without `InternalsVisibleTo` | Resolved to constructor overload accepting `isSeeded` — explicit, no assembly coupling |
 
 ---
@@ -205,8 +205,8 @@ defaults `isSeeded` to `false`.
 | Migration | Infrastructure | `Infrastructure/Persistence/Migrations/` |
 | `DatabaseSeeder` class | Infrastructure | `Infrastructure/Seeding/DatabaseSeeder.cs` |
 | DI registration | Infrastructure | `Infrastructure/DependencyInjection.cs` |
-| `MigrateAsync()` extension | Api | `Bandera.Api/Extensions/WebApplicationExtensions.cs` |
-| Startup trigger + guard | Api | `Bandera.Api/Program.cs` |
+| `MigrateAsync()` extension | Api | `Banderas.Api/Extensions/WebApplicationExtensions.cs` |
+| Startup trigger + guard | Api | `Banderas.Api/Program.cs` |
 
 ---
 
@@ -219,8 +219,8 @@ defaults `isSeeded` to `false`.
 | 3 | New EF Core migration | `Infrastructure/Persistence/Migrations/` |
 | 4 | `DatabaseSeeder` class | `Infrastructure/Seeding/DatabaseSeeder.cs` |
 | 5 | DI registration | `Infrastructure/DependencyInjection.cs` |
-| 6 | `MigrateAsync()` extension method | `Bandera.Api/Extensions/WebApplicationExtensions.cs` |
-| 7 | Startup wiring + Development guard | `Bandera.Api/Program.cs` |
+| 6 | `MigrateAsync()` extension method | `Banderas.Api/Extensions/WebApplicationExtensions.cs` |
+| 7 | Startup wiring + Development guard | `Banderas.Api/Program.cs` |
 
 No new endpoints. No changes to validators, DTOs, existing repository methods,
 or `FlagResponse`.
@@ -257,9 +257,9 @@ than `null` to avoid relying on normalization as an implicit side effect.
 ### AC-1: IsSeeded Column and Migration
 
 **Files:**
-- `Bandera.Domain/Entities/Flag.cs`
-- `Bandera.Infrastructure/Persistence/FlagConfiguration.cs`
-- `Bandera.Infrastructure/Persistence/Migrations/<timestamp>_AddIsSeededToFlag.cs`
+- `Banderas.Domain/Entities/Flag.cs`
+- `Banderas.Infrastructure/Persistence/FlagConfiguration.cs`
+- `Banderas.Infrastructure/Persistence/Migrations/<timestamp>_AddIsSeededToFlag.cs`
 
 **Domain property:**
 - Add `public bool IsSeeded { get; private set; }` to the `Flag` entity
@@ -274,7 +274,7 @@ builder.Property(f => f.IsSeeded)
 ```
 
 **Migration:**
-- Generated via `dotnet ef migrations add AddIsSeededToFlag --project Bandera.Infrastructure --startup-project Bandera.Api`
+- Generated via `dotnet ef migrations add AddIsSeededToFlag --project Banderas.Infrastructure --startup-project Banderas.Api`
 - Existing rows receive `IsSeeded = false` via the column default
 - Migration applies cleanly with no data loss
 - Migration must be generated against the running Postgres devcontainer
@@ -284,7 +284,7 @@ builder.Property(f => f.IsSeeded)
 
 ### AC-2: Flag Constructor Overload
 
-**File:** `Bandera.Domain/Entities/Flag.cs`
+**File:** `Banderas.Domain/Entities/Flag.cs`
 
 Add a second constructor overload that accepts `isSeeded`. The existing constructor
 signature is unchanged — all current callers continue to work without modification.
@@ -327,17 +327,17 @@ The existing constructor delegates to the new one — no logic duplication.
 
 ### AC-3: DatabaseSeeder Class
 
-**File:** `Bandera.Infrastructure/Seeding/DatabaseSeeder.cs`
+**File:** `Banderas.Infrastructure/Seeding/DatabaseSeeder.cs`
 
 - Class is `internal sealed`
-- Constructor accepts `BanderaDbContext` and `ILogger<DatabaseSeeder>`
+- Constructor accepts `BanderasDbContext` and `ILogger<DatabaseSeeder>`
 - Exposes a single public method: `Task SeedAsync(bool reset, CancellationToken ct = default)`
 - Does not reference any Application layer types
-- Does not reference `IBanderaRepository`
+- Does not reference `IBanderasRepository`
 
 ```csharp
 internal sealed class DatabaseSeeder(
-    BanderaDbContext db,
+    BanderasDbContext db,
     ILogger<DatabaseSeeder> logger)
 {
     public async Task SeedAsync(bool reset, CancellationToken ct = default)
@@ -415,7 +415,7 @@ When `reset` is `true`:
 
 ### AC-6: Startup Wiring in Program.cs
 
-**File:** `Bandera.Api/Program.cs`
+**File:** `Banderas.Api/Program.cs`
 
 Add the following block after `app.MapControllers()`:
 
@@ -435,19 +435,19 @@ if (app.Environment.IsDevelopment())
 - `SEED_RESET` is read via `Environment.GetEnvironmentVariable()`, not
   `IConfiguration` — keeps the reset signal separate from application config
 - The seeder is resolved from a new `IServiceScope` — required because
-  `DatabaseSeeder` depends on the scoped `BanderaDbContext`
+  `DatabaseSeeder` depends on the scoped `BanderasDbContext`
 
 **MigrateAsync extension method:**
 
 If `MigrateAsync()` does not exist as an extension on `WebApplication`, create it:
 
-**File:** `Bandera.Api/Extensions/WebApplicationExtensions.cs`
+**File:** `Banderas.Api/Extensions/WebApplicationExtensions.cs`
 
 ```csharp
-using Bandera.Infrastructure.Persistence;
+using Banderas.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
-namespace Bandera.Api.Extensions;
+namespace Banderas.Api.Extensions;
 
 internal static class WebApplicationExtensions
 {
@@ -455,7 +455,7 @@ internal static class WebApplicationExtensions
     {
         using var scope = app.Services.CreateScope();
         var db = scope.ServiceProvider
-            .GetRequiredService<BanderaDbContext>();
+            .GetRequiredService<BanderasDbContext>();
         await db.Database.MigrateAsync();
     }
 }
@@ -465,7 +465,7 @@ internal static class WebApplicationExtensions
 
 ### AC-7: DI Registration
 
-**File:** `Bandera.Infrastructure/DependencyInjection.cs`
+**File:** `Banderas.Infrastructure/DependencyInjection.cs`
 
 Add to the `AddInfrastructure()` extension method:
 
@@ -515,11 +515,11 @@ No user-identifying data is logged. Seed records contain no PII.
 ## File Layout
 
 ```
-Bandera.Domain/
+Banderas.Domain/
   Entities/
     Flag.cs                                              ← modified (IsSeeded + constructor overload)
 
-Bandera.Infrastructure/
+Banderas.Infrastructure/
   Persistence/
     FlagConfiguration.cs                                 ← modified (IsSeeded mapping)
     Migrations/
@@ -528,7 +528,7 @@ Bandera.Infrastructure/
     DatabaseSeeder.cs                                    ← new
   DependencyInjection.cs                                 ← modified (register DatabaseSeeder)
 
-Bandera.Api/
+Banderas.Api/
   Extensions/
     WebApplicationExtensions.cs                          ← new (MigrateAsync)
   Program.cs                                             ← modified (Development block)
@@ -541,8 +541,8 @@ Bandera.Api/
 - `ExecuteDeleteAsync` requires EF Core 7+. Already available (EF Core 10).
 - `IsSeeded` must not appear on `FlagResponse` or any other DTO. The column is
   an internal infrastructure concern — API consumers have no knowledge of it.
-- The seeder calls `BanderaDbContext` directly — do not route through
-  `IBanderaRepository`. The repository is the Application layer's boundary.
+- The seeder calls `BanderasDbContext` directly — do not route through
+  `IBanderasRepository`. The repository is the Application layer's boundary.
 - The manifest literals are trusted constant data defined by the engineer —
   `InputSanitizer` is not required. The sanitization rule applies to untrusted
   HTTP input surfaces only.
@@ -574,7 +574,7 @@ Bandera.Api/
 - [ ] Migration generated, applies cleanly, existing rows receive `IsSeeded = false`
 - [ ] `DatabaseSeeder` exists at `Infrastructure/Seeding/DatabaseSeeder.cs`
 - [ ] `DatabaseSeeder` registered as scoped in `AddInfrastructure()`
-- [ ] `MigrateAsync()` extension exists in `Bandera.Api/Extensions/`
+- [ ] `MigrateAsync()` extension exists in `Banderas.Api/Extensions/`
 - [ ] `MigrateAsync()` called before seeder in the Development startup block
 - [ ] Seeder invoked inside `IsDevelopment()` guard in `Program.cs`
 - [ ] Normal mode is per-record — backfills empty or archived slots only

@@ -7,7 +7,7 @@
 **Tests:** 8/8 passing
 **Smoke test:** Passed — POST, GET, PUT, DELETE all return correct responses
 
-[Pull Request #27](https://github.com/amodelandme/Bandera/pull/27)
+[Pull Request #27](https://github.com/amodelandme/Banderas/pull/27)
 
 ---
 
@@ -17,9 +17,9 @@ All items in scope per the spec were completed:
 
 | File | Change |
 |---|---|
-| `Bandera.Application/Interfaces/IBanderaService.cs` | Replaced — all `Flag` entity references removed; signatures now use `FlagResponse`, `CreateFlagRequest`, `UpdateFlagRequest` |
-| `Bandera.Application/Services/BanderaService.cs` | Updated — `Flag` construction moved from controller into `CreateFlagAsync`; `UpdateFlagAsync` now accepts `UpdateFlagRequest`; all return paths call `ToResponse()` internally |
-| `Bandera.Api/Controllers/BanderasController.cs` | Simplified — all `.ToResponse()` calls removed; `Flag` entity construction removed; `UpdateFlagAsync` call collapsed from 5 primitives to single `request` argument |
+| `Banderas.Application/Interfaces/IBanderasService.cs` | Replaced — all `Flag` entity references removed; signatures now use `FlagResponse`, `CreateFlagRequest`, `UpdateFlagRequest` |
+| `Banderas.Application/Services/BanderasService.cs` | Updated — `Flag` construction moved from controller into `CreateFlagAsync`; `UpdateFlagAsync` now accepts `UpdateFlagRequest`; all return paths call `ToResponse()` internally |
+| `Banderas.Api/Controllers/BanderasController.cs` | Simplified — all `.ToResponse()` calls removed; `Flag` entity construction removed; `UpdateFlagAsync` call collapsed from 5 primitives to single `request` argument |
 
 `FlagMappings.cs`, `Flag.cs`, all DTOs, `EvaluationController`, strategies, evaluator, and the entire infrastructure layer were untouched.
 
@@ -27,20 +27,20 @@ Two additional files were modified during smoke test troubleshooting (see sectio
 
 | File | Change |
 |---|---|
-| `Bandera.Api/appsettings.Development.json` | `Host` changed from `localhost` to `postgres` — the Docker Compose service name |
+| `Banderas.Api/appsettings.Development.json` | `Host` changed from `localhost` to `postgres` — the Docker Compose service name |
 | `.devcontainer/devcontainer.json` | `postStartCommand` updated to join the Postgres Docker network on container start; `dotnet-ef` added to `.config/dotnet-tools.json` |
 
 ---
 
 ## 2. Deviations from the Spec
 
-### 2.1 `using Bandera.Domain.Enums` Added to `BanderaService.cs`
+### 2.1 `using Banderas.Domain.Enums` Added to `BanderasService.cs`
 
-The initial write of `BanderaService.cs` used fully-qualified `Bandera.Domain.Enums.EnvironmentType` in all four method signatures instead of the short form. A `using Bandera.Domain.Enums;` directive was added and all four occurrences replaced with the unqualified `EnvironmentType`. No architectural impact.
+The initial write of `BanderasService.cs` used fully-qualified `Banderas.Domain.Enums.EnvironmentType` in all four method signatures instead of the short form. A `using Banderas.Domain.Enums;` directive was added and all four occurrences replaced with the unqualified `EnvironmentType`. No architectural impact.
 
-### 2.2 `using Bandera.Domain.Entities` Removed from the Controller
+### 2.2 `using Banderas.Domain.Entities` Removed from the Controller
 
-The spec did not explicitly list removing this `using` directive, but it became a stale import once `Flag` entity construction moved into the service. It was removed as part of the controller cleanup. The build confirmed no remaining references to `Bandera.Domain.Entities` in the Api layer.
+The spec did not explicitly list removing this `using` directive, but it became a stale import once `Flag` entity construction moved into the service. It was removed as part of the controller cleanup. The build confirmed no remaining references to `Banderas.Domain.Entities` in the Api layer.
 
 ---
 
@@ -90,8 +90,8 @@ These issues are unrelated to the refactor itself but were discovered and resolv
 **Resolution:** Applied the migration:
 ```bash
 dotnet ef database update \
-  --project Bandera.Infrastructure \
-  --startup-project Bandera.Api
+  --project Banderas.Infrastructure \
+  --startup-project Banderas.Api
 ```
 
 **Note for future rebuilds:** The Postgres volume persists across container restarts so this is a one-time setup step. If the volume is ever deleted, run `dotnet ef database update` again after `docker compose up -d`.
@@ -102,11 +102,11 @@ dotnet ef database update \
 
 ### Domain entity never crosses the service boundary
 
-`IBanderaService` no longer references `Flag` in any method signature. The only domain types remaining on the interface are `EnvironmentType` (an enum) and `FeatureEvaluationContext` (a value object, unchanged per spec). The entity boundary is now clean.
+`IBanderasService` no longer references `Flag` in any method signature. The only domain types remaining on the interface are `EnvironmentType` (an enum) and `FeatureEvaluationContext` (a value object, unchanged per spec). The entity boundary is now clean.
 
 ### Mapping responsibility consolidated in the service
 
-`ToResponse()` is called in exactly three places in `Bandera` — once in `GetFlagAsync`, once in `GetAllFlagsAsync` (via `.Select`), and once in `CreateFlagAsync`. The extension method in `FlagMappings.cs` is unchanged; it is now called from a single, correct location rather than scattered across callers.
+`ToResponse()` is called in exactly three places in `Banderas` — once in `GetFlagAsync`, once in `GetAllFlagsAsync` (via `.Select`), and once in `CreateFlagAsync`. The extension method in `FlagMappings.cs` is unchanged; it is now called from a single, correct location rather than scattered across callers.
 
 ### `CreatedAtAction` routing data sourced from `FlagResponse`
 
@@ -122,10 +122,10 @@ The previous signature (`bool isEnabled, RolloutStrategy strategyType, string st
 
 | Criterion | Status |
 |---|---|
-| `IBanderaService` has no `Flag` type in any method signature | ✅ |
+| `IBanderasService` has no `Flag` type in any method signature | ✅ |
 | `BanderasController` contains zero `.ToResponse()` calls | ✅ |
-| `BanderaService.CreateFlagAsync` constructs `Flag` internally | ✅ |
-| `BanderaService.UpdateFlagAsync` accepts `UpdateFlagRequest`, not primitives | ✅ |
+| `BanderasService.CreateFlagAsync` constructs `Flag` internally | ✅ |
+| `BanderasService.UpdateFlagAsync` accepts `UpdateFlagRequest`, not primitives | ✅ |
 | `dotnet build` — 0 errors, 0 warnings | ✅ |
 | All 8 existing tests pass | ✅ |
 | Manual smoke test — POST, GET, PUT, DELETE correct responses | ✅ |
@@ -165,4 +165,4 @@ docker network connect bandera_default $(cat /etc/hostname)
 
 ---
 
-*Bandera | refactor/service-interface-dtos | Phase 1 Prep*
+*Banderas | refactor/service-interface-dtos | Phase 1 Prep*

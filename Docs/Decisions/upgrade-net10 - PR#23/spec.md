@@ -6,7 +6,7 @@
 **Estimated scope:** Small — two files changed, five `.csproj` files updated
 **Implementation notes:** `docs/Decisions/upgrade-net10/implementation-notes.md`
 
-[Pull Request #23](https://github.com/amodelandme/Bandera/pull/23)
+[Pull Request #23](https://github.com/amodelandme/Banderas/pull/23)
 
 ---
 
@@ -59,11 +59,11 @@ The only files that change:
 
 ```
 .devcontainer/devcontainer.json    ← base image swap
-Bandera.Api/Bandera.Api.csproj
-Bandera.Application/Bandera.Application.csproj
-Bandera.Domain/Bandera.Domain.csproj
-Bandera.Infrastructure/Bandera.Infrastructure.csproj
-Bandera.Tests/Bandera.Tests.csproj
+Banderas.Api/Banderas.Api.csproj
+Banderas.Application/Banderas.Application.csproj
+Banderas.Domain/Banderas.Domain.csproj
+Banderas.Infrastructure/Banderas.Infrastructure.csproj
+Banderas.Tests/Banderas.Tests.csproj
 ```
 
 ---
@@ -116,7 +116,7 @@ Every property is preserved from the original — only the `image` value changes
 
 ```jsonc
 {
-  "name": "Bandera",
+  "name": "Banderas",
   "image": "mcr.microsoft.com/devcontainers/base:ubuntu-24.04",
   "features": {
     "ghcr.io/anthropics/devcontainer-features/claude-code:1.0": {},
@@ -162,7 +162,7 @@ Every property is preserved from the original — only the `image` value changes
   // Both must match to avoid file permission issues
   "remoteUser": "vscode",
   "containerUser": "vscode",
-  "postCreateCommand": "dotnet restore Bandera.sln && dotnet tool restore",
+  "postCreateCommand": "dotnet restore Banderas.sln && dotnet tool restore",
   // Git 2.35+ throws ownership warnings in containers — this silences them
   "postStartCommand": "git config --global --add safe.directory ${containerWorkspaceFolder}",
   "customizations": {
@@ -181,7 +181,7 @@ Every property is preserved from the original — only the `image` value changes
         "editor.insertSpaces": true,
         "editor.tabSize": 4,
         "files.eol": "\n",
-        "dotnet.defaultSolution": "Bandera.sln"
+        "dotnet.defaultSolution": "Banderas.sln"
       }
     }
   }
@@ -221,11 +221,11 @@ Update `<TargetFramework>` in all five project files.
 
 | File | Current | Target |
 |---|---|---|
-| `Bandera.Api/Bandera.Api.csproj` | `net9.0` | `net10.0` |
-| `Bandera.Application/Bandera.Application.csproj` | `net9.0` | `net10.0` |
-| `Bandera.Domain/Bandera.Domain.csproj` | `net9.0` | `net10.0` |
-| `Bandera.Infrastructure/Bandera.Infrastructure.csproj` | `net9.0` | `net10.0` |
-| `Bandera.Tests/Bandera.Tests.csproj` | `net9.0` | `net10.0` |
+| `Banderas.Api/Banderas.Api.csproj` | `net9.0` | `net10.0` |
+| `Banderas.Application/Banderas.Application.csproj` | `net9.0` | `net10.0` |
+| `Banderas.Domain/Banderas.Domain.csproj` | `net9.0` | `net10.0` |
+| `Banderas.Infrastructure/Banderas.Infrastructure.csproj` | `net9.0` | `net10.0` |
+| `Banderas.Tests/Banderas.Tests.csproj` | `net9.0` | `net10.0` |
 
 No other changes to any `.csproj` file. Package references, project references, and
 all other properties stay exactly as they are.
@@ -242,17 +242,17 @@ dotnet --version
 # Expected output: 10.x.x
 
 # 2. Build the solution
-dotnet build Bandera.sln
+dotnet build Banderas.sln
 # Expected: Build succeeded. 0 Warning(s). 0 Error(s).
 
 # 3. Run the tests
-dotnet test Bandera.sln
+dotnet test Banderas.sln
 # Expected: All tests pass
 ```
 
 If the build fails after the framework upgrade, check whether any NuGet packages
 have version constraints that prevent resolution under `net10.0`. Run
-`dotnet restore Bandera.sln` and read the output carefully before
+`dotnet restore Banderas.sln` and read the output carefully before
 attempting any package version changes.
 
 ---
@@ -302,8 +302,8 @@ Then implement in this order:
 
 1. Update `.devcontainer/devcontainer.json` — swap base image per section 4.3
 2. Update all five `.csproj` files — change `net9.0` to `net10.0` per section 5
-3. Run `dotnet build Bandera.sln` — confirm 0 errors, 0 warnings
-4. Run `dotnet test Bandera.sln` — confirm all tests pass
+3. Run `dotnet build Banderas.sln` — confirm 0 errors, 0 warnings
+4. Run `dotnet test Banderas.sln` — confirm all tests pass
 5. Update `docs/current-state.md` — mark KI-001 resolved
 
 > **DO NOT**  
@@ -315,4 +315,4 @@ Then implement in this order:
 
 ---
 
-*Bandera | refactor/upgrade-net10 | Phase 0 housekeeping*
+*Banderas | refactor/upgrade-net10 | Phase 0 housekeeping*

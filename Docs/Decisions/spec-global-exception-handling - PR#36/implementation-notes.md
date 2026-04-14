@@ -66,30 +66,30 @@ This is strictly correct — no behavioural change.
 
 | File | Purpose |
 |---|---|
-| `Bandera.Domain/Exceptions/BanderaException.cs` | Abstract base — carries `StatusCode`, no ASP.NET Core reference |
-| `Bandera.Domain/Exceptions/FlagNotFoundException.cs` | 404 — thrown on null flag lookup |
-| `Bandera.Domain/Exceptions/DuplicateFlagNameException.cs` | 409 — defined, not yet thrown (name uniqueness is a separate task) |
-| `Bandera.Api/Middleware/GlobalExceptionMiddleware.cs` | Single catch-all handler — domain exceptions → named 4xx, everything else → safe 500 |
+| `Banderas.Domain/Exceptions/BanderasException.cs` | Abstract base — carries `StatusCode`, no ASP.NET Core reference |
+| `Banderas.Domain/Exceptions/FlagNotFoundException.cs` | 404 — thrown on null flag lookup |
+| `Banderas.Domain/Exceptions/DuplicateFlagNameException.cs` | 409 — defined, not yet thrown (name uniqueness is a separate task) |
+| `Banderas.Api/Middleware/GlobalExceptionMiddleware.cs` | Single catch-all handler — domain exceptions → named 4xx, everything else → safe 500 |
 
 ### Modified files
 
 | File | Change |
 |---|---|
-| `Bandera.Domain/Bandera.Domain.csproj` | Added `<FrameworkReference Include="Microsoft.AspNetCore.App" />` for `StatusCodes` constants |
-| `Bandera.Api/Program.cs` | `app.UseMiddleware<GlobalExceptionMiddleware>()` registered first in pipeline |
-| `Bandera.Application/Services/BanderaService.cs` | All four `KeyNotFoundException` throws replaced with `FlagNotFoundException`; added `using Bandera.Domain.Exceptions` |
-| `Bandera.Api/Controllers/BanderasController.cs` | Removed `try/catch` from `GetByNameAsync`, `UpdateAsync`, `ArchiveAsync` |
-| `Bandera.Api/Controllers/EvaluationController.cs` | Removed `try/catch` from `EvaluateAsync`; removed `e.Message` from error response |
+| `Banderas.Domain/Banderas.Domain.csproj` | Added `<FrameworkReference Include="Microsoft.AspNetCore.App" />` for `StatusCodes` constants |
+| `Banderas.Api/Program.cs` | `app.UseMiddleware<GlobalExceptionMiddleware>()` registered first in pipeline |
+| `Banderas.Application/Services/BanderasService.cs` | All four `KeyNotFoundException` throws replaced with `FlagNotFoundException`; added `using Banderas.Domain.Exceptions` |
+| `Banderas.Api/Controllers/BanderasController.cs` | Removed `try/catch` from `GetByNameAsync`, `UpdateAsync`, `ArchiveAsync` |
+| `Banderas.Api/Controllers/EvaluationController.cs` | Removed `try/catch` from `EvaluateAsync`; removed `e.Message` from error response |
 
 ---
 
 ## Definition of Done — Status
 
-- [x] `Bandera.Domain/Exceptions/` folder created with all three exception classes
-- [x] `FrameworkReference` added to `Bandera.Domain.csproj`
-- [x] `GlobalExceptionMiddleware` created in `Bandera.Api/Middleware/`
+- [x] `Banderas.Domain/Exceptions/` folder created with all three exception classes
+- [x] `FrameworkReference` added to `Banderas.Domain.csproj`
+- [x] `GlobalExceptionMiddleware` created in `Banderas.Api/Middleware/`
 - [x] Middleware registered first in `Program.cs`
-- [x] `Bandera` throws `FlagNotFoundException` — no `KeyNotFoundException` references remain in Application
+- [x] `Banderas` throws `FlagNotFoundException` — no `KeyNotFoundException` references remain in Application
 - [x] `BanderasController` has zero `try/catch` blocks
 - [x] `EvaluationController` has zero `try/catch` blocks
 - [ ] `GET /api/flags/{name}` with unknown name returns `ProblemDetails` 404 — verified by integration test (Phase 2)
@@ -100,7 +100,7 @@ This is strictly correct — no behavioural change.
 - [ ] `LogError` fires for the 500 path with full exception details — verified by integration test (Phase 2)
 - [x] `ProblemDetails` responses include `instance` set to the request path
 - [x] `Content-Type: application/problem+json` on all error responses
-- [x] `dotnet build Bandera.sln` → 0 errors, 0 warnings
+- [x] `dotnet build Banderas.sln` → 0 errors, 0 warnings
 - [x] All existing tests passing: `dotnet test --filter "Category!=Integration"` → 8/8
 - [x] CSharpier: `dotnet csharpier check .` → 0 violations
 

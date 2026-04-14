@@ -14,33 +14,33 @@
 - [Verification](#verification)
 
 ## Summary
-This PR added structured evaluation decision logging to `Bandera`,
+This PR added structured evaluation decision logging to `Banderas`,
 modeled evaluation outcomes as a discriminated union in
-`Bandera.Application/Evaluation/`, and added focused unit tests covering the
+`Banderas.Application/Evaluation/`, and added focused unit tests covering the
 new logging behavior without changing the evaluator, controller, or existing test
 files.
 
 ## Implemented Scope
-- Added `Bandera.Application/Evaluation/EvaluationResult.cs` with:
+- Added `Banderas.Application/Evaluation/EvaluationResult.cs` with:
   `EvaluationReason`, `EvaluationResult`, `FlagDisabled`, and
   `StrategyEvaluated`.
-- Updated `Bandera.Application/Services/BanderaService.cs` to:
-  accept `ILogger<BanderaService>`, log a warning before
+- Updated `Banderas.Application/Services/BanderasService.cs` to:
+  accept `ILogger<BanderasService>`, log a warning before
   `FlagNotFoundException`, construct `EvaluationResult` instances, and emit
   structured completion logs.
 - Added `HashUserId(...)` to keep raw `UserId` values out of logs while still
   allowing deterministic correlation across evaluations.
-- Added `Bandera.Tests/Services/BanderaServiceLoggingTests.cs` with four
+- Added `Banderas.Tests/Services/BanderasServiceLoggingTests.cs` with four
   unit tests covering disabled-flag logging, strategy-evaluated logging, hashed
   user IDs, and the not-found warning path.
 - Added `Microsoft.Extensions.Diagnostics.Testing` to
-  `Bandera.Tests/Bandera.Tests.csproj` for `FakeLogger<T>`.
+  `Banderas.Tests/Banderas.Tests.csproj` for `FakeLogger<T>`.
 
 ## Implementation Notes
 The final design stayed aligned with the spec's intended architecture:
 
 - `FeatureEvaluator` remains pure and unchanged.
-- `Bandera` remains the imperative shell and owns all logging.
+- `Banderas` remains the imperative shell and owns all logging.
 - The service still preserves the existing sanitization block before evaluation.
 - The log shape differs by outcome branch while sharing the common
   `"Flag evaluation complete."` prefix for successful evaluation outcomes.
@@ -53,7 +53,7 @@ message text. This makes the assertions stricter for fields like `Reason`,
 ## Spec Deviations
 Two small implementation deviations were made during coding:
 
-1. `Bandera.LogResult(...)` now returns early when
+1. `Banderas.LogResult(...)` now returns early when
    `_logger.IsEnabled(LogLevel.Information)` is false. This was added to satisfy
    analyzer rule `CA1873` and to avoid unnecessary SHA256 hashing work when info
    logging is disabled. It does not change behavior when info logging is enabled.
@@ -67,9 +67,9 @@ The implementation was verified with:
 
 ```bash
 dotnet csharpier format .
-dotnet build Bandera.sln
-dotnet test Bandera.sln --filter "Category=Unit"
-dotnet test Bandera.sln --filter "Category=Integration"
+dotnet build Banderas.sln
+dotnet test Banderas.sln --filter "Category=Unit"
+dotnet test Banderas.sln --filter "Category=Integration"
 dotnet csharpier check .
 ```
 

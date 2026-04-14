@@ -29,7 +29,7 @@
 
 ## User Story
 
-> As a developer integrating with Bandera, I want a self-documenting API
+> As a developer integrating with Banderas, I want a self-documenting API
 > with a clean interactive UI, accurate schema types, and complete status code
 > documentation — so I can integrate without reading source code.
 
@@ -55,13 +55,13 @@ This spec closes all of the above as a single Phase 1 Developer Experience task.
 | # | What | File(s) affected |
 |---|---|---|
 | 1 | `EvaluationResponse` DTO | `Application/DTOs/EvaluationResponse.cs` |
-| 2 | Enable XML doc generation | `Bandera.Api.csproj`, `Bandera.Application.csproj` |
+| 2 | Enable XML doc generation | `Banderas.Api.csproj`, `Banderas.Application.csproj` |
 | 3 | XML doc comments — controllers | `BanderasController.cs`, `EvaluationController.cs` |
 | 4 | XML doc comments — DTOs | All 5 DTO files |
 | 5 | `[ProducesResponseType]` attributes | Both controllers |
 | 6 | `EnumSchemaTransformer` | `Api/OpenApi/EnumSchemaTransformer.cs` |
 | 7 | `ApiInfoTransformer` | `Api/OpenApi/ApiInfoTransformer.cs` |
-| 8 | Scalar UI | `Bandera.Api.csproj`, `Program.cs` |
+| 8 | Scalar UI | `Banderas.Api.csproj`, `Program.cs` |
 | 9 | Wire transformers in `Program.cs` | `Program.cs` |
 
 ---
@@ -72,7 +72,7 @@ This spec closes all of the above as a single Phase 1 Developer Experience task.
 
 ### AC-1: EvaluationResponse DTO
 
-**File:** `Bandera.Application/DTOs/EvaluationResponse.cs`
+**File:** `Banderas.Application/DTOs/EvaluationResponse.cs`
 
 Create a named DTO to replace the anonymous type currently returned by `EvaluationController`.
 
@@ -98,7 +98,7 @@ return Ok(new EvaluationResponse(isEnabled));
 
 ### AC-2: XML Documentation Generation
 
-**File:** `Bandera.Api/Bandera.Api.csproj`
+**File:** `Banderas.Api/Banderas.Api.csproj`
 
 Add `<GenerateDocumentationFile>true</GenerateDocumentationFile>` to the `<PropertyGroup>`.
 
@@ -115,7 +115,7 @@ public members that intentionally lack XML comments (e.g. `Program`).
 </PropertyGroup>
 ```
 
-**File:** `Bandera.Application/Bandera.Application.csproj`
+**File:** `Banderas.Application/Banderas.Application.csproj`
 
 Add the same two properties to the `<PropertyGroup>`.
 
@@ -131,8 +131,8 @@ Add the same two properties to the `<PropertyGroup>`.
 
 **Why this works in .NET 10:** `Microsoft.AspNetCore.OpenApi` uses a source generator
 that automatically picks up XML files from referenced assemblies when those assemblies
-also have `GenerateDocumentationFile` set. Because `Bandera.Api` references
-`Bandera.Application` via `<ProjectReference>`, DTO comments flow into the spec
+also have `GenerateDocumentationFile` set. Because `Banderas.Api` references
+`Banderas.Application` via `<ProjectReference>`, DTO comments flow into the spec
 with no additional configuration.
 
 ---
@@ -378,7 +378,7 @@ All actions that can return `400` should use `ValidationProblemDetails` as the t
 
 ### AC-6: EnumSchemaTransformer
 
-**File:** `Bandera.Api/OpenApi/EnumSchemaTransformer.cs`
+**File:** `Banderas.Api/OpenApi/EnumSchemaTransformer.cs`
 
 A schema transformer that rewrites any enum schema to use string values instead of
 integer values. This fixes the known issue where `RolloutStrategy` and `EnvironmentType`
@@ -393,7 +393,7 @@ using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.OpenApi;
 using Microsoft.OpenApi;
 
-namespace Bandera.Api.OpenApi;
+namespace Banderas.Api.OpenApi;
 
 /// <summary>
 /// Rewrites enum schemas to use string member names instead of integer values.
@@ -426,7 +426,7 @@ internal sealed class EnumSchemaTransformer : IOpenApiSchemaTransformer
 
 ### AC-7: ApiInfoTransformer
 
-**File:** `Bandera.Api/OpenApi/ApiInfoTransformer.cs`
+**File:** `Banderas.Api/OpenApi/ApiInfoTransformer.cs`
 
 A document transformer that sets the API title, version, and description at the
 top of the OpenAPI document.
@@ -435,7 +435,7 @@ top of the OpenAPI document.
 using Microsoft.AspNetCore.OpenApi;
 using Microsoft.OpenApi;
 
-namespace Bandera.Api.OpenApi;
+namespace Banderas.Api.OpenApi;
 
 /// <summary>
 /// Populates the top-level API metadata in the generated OpenAPI document.
@@ -449,7 +449,7 @@ internal sealed class ApiInfoTransformer : IOpenApiDocumentTransformer
     {
         document.Info = new OpenApiInfo
         {
-            Title = "Bandera API",
+            Title = "Banderas API",
             Version = "v1",
             Description =
                 "Azure-native, .NET-first feature flag evaluation service. " +
@@ -457,8 +457,8 @@ internal sealed class ApiInfoTransformer : IOpenApiDocumentTransformer
                 "deterministic user bucketing. AI-assisted analysis coming in Phase 1.5.",
             Contact = new OpenApiContact
             {
-                Name = "Bandera",
-                Url = new Uri("https://github.com/amodelandme/Bandera")
+                Name = "Banderas",
+                Url = new Uri("https://github.com/amodelandme/Banderas")
             }
         };
 
@@ -471,7 +471,7 @@ internal sealed class ApiInfoTransformer : IOpenApiDocumentTransformer
 
 ### AC-8: Scalar UI
 
-**File:** `Bandera.Api/Bandera.Api.csproj`
+**File:** `Banderas.Api/Banderas.Api.csproj`
 
 Add the Scalar package:
 
@@ -519,14 +519,14 @@ builder.Services.AddOpenApi(options =>
 });
 ```
 
-Add `using Bandera.Api.OpenApi;` to the top of `Program.cs`.
+Add `using Banderas.Api.OpenApi;` to the top of `Program.cs`.
 
 The full updated `Program.cs` should read:
 
 ```csharp
-using Bandera.Api.OpenApi;
-using Bandera.Application;
-using Bandera.Infrastructure;
+using Banderas.Api.OpenApi;
+using Banderas.Application;
+using Banderas.Infrastructure;
 using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -575,24 +575,24 @@ is not needed (or used) in a controller-based API.
 After this spec is implemented, the new and modified files are:
 
 ```
-Bandera.Api/
+Banderas.Api/
 ├── OpenApi/
 │   ├── EnumSchemaTransformer.cs        ← NEW
 │   └── ApiInfoTransformer.cs           ← NEW
 ├── Controllers/
 │   ├── BanderasController.cs       ← MODIFIED (XML docs + ProducesResponseType)
 │   └── EvaluationController.cs         ← MODIFIED (XML docs + ProducesResponseType + EvaluationResponse)
-├── Bandera.Api.csproj              ← MODIFIED (GenerateDocumentationFile, NoWarn, Scalar)
+├── Banderas.Api.csproj              ← MODIFIED (GenerateDocumentationFile, NoWarn, Scalar)
 └── Program.cs                          ← MODIFIED (transformer wiring, Scalar, redirect)
 
-Bandera.Application/
+Banderas.Application/
 ├── DTOs/
 │   ├── CreateFlagRequest.cs            ← MODIFIED (XML docs)
 │   ├── UpdateFlagRequest.cs            ← MODIFIED (XML docs)
 │   ├── FlagResponse.cs                 ← MODIFIED (XML docs)
 │   ├── EvaluationRequest.cs            ← MODIFIED (XML docs)
 │   └── EvaluationResponse.cs           ← NEW
-└── Bandera.Application.csproj      ← MODIFIED (GenerateDocumentationFile, NoWarn)
+└── Banderas.Application.csproj      ← MODIFIED (GenerateDocumentationFile, NoWarn)
 ```
 
 ---
@@ -667,7 +667,7 @@ using Microsoft.OpenApi;
 - [ ] Root redirect updated from `/openapi/v1.json` to `/scalar/v1`
 - [ ] Transformers registered in `AddOpenApi()` in `Program.cs`
 - [ ] `AddEndpointsApiExplorer()` removed from `Program.cs`
-- [ ] Build: `dotnet build Bandera.sln` → 0 errors, 0 warnings
+- [ ] Build: `dotnet build Banderas.sln` → 0 errors, 0 warnings
 - [ ] All existing tests passing: `dotnet test`
 - [ ] Spec visible at `/scalar/v1` with correct enum names, endpoint descriptions, and response codes
 - [ ] Raw JSON spec still accessible at `/openapi/v1.json`

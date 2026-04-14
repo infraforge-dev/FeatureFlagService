@@ -17,7 +17,7 @@
 - [Test Project Setup](#test-project-setup)
 - [Folder Structure](#folder-structure)
 - [Conventions](#conventions)
-- [Fixture: BanderaApiFactory](#fixture-featureflagapifactory)
+- [Fixture: BanderasApiFactory](#fixture-featureflagapifactory)
 - [Fixture: IntegrationTestBase](#fixture-integrationtestbase)
 - [FlagEndpointTests](#flagendpointtests)
 - [EvaluationEndpointTests](#evaluationendpointtests)
@@ -32,7 +32,7 @@
 
 ## User Story
 
-> As a developer on Bandera, I want integration tests that exercise
+> As a developer on Banderas, I want integration tests that exercise
 > every API endpoint against a real Postgres database so that I can verify the
 > full HTTP pipeline — routing, validation, serialization, persistence, error
 > handling, and response shape — and catch regressions that unit tests cannot.
@@ -60,10 +60,10 @@
 
 ## Design Decisions
 
-### DD-1 — Separate project (`Bandera.Tests.Integration`)
+### DD-1 — Separate project (`Banderas.Tests.Integration`)
 
-The existing `Bandera.Tests` references only Application and Domain. Integration
-tests require `Bandera.Api` (for `WebApplicationFactory<Program>`), which
+The existing `Banderas.Tests` references only Application and Domain. Integration
+tests require `Banderas.Api` (for `WebApplicationFactory<Program>`), which
 transitively pulls in Infrastructure, EF Core, and Npgsql. Adding these to the unit
 test project would blur the dependency boundary and slow down unit test builds.
 
@@ -221,7 +221,7 @@ while body DTOs do validate environment values.
    - **Cons:** not implementable if the new tests expose the current environment
      validation gap
 3. Expand the spec slightly to allow a narrow controller-layer fix in
-   `Bandera.Api/Controllers/BanderasController.cs`, then add the missing
+   `Banderas.Api/Controllers/BanderasController.cs`, then add the missing
    integration tests so the documented API contract is actually enforced.
    - **Pros:** makes the spec internally consistent, locks down the full API
      boundary, and keeps the production change tightly scoped
@@ -242,7 +242,7 @@ expected `ProblemDetails` or `ValidationProblemDetails` shape.
 
 ### NuGet Packages
 
-Create `Bandera.Tests.Integration/Bandera.Tests.Integration.csproj` with:
+Create `Banderas.Tests.Integration/Banderas.Tests.Integration.csproj` with:
 
 ```xml
 <Project Sdk="Microsoft.NET.Sdk">
@@ -268,7 +268,7 @@ Create `Bandera.Tests.Integration/Bandera.Tests.Integration.csproj` with:
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Bandera.Api\Bandera.Api.csproj" />
+    <ProjectReference Include="..\Banderas.Api\Banderas.Api.csproj" />
   </ItemGroup>
 </Project>
 ```
@@ -277,16 +277,16 @@ Create `Bandera.Tests.Integration/Bandera.Tests.Integration.csproj` with:
 > not specify a version — use the latest stable at time of implementation. Do not
 > pin to a specific version unless a compatibility issue is discovered.
 
-> **NOTE:** The project references `Bandera.Api` only. This transitively
+> **NOTE:** The project references `Banderas.Api` only. This transitively
 > brings Application, Domain, and Infrastructure. Do not add direct references
 > to lower-layer projects.
 
 ### Solution Registration
 
-Add `Bandera.Tests.Integration` to `Bandera.sln`. Use:
+Add `Banderas.Tests.Integration` to `Banderas.sln`. Use:
 
 ```bash
-dotnet sln Bandera.sln add Bandera.Tests.Integration/Bandera.Tests.Integration.csproj
+dotnet sln Banderas.sln add Banderas.Tests.Integration/Banderas.Tests.Integration.csproj
 ```
 
 ---
@@ -296,10 +296,10 @@ dotnet sln Bandera.sln add Bandera.Tests.Integration/Bandera.Tests.Integration.c
 Create the following files. Do not create any other files or folders.
 
 ```
-Bandera.Tests.Integration/
-├── Bandera.Tests.Integration.csproj       ← NEW
+Banderas.Tests.Integration/
+├── Banderas.Tests.Integration.csproj       ← NEW
 ├── Fixtures/
-│   ├── BanderaApiFactory.cs               ← NEW
+│   ├── BanderasApiFactory.cs               ← NEW
 │   ├── IntegrationTestCollection.cs           ← NEW
 │   └── IntegrationTestBase.cs                 ← NEW
 ├── FlagEndpointTests.cs                       ← NEW
@@ -367,9 +367,9 @@ All test methods are `async Task`. All HTTP calls use `await`. Do not use
 
 ---
 
-## Fixture: BanderaApiFactory
+## Fixture: BanderasApiFactory
 
-**File:** `Bandera.Tests.Integration/Fixtures/BanderaApiFactory.cs`
+**File:** `Banderas.Tests.Integration/Fixtures/BanderasApiFactory.cs`
 
 A custom `WebApplicationFactory<Program>` that manages a Testcontainers
 Postgres instance and wires it into the ASP.NET Core host.
@@ -382,10 +382,10 @@ Postgres instance and wires it into the ASP.NET Core host.
    - Calls `base.CreateClient(new WebApplicationFactoryClientOptions { BaseAddress = new Uri("https://localhost"), AllowAutoRedirect = false })`
      once to trigger host startup after the container is ready
 3. `ConfigureWebHost` override:
-   - Removes the existing `DbContextOptions<BanderaDbContext>` registration
-   - Registers a new `AddDbContext<BanderaDbContext>` pointing at the
+   - Removes the existing `DbContextOptions<BanderasDbContext>` registration
+   - Registers a new `AddDbContext<BanderasDbContext>` pointing at the
      Testcontainer's connection string
-   - Creates a scope, resolves `BanderaDbContext`, calls `Database.MigrateAsync()`
+   - Creates a scope, resolves `BanderasDbContext`, calls `Database.MigrateAsync()`
      to apply EF Core migrations
 4. `DisposeAsync`:
    - Disposes the Postgres container
@@ -394,16 +394,16 @@ Postgres instance and wires it into the ASP.NET Core host.
 
 ```csharp
 using DotNet.Testcontainers.Builders;
-using Bandera.Infrastructure.Persistence;
+using Banderas.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Testcontainers.PostgreSql;
 
-namespace Bandera.Tests.Integration.Fixtures;
+namespace Banderas.Tests.Integration.Fixtures;
 
-public sealed class BanderaApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
+public sealed class BanderasApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 {
     private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder()
         .WithImage("postgres:16")
@@ -419,9 +419,9 @@ public sealed class BanderaApiFactory : WebApplicationFactory<Program>, IAsyncLi
     {
         builder.ConfigureServices(services =>
         {
-            // Remove the app's BanderaDbContext registration
+            // Remove the app's BanderasDbContext registration
             var descriptor = services.SingleOrDefault(
-                d => d.ServiceType == typeof(DbContextOptions<BanderaDbContext>));
+                d => d.ServiceType == typeof(DbContextOptions<BanderasDbContext>));
 
             if (descriptor is not null)
             {
@@ -429,7 +429,7 @@ public sealed class BanderaApiFactory : WebApplicationFactory<Program>, IAsyncLi
             }
 
             // Register with Testcontainer connection string
-            services.AddDbContext<BanderaDbContext>(options =>
+            services.AddDbContext<BanderasDbContext>(options =>
                 options.UseNpgsql(_postgres.GetConnectionString()));
         });
     }
@@ -442,7 +442,7 @@ public sealed class BanderaApiFactory : WebApplicationFactory<Program>, IAsyncLi
 
         // Apply migrations once after container starts
         using var scope = Services.CreateScope();
-        var dbContext = scope.ServiceProvider.GetRequiredService<BanderaDbContext>();
+        var dbContext = scope.ServiceProvider.GetRequiredService<BanderasDbContext>();
         await dbContext.Database.MigrateAsync();
     }
 
@@ -464,8 +464,8 @@ public sealed class BanderaApiFactory : WebApplicationFactory<Program>, IAsyncLi
 > assertions.
 
 > **IMPORTANT:** The `ConfigureWebHost` override must also remove any existing
-> `BanderaDbContext` service registration (not just `DbContextOptions`).
-> Check for both. If only `DbContextOptions` is removed but `BanderaDbContext`
+> `BanderasDbContext` service registration (not just `DbContextOptions`).
+> Check for both. If only `DbContextOptions` is removed but `BanderasDbContext`
 > itself is also registered as a service type, remove that too. Test by running
 > a single test — if it fails with a connection error to `Host=postgres`, the
 > replacement did not take effect.
@@ -474,17 +474,17 @@ public sealed class BanderaApiFactory : WebApplicationFactory<Program>, IAsyncLi
 
 ## Fixture: IntegrationTestCollection
 
-**File:** `Bandera.Tests.Integration/Fixtures/IntegrationTestCollection.cs`
+**File:** `Banderas.Tests.Integration/Fixtures/IntegrationTestCollection.cs`
 
-Defines an xUnit collection that shares a single `BanderaApiFactory`
+Defines an xUnit collection that shares a single `BanderasApiFactory`
 across all test classes. This means one Postgres container for the entire
 test suite.
 
 ```csharp
-namespace Bandera.Tests.Integration.Fixtures;
+namespace Banderas.Tests.Integration.Fixtures;
 
 [CollectionDefinition("Integration")]
-public sealed class IntegrationTestCollection : ICollectionFixture<BanderaApiFactory>;
+public sealed class IntegrationTestCollection : ICollectionFixture<BanderasApiFactory>;
 ```
 
 Both test classes must be decorated with `[Collection("Integration")]`.
@@ -493,16 +493,16 @@ Both test classes must be decorated with `[Collection("Integration")]`.
 
 ## Fixture: IntegrationTestBase
 
-**File:** `Bandera.Tests.Integration/Fixtures/IntegrationTestBase.cs`
+**File:** `Banderas.Tests.Integration/Fixtures/IntegrationTestBase.cs`
 
 Base class for all integration test classes. Provides an `HttpClient`,
 JSON serialization options matching the API, and per-test database cleanup.
 
 ### Behavior
 
-1. Receives `BanderaApiFactory` via constructor injection (xUnit collection fixture)
+1. Receives `BanderasApiFactory` via constructor injection (xUnit collection fixture)
 2. Implements `IAsyncLifetime`
-3. `InitializeAsync`: Runs `DELETE FROM flags` via a scoped `BanderaDbContext`
+3. `InitializeAsync`: Runs `DELETE FROM flags` via a scoped `BanderasDbContext`
 4. `DisposeAsync`: No-op
 5. Exposes:
    - `Client` — `HttpClient` from the factory, created with
@@ -515,11 +515,11 @@ JSON serialization options matching the API, and per-test database cleanup.
 ```csharp
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using Bandera.Infrastructure.Persistence;
+using Banderas.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Bandera.Tests.Integration.Fixtures;
+namespace Banderas.Tests.Integration.Fixtures;
 
 public abstract class IntegrationTestBase : IAsyncLifetime
 {
@@ -531,9 +531,9 @@ public abstract class IntegrationTestBase : IAsyncLifetime
         Converters = { new JsonStringEnumConverter() },
     };
 
-    private readonly BanderaApiFactory _factory;
+    private readonly BanderasApiFactory _factory;
 
-    protected IntegrationTestBase(BanderaApiFactory factory)
+    protected IntegrationTestBase(BanderasApiFactory factory)
     {
         _factory = factory;
         Client = factory.CreateClient(
@@ -548,7 +548,7 @@ public abstract class IntegrationTestBase : IAsyncLifetime
     public async Task InitializeAsync()
     {
         using var scope = _factory.Services.CreateScope();
-        var dbContext = scope.ServiceProvider.GetRequiredService<BanderaDbContext>();
+        var dbContext = scope.ServiceProvider.GetRequiredService<BanderasDbContext>();
         await dbContext.Database.ExecuteSqlRawAsync("DELETE FROM flags");
     }
 
@@ -568,7 +568,7 @@ public abstract class IntegrationTestBase : IAsyncLifetime
 
 ## FlagEndpointTests
 
-**File:** `Bandera.Tests.Integration/FlagEndpointTests.cs`
+**File:** `Banderas.Tests.Integration/FlagEndpointTests.cs`
 
 Tests all 5 `api/flags` endpoints: POST (create), GET all, GET by name,
 PUT (update), DELETE (archive).
@@ -932,7 +932,7 @@ Assert:
 
 ## EvaluationEndpointTests
 
-**File:** `Bandera.Tests.Integration/EvaluationEndpointTests.cs`
+**File:** `Banderas.Tests.Integration/EvaluationEndpointTests.cs`
 
 Tests the `POST /api/evaluate` endpoint.
 
@@ -1060,11 +1060,11 @@ dependency.
           dotnet-version: '10.x'
 
       - name: Restore packages
-        run: dotnet restore Bandera.sln
+        run: dotnet restore Banderas.sln
 
       - name: Run integration tests
         run: >
-          dotnet test Bandera.sln
+          dotnet test Banderas.sln
           --no-restore
           --filter "Category=Integration"
           --logger "console;verbosity=normal"
@@ -1083,7 +1083,7 @@ The `ai-review` job must wait for integration tests to pass:
 
 ## Changes to Existing Files
 
-### `Bandera.Api/Program.cs`
+### `Banderas.Api/Program.cs`
 
 Add to the very end of the file, after `app.Run();`:
 
@@ -1097,7 +1097,7 @@ with top-level statements. It does not change runtime behavior.
 
 ---
 
-### `Bandera.Api/Controllers/BanderasController.cs`
+### `Banderas.Api/Controllers/BanderasController.cs`
 
 Add a narrow controller-layer validation guard for the `environment` query
 parameter on `GetAllAsync`, `GetByNameAsync`, `UpdateAsync`, and `ArchiveAsync`.
@@ -1111,12 +1111,12 @@ for invalid query-environment handling on all flag endpoints.
 
 ---
 
-### `Bandera.sln`
+### `Banderas.sln`
 
 Add the new project:
 
 ```bash
-dotnet sln Bandera.sln add Bandera.Tests.Integration/Bandera.Tests.Integration.csproj
+dotnet sln Banderas.sln add Banderas.Tests.Integration/Banderas.Tests.Integration.csproj
 ```
 
 ---
@@ -1131,9 +1131,9 @@ See [CI Pipeline Changes](#ci-pipeline-changes) for the full diff.
 
 The implementation is complete when **all** of the following are true:
 
-- [ ] `Bandera.Tests.Integration/Bandera.Tests.Integration.csproj` exists with correct packages and project reference
-- [ ] `Bandera.Tests.Integration` is registered in `Bandera.sln`
-- [ ] `BanderaApiFactory.cs` starts a Testcontainers Postgres, applies EF Core migrations, and boots the host with an HTTPS client configuration
+- [ ] `Banderas.Tests.Integration/Banderas.Tests.Integration.csproj` exists with correct packages and project reference
+- [ ] `Banderas.Tests.Integration` is registered in `Banderas.sln`
+- [ ] `BanderasApiFactory.cs` starts a Testcontainers Postgres, applies EF Core migrations, and boots the host with an HTTPS client configuration
 - [ ] `IntegrationTestCollection.cs` defines the shared `"Integration"` collection
 - [ ] `IntegrationTestBase.cs` provides an HTTPS `HttpClient`, `JsonOptions`, and per-test `DELETE FROM flags` cleanup
 - [ ] `Program.cs` ends with `public partial class Program { }`
@@ -1144,9 +1144,9 @@ The implementation is complete when **all** of the following are true:
 - [ ] All test methods follow the `MethodName_StateUnderTest_ExpectedBehavior` naming convention
 - [ ] `FlagEndpointTests`: all 24 tests pass
 - [ ] `EvaluationEndpointTests`: all 7 tests pass
-- [ ] `dotnet test Bandera.sln --filter "Category=Integration"` exits 0
-- [ ] `dotnet test Bandera.sln --filter "Category!=Integration"` still passes (existing unit tests unbroken)
-- [ ] `dotnet build Bandera.sln -p:TreatWarningsAsErrors=true` exits 0
+- [ ] `dotnet test Banderas.sln --filter "Category=Integration"` exits 0
+- [ ] `dotnet test Banderas.sln --filter "Category!=Integration"` still passes (existing unit tests unbroken)
+- [ ] `dotnet build Banderas.sln -p:TreatWarningsAsErrors=true` exits 0
 - [ ] `dotnet csharpier check .` exits 0
 - [ ] `ci.yml` contains `integration-test` job with `--filter "Category=Integration"`
 - [ ] `ai-review` job has `needs: [lint-format, build-test, integration-test]`
@@ -1171,7 +1171,7 @@ The following are explicitly **not** part of this PR:
 - Changes to any production code other than `Program.cs` and the targeted
   `BanderasController.cs` query-environment validation fix described in
   DD-8
-- Any changes to `Bandera.Tests/` (existing unit test project)
+- Any changes to `Banderas.Tests/` (existing unit test project)
 
 ---
 
@@ -1224,26 +1224,26 @@ Read the following files in order before writing any code:
 
 Then implement in this order:
 
-1. Add `public partial class Program { }` to the end of `Bandera.Api/Program.cs`
-2. Add the targeted query-`environment` validation fix to `Bandera.Api/Controllers/BanderasController.cs`
-3. Create `Bandera.Tests.Integration/Bandera.Tests.Integration.csproj`
-4. Run `dotnet sln Bandera.sln add Bandera.Tests.Integration/Bandera.Tests.Integration.csproj`
-5. Create `Bandera.Tests.Integration/Fixtures/BanderaApiFactory.cs`
-6. Create `Bandera.Tests.Integration/Fixtures/IntegrationTestCollection.cs`
-7. Create `Bandera.Tests.Integration/Fixtures/IntegrationTestBase.cs`
-8. Create `Bandera.Tests.Integration/FlagEndpointTests.cs`
-9. Create `Bandera.Tests.Integration/EvaluationEndpointTests.cs`
-10. Run `dotnet build Bandera.sln -p:TreatWarningsAsErrors=true` — fix all warnings
-11. Run `dotnet test Bandera.sln --filter "Category=Integration"` — all 31 tests must pass
-12. Run `dotnet test Bandera.sln --filter "Category!=Integration"` — existing unit tests must still pass
+1. Add `public partial class Program { }` to the end of `Banderas.Api/Program.cs`
+2. Add the targeted query-`environment` validation fix to `Banderas.Api/Controllers/BanderasController.cs`
+3. Create `Banderas.Tests.Integration/Banderas.Tests.Integration.csproj`
+4. Run `dotnet sln Banderas.sln add Banderas.Tests.Integration/Banderas.Tests.Integration.csproj`
+5. Create `Banderas.Tests.Integration/Fixtures/BanderasApiFactory.cs`
+6. Create `Banderas.Tests.Integration/Fixtures/IntegrationTestCollection.cs`
+7. Create `Banderas.Tests.Integration/Fixtures/IntegrationTestBase.cs`
+8. Create `Banderas.Tests.Integration/FlagEndpointTests.cs`
+9. Create `Banderas.Tests.Integration/EvaluationEndpointTests.cs`
+10. Run `dotnet build Banderas.sln -p:TreatWarningsAsErrors=true` — fix all warnings
+11. Run `dotnet test Banderas.sln --filter "Category=Integration"` — all 31 tests must pass
+12. Run `dotnet test Banderas.sln --filter "Category!=Integration"` — existing unit tests must still pass
 13. Run `dotnet csharpier format .`
 14. Update `.github/workflows/ci.yml` — add `integration-test` job, update `ai-review` needs
 
 **DO NOT:**
-- Modify any file in `Bandera.Domain/`, `Bandera.Application/`, or `Bandera.Infrastructure/`
-- Modify any file in `Bandera.Api/` other than `Program.cs` and the targeted
+- Modify any file in `Banderas.Domain/`, `Banderas.Application/`, or `Banderas.Infrastructure/`
+- Modify any file in `Banderas.Api/` other than `Program.cs` and the targeted
   `BanderasController.cs` query-environment validation fix described in DD-8
-- Modify any file in `Bandera.Tests/` (existing unit test project)
+- Modify any file in `Banderas.Tests/` (existing unit test project)
 - Use `Assert.*` — use FluentAssertions only
 - Use `UseInMemoryDatabase` — use Testcontainers with real Postgres only
 - Add `try/catch` blocks anywhere in the test project
@@ -1252,4 +1252,4 @@ Then implement in this order:
 
 ---
 
-*Bandera | test/integration-tests | Phase 1*
+*Banderas | test/integration-tests | Phase 1*

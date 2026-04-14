@@ -18,9 +18,9 @@
 - [New Files](#new-files)
   - [EvaluationResult.cs](#evaluationresultcs)
 - [Modified Files](#modified-files)
-  - [BanderaService.cs](#banderacs)
+  - [BanderasService.cs](#banderacs)
 - [New Test File](#new-test-file)
-  - [BanderaServiceLoggingTests.cs](#banderaloggingtestscs)
+  - [BanderasServiceLoggingTests.cs](#banderaloggingtestscs)
 - [Folder Structure After Implementation](#folder-structure-after-implementation)
 - [No-Change Files](#no-change-files)
 - [Acceptance Criteria](#acceptance-criteria)
@@ -32,7 +32,7 @@
 
 ## User Story
 
-> As a developer running Bandera locally or in staging, I want every
+> As a developer running Banderas locally or in staging, I want every
 > flag evaluation decision to produce a structured log entry so that I can
 > understand why a flag evaluated to `true` or `false` without attaching a
 > debugger or adding temporary code.
@@ -50,7 +50,7 @@
 - Log a hashed surrogate for `UserId` — not the raw value — to avoid PII in
   centralized telemetry and prevent high-cardinality dimension pressure
 - Zero new NuGet packages for production code — `ILogger<T>` is already in the container
-- Add `Microsoft.Extensions.Diagnostics.Testing` to `Bandera.Tests` for `FakeLogger<T>`
+- Add `Microsoft.Extensions.Diagnostics.Testing` to `Banderas.Tests` for `FakeLogger<T>`
 - Keep the new logging tests self-contained by using a tiny in-file repository fake
   instead of introducing a separate mocking-library dependency
 - Phase 4-ready — `EvaluationResult` and `EvaluationReason` are the direct foundation
@@ -59,7 +59,7 @@
 
 **Non-Goals:**
 - No database table for evaluation logs — that is Phase 4
-- No changes to `IBanderaService` interface signatures
+- No changes to `IBanderasService` interface signatures
 - No changes to `EvaluationController`
 - No changes to `FeatureEvaluator`
 - No Application Insights integration — that is Phase 1.5
@@ -79,7 +79,7 @@ POST /api/evaluate
 EvaluationController          ← unchanged
       │
       ▼
-Bandera             ← MODIFIED
+Banderas             ← MODIFIED
   IsEnabledAsync()
       │
       ├─ Flag not found        → LogWarning → throw FlagNotFoundException
@@ -93,7 +93,7 @@ Bandera             ← MODIFIED
 ```
 
 **Functional principle in play:**
-`FeatureEvaluator` is the pure core. `Bandera` is the imperative shell.
+`FeatureEvaluator` is the pure core. `Banderas` is the imperative shell.
 Side effects (logging) live in the shell only. The evaluator has no knowledge that
 logging exists.
 
@@ -213,7 +213,7 @@ The record carries the raw `UserId` so Phase 4 can choose independently what
 to expose to callers. Privacy transformation is a logging concern, not a data
 model concern.
 
-`HashUserId` must be a `private static` method on `Bandera`. It must
+`HashUserId` must be a `private static` method on `Banderas`. It must
 not be added to `InputSanitizer` — sanitization is about cleaning control characters
 at the HTTP boundary; pseudonymization is a separate concern and must not be mixed in.
 
@@ -226,12 +226,12 @@ log branch fires, whether `Reason` carries the correct value, or whether the has
 UserId appears instead of the raw value. This new behavior is unprotected without
 targeted unit tests.
 
-`Bandera` is normally integration-tested because `FeatureEvaluator` is
+`Banderas` is normally integration-tested because `FeatureEvaluator` is
 a concrete sealed class. However, for logging branch tests we construct
 `FeatureEvaluator` directly with a real `NoneStrategy` — no mocking required.
-`IBanderaRepository` is replaced by a tiny in-file fake that implements only
-the behavior these tests need. `ILogger<BanderaService>` is replaced by
-`FakeLogger<BanderaService>` from `Microsoft.Extensions.Diagnostics.Testing`.
+`IBanderasRepository` is replaced by a tiny in-file fake that implements only
+the behavior these tests need. `ILogger<BanderasService>` is replaced by
+`FakeLogger<BanderasService>` from `Microsoft.Extensions.Diagnostics.Testing`.
 
 ---
 
@@ -239,12 +239,12 @@ the behavior these tests need. `ILogger<BanderaService>` is replaced by
 
 ### `EvaluationResult.cs`
 
-**Location:** `Bandera.Application/Evaluation/EvaluationResult.cs`
+**Location:** `Banderas.Application/Evaluation/EvaluationResult.cs`
 
 ```csharp
-using Bandera.Domain.Enums;
+using Banderas.Domain.Enums;
 
-namespace Bandera.Application.Evaluation;
+namespace Banderas.Application.Evaluation;
 
 /// <summary>
 /// Machine-readable reason for a flag evaluation outcome.
@@ -301,16 +301,16 @@ public sealed record StrategyEvaluated(
 
 ## Modified Files
 
-### `BanderaService.cs`
+### `BanderasService.cs`
 
-**Location:** `Bandera.Application/Services/BanderaService.cs`
+**Location:** `Banderas.Application/Services/BanderasService.cs`
 
 **Changes required:**
 1. Add `using System.Diagnostics;` to the using block
 2. Add `using Microsoft.Extensions.Logging;` to the using block
 3. Add `using System.Security.Cryptography;` to the using block
 4. Add `using System.Text;` to the using block
-5. Add `ILogger<BanderaService>` constructor parameter and `_logger` field
+5. Add `ILogger<BanderasService>` constructor parameter and `_logger` field
 6. Rewrite `IsEnabledAsync` to build and log an `EvaluationResult`
 7. Add `private void LogResult(EvaluationResult result)` method
 8. Add `private static string HashUserId(string userId)` method
@@ -319,14 +319,14 @@ public sealed record StrategyEvaluated(
 **Constructor — updated:**
 
 ```csharp
-private readonly IBanderaRepository _repository;
+private readonly IBanderasRepository _repository;
 private readonly FeatureEvaluator _evaluator;
-private readonly ILogger<BanderaService> _logger;
+private readonly ILogger<BanderasService> _logger;
 
-public BanderaService(
-    IBanderaRepository repository,
+public BanderasService(
+    IBanderasRepository repository,
     FeatureEvaluator evaluator,
-    ILogger<BanderaService> logger)
+    ILogger<BanderasService> logger)
 {
     _repository = repository;
     _evaluator = evaluator;
@@ -448,11 +448,11 @@ private static string HashUserId(string userId)
 
 ## New Test File
 
-### `BanderaServiceLoggingTests.cs`
+### `BanderasServiceLoggingTests.cs`
 
-**Location:** `Bandera.Tests/Services/BanderaServiceLoggingTests.cs`
+**Location:** `Banderas.Tests/Services/BanderasServiceLoggingTests.cs`
 
-**New package — add to `Bandera.Tests.csproj`:**
+**New package — add to `Banderas.Tests.csproj`:**
 ```xml
 <PackageReference Include="Microsoft.Extensions.Diagnostics.Testing" Version="9.*" />
 ```
@@ -462,36 +462,36 @@ private static string HashUserId(string userId)
 > library is required for the repository — use a tiny in-file fake instead.
 
 ```csharp
-using Bandera.Application.Evaluation;
-using Bandera.Application.Services;
-using Bandera.Application.Strategies;
-using Bandera.Domain.Entities;
-using Bandera.Domain.Enums;
-using Bandera.Domain.Exceptions;
-using Bandera.Domain.Interfaces;
-using Bandera.Domain.ValueObjects;
+using Banderas.Application.Evaluation;
+using Banderas.Application.Services;
+using Banderas.Application.Strategies;
+using Banderas.Domain.Entities;
+using Banderas.Domain.Enums;
+using Banderas.Domain.Exceptions;
+using Banderas.Domain.Interfaces;
+using Banderas.Domain.ValueObjects;
 using Microsoft.Extensions.Diagnostics.Testing;
 using Microsoft.Extensions.Logging;
 
-namespace Bandera.Tests.Services;
+namespace Banderas.Tests.Services;
 
 [Trait("Category", "Unit")]
-public sealed class BanderaServiceLoggingTests
+public sealed class BanderasServiceLoggingTests
 {
-    private readonly TestBanderaRepository _repo;
+    private readonly TestBanderasRepository _repo;
     private readonly FeatureEvaluator _evaluator;
-    private readonly FakeLogger<BanderaService> _fakeLogger;
-    private readonly BanderaService _service;
+    private readonly FakeLogger<BanderasService> _fakeLogger;
+    private readonly BanderasService _service;
 
-    public BanderaServiceLoggingTests()
+    public BanderasServiceLoggingTests()
     {
-        _repo = new TestBanderaRepository();
+        _repo = new TestBanderasRepository();
 
         // FeatureEvaluator is a concrete sealed class — construct directly.
         _evaluator = new FeatureEvaluator(new IRolloutStrategy[] { new NoneStrategy() });
 
-        _fakeLogger = new FakeLogger<BanderaService>();
-        _service = new BanderaService(_repo, _evaluator, _fakeLogger);
+        _fakeLogger = new FakeLogger<BanderasService>();
+        _service = new BanderasService(_repo, _evaluator, _fakeLogger);
     }
 
     [Fact]
@@ -580,7 +580,7 @@ public sealed class BanderaServiceLoggingTests
         Assert.Contains("missing-flag", record.Message);
     }
 
-    private sealed class TestBanderaRepository : IBanderaRepository
+    private sealed class TestBanderasRepository : IBanderasRepository
     {
         public Flag? FlagToReturn { get; set; }
 
@@ -612,19 +612,19 @@ public sealed class BanderaServiceLoggingTests
 ## Folder Structure After Implementation
 
 ```
-Bandera.Application/
+Banderas.Application/
   Evaluation/
     EvaluationResult.cs         ← NEW (EvaluationReason enum + abstract record
                                        + FlagDisabled + StrategyEvaluated)
     FeatureEvaluator.cs         ← unchanged
 
   Services/
-    BanderaService.cs       ← MODIFIED (constructor, IsEnabledAsync,
+    BanderasService.cs       ← MODIFIED (constructor, IsEnabledAsync,
                                             LogResult, HashUserId)
 
-Bandera.Tests/
+Banderas.Tests/
   Services/
-    BanderaServiceLoggingTests.cs   ← NEW (4 unit tests)
+    BanderasServiceLoggingTests.cs   ← NEW (4 unit tests)
 ```
 
 ---
@@ -634,12 +634,12 @@ Bandera.Tests/
 | File | Reason |
 |------|--------|
 | `FeatureEvaluator.cs` | Pure function — no side effects, no ILogger |
-| `IBanderaService.cs` | Interface signatures unchanged |
+| `IBanderasService.cs` | Interface signatures unchanged |
 | `EvaluationController.cs` | Thin controller — no logging concerns |
 | `DependencyInjection.cs` (Application) | ILogger auto-registered by the host |
 | `DependencyInjection.cs` (Infrastructure) | No changes required |
-| All existing files in `Bandera.Tests` | Existing tests must not be modified |
-| All files in `Bandera.Tests.Integration` | Integration tests not in scope |
+| All existing files in `Banderas.Tests` | Existing tests must not be modified |
+| All files in `Banderas.Tests.Integration` | Integration tests not in scope |
 
 ---
 
@@ -658,17 +658,17 @@ Bandera.Tests/
 - [ ] `StrategyEvaluated` is a `sealed record` inheriting `EvaluationResult`; carries
       `IsEnabled` (`bool`) and `StrategyType` (`RolloutStrategy`); hardcodes
       `EvaluationReason.StrategyEvaluated` in the base constructor call
-- [ ] File is in namespace `Bandera.Application.Evaluation`
-- [ ] File is at `Bandera.Application/Evaluation/EvaluationResult.cs`
+- [ ] File is in namespace `Banderas.Application.Evaluation`
+- [ ] File is at `Banderas.Application/Evaluation/EvaluationResult.cs`
 
-### AC-2 — `Bandera` constructor is updated
+### AC-2 — `Banderas` constructor is updated
 
 - [ ] `using System.Diagnostics;` added to the using block
 - [ ] `using Microsoft.Extensions.Logging;` added to the using block
 - [ ] `using System.Security.Cryptography;` added to the using block
 - [ ] `using System.Text;` added to the using block
-- [ ] Constructor has three parameters: `IBanderaRepository`, `FeatureEvaluator`,
-      `ILogger<BanderaService>`
+- [ ] Constructor has three parameters: `IBanderasRepository`, `FeatureEvaluator`,
+      `ILogger<BanderasService>`
 - [ ] `_logger` stored as a `private readonly` field
 
 ### AC-3 — `IsEnabledAsync` builds and logs an `EvaluationResult`
@@ -701,7 +701,7 @@ Bandera.Tests/
 - [ ] Signature: `private static string HashUserId(string userId)`
 - [ ] Uses `SHA256.HashData(Encoding.UTF8.GetBytes(userId))`
 - [ ] Returns `Convert.ToHexString(bytes)[..8].ToLowerInvariant()`
-- [ ] Method is on `Bandera` — not on `InputSanitizer`
+- [ ] Method is on `Banderas` — not on `InputSanitizer`
 
 ### AC-6 — `FeatureEvaluator` is unchanged
 
@@ -711,17 +711,17 @@ Bandera.Tests/
 
 ### AC-7 — Build and existing tests pass
 
-- [ ] `dotnet build Bandera.sln` → 0 errors, 0 warnings
+- [ ] `dotnet build Banderas.sln` → 0 errors, 0 warnings
 - [ ] `dotnet test --filter "Category=Unit"` → 75 existing + 4 new = 79/79 passing
 - [ ] `dotnet test --filter "Category=Integration"` → 31/31 passing (unchanged)
 - [ ] `dotnet csharpier check .` → 0 violations
 
 ### AC-8 — New unit tests pass and cover logging behavior
 
-- [ ] `BanderaServiceLoggingTests` at `Bandera.Tests/Services/BanderaServiceLoggingTests.cs`
-- [ ] `Microsoft.Extensions.Diagnostics.Testing` added to `Bandera.Tests.csproj`
+- [ ] `BanderasServiceLoggingTests` at `Banderas.Tests/Services/BanderasServiceLoggingTests.cs`
+- [ ] `Microsoft.Extensions.Diagnostics.Testing` added to `Banderas.Tests.csproj`
 - [ ] All four tests carry `[Trait("Category", "Unit")]`
-- [ ] Tests use a tiny in-file `IBanderaRepository` fake; no additional mocking
+- [ ] Tests use a tiny in-file `IBanderasRepository` fake; no additional mocking
       library is introduced
 - [ ] `DisabledFlag` test: asserts rendered log contains `Reason=FlagDisabled` and no
       `Strategy` field
@@ -758,7 +758,7 @@ Bandera.Tests/
 Always run in this exact order:
 
 ```bash
-dotnet build Bandera.sln
+dotnet build Banderas.sln
 dotnet test --filter "Category=Unit"
 dotnet test --filter "Category=Integration"
 dotnet csharpier format .
@@ -775,7 +775,7 @@ Read this entire document before writing any code.
 
 **Do not:**
 - Add `ILogger` to `FeatureEvaluator`
-- Modify `IBanderaService`
+- Modify `IBanderasService`
 - Modify `EvaluationController`
 - Modify any existing test file
 - Use string interpolation in any `_logger` call
@@ -785,9 +785,9 @@ Read this entire document before writing any code.
 
 **Do:**
 - Create `EvaluationResult.cs` exactly as specified in [New Files](#new-files)
-- Modify `BanderaService.cs` exactly as specified in [Modified Files](#modified-files)
-- Create `BanderaServiceLoggingTests.cs` exactly as specified in [New Test File](#new-test-file)
-- Add `Microsoft.Extensions.Diagnostics.Testing` to `Bandera.Tests.csproj`
+- Modify `BanderasService.cs` exactly as specified in [Modified Files](#modified-files)
+- Create `BanderasServiceLoggingTests.cs` exactly as specified in [New Test File](#new-test-file)
+- Add `Microsoft.Extensions.Diagnostics.Testing` to `Banderas.Tests.csproj`
 - Use the in-file repository fake shown in the test spec; do not add a separate
   mocking-library dependency just for these tests
 - Preserve the entire sanitization block in `IsEnabledAsync` — do not simplify or remove it
@@ -796,4 +796,4 @@ Read this entire document before writing any code.
 
 ---
 
-*Bandera | feature/evaluation-logging | Phase 1 — Developer Experience | v2*
+*Banderas | feature/evaluation-logging | Phase 1 — Developer Experience | v2*

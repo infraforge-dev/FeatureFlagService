@@ -6,7 +6,7 @@
 **Revision:** v2 — updated after Senior Engineer code review
 **Implementation notes:** `docs/Decisions/persistence-and-controllers/implementation-notes.md`
 
-[Pull Request #24](https://github.com/amodelandme/Bandera/pull/24)
+[Pull Request #24](https://github.com/amodelandme/Banderas/pull/24)
 
 ---
 
@@ -19,9 +19,9 @@ When this session is complete, Phase 0 is done — the API will be running, conn
 to a real database, and fully documented via Swagger.
 
 > **SCOPE**
-> This spec covers: `docker-compose.yml`, `BanderaDbContext`, `FlagConfiguration`,
-> `BanderaRepository`, async updates to `IBanderaRepository` and
-> `IBanderaService`, DTOs, `BanderasController`, `EvaluationController`,
+> This spec covers: `docker-compose.yml`, `BanderasDbContext`, `FlagConfiguration`,
+> `BanderasRepository`, async updates to `IBanderasRepository` and
+> `IBanderasService`, DTOs, `BanderasController`, `EvaluationController`,
 > Swagger wiring, and the OpenApi package upgrade.
 >
 > It does **not** cover: authentication, validation beyond basic null checks,
@@ -49,14 +49,14 @@ Clean Architecture dependency rules remain unchanged. Review before writing any 
 
 | Layer | Responsibility |
 |---|---|
-| `Bandera.Domain` | Entities, enums, value objects, interfaces. Zero outward dependencies. |
-| `Bandera.Application` | Use cases, service interfaces, evaluator, strategies, DTOs. Depends on Domain only. |
-| `Bandera.Infrastructure` | EF Core, DbContext, repositories. Depends on Domain + Application. |
-| `Bandera.Api` | Controllers, Program.cs, DI wiring. Depends on Application + Infrastructure. |
-| `Bandera.Tests` | Unit tests. Depends on Domain + Application. |
+| `Banderas.Domain` | Entities, enums, value objects, interfaces. Zero outward dependencies. |
+| `Banderas.Application` | Use cases, service interfaces, evaluator, strategies, DTOs. Depends on Domain only. |
+| `Banderas.Infrastructure` | EF Core, DbContext, repositories. Depends on Domain + Application. |
+| `Banderas.Api` | Controllers, Program.cs, DI wiring. Depends on Application + Infrastructure. |
+| `Banderas.Tests` | Unit tests. Depends on Domain + Application. |
 
 > **RULE**
-> `BanderaDbContext` and `FlagConfiguration` live in **Infrastructure**.
+> `BanderasDbContext` and `FlagConfiguration` live in **Infrastructure**.
 > DTOs live in **Application**.
 > Controllers live in **Api**.
 > Domain entities are never returned directly from controllers — always map to DTOs.
@@ -188,7 +188,7 @@ Add a placeholder only — no real credentials:
 
 ## 6. Domain Layer Update — Flag.Update()
 
-**File:** `Bandera.Domain/Entities/Flag.cs`
+**File:** `Banderas.Domain/Entities/Flag.cs`
 
 Add one new method to the `Flag` entity. Do not modify any existing methods.
 
@@ -231,17 +231,17 @@ All async methods accept a `CancellationToken` parameter.
 > means "no cancellation requested", which keeps all existing callers working
 > without changes.
 
-### 7.1 IBanderaRepository (Domain)
+### 7.1 IBanderasRepository (Domain)
 
-**File:** `Bandera.Domain/Interfaces/IBanderaRepository.cs`
+**File:** `Banderas.Domain/Interfaces/IBanderasRepository.cs`
 
 ```csharp
-using Bandera.Domain.Entities;
-using Bandera.Domain.Enums;
+using Banderas.Domain.Entities;
+using Banderas.Domain.Enums;
 
-namespace Bandera.Domain.Interfaces;
+namespace Banderas.Domain.Interfaces;
 
-public interface IBanderaRepository
+public interface IBanderasRepository
 {
     Task<Flag?> GetByNameAsync(string name, EnvironmentType environment,
         CancellationToken ct = default);
@@ -252,18 +252,18 @@ public interface IBanderaRepository
 }
 ```
 
-### 7.2 IBanderaService (Application)
+### 7.2 IBanderasService (Application)
 
-**File:** `Bandera.Application/Interfaces/IBanderaService.cs`
+**File:** `Banderas.Application/Interfaces/IBanderasService.cs`
 
 ```csharp
-using Bandera.Domain.Entities;
-using Bandera.Domain.Enums;
-using Bandera.Domain.ValueObjects;
+using Banderas.Domain.Entities;
+using Banderas.Domain.Enums;
+using Banderas.Domain.ValueObjects;
 
-namespace Bandera.Application.Interfaces;
+namespace Banderas.Application.Interfaces;
 
-public interface IBanderaService
+public interface IBanderasService
 {
     Task<Flag> GetFlagAsync(string name, EnvironmentType environment,
         CancellationToken ct = default);
@@ -280,28 +280,28 @@ public interface IBanderaService
 }
 ```
 
-### 7.3 Bandera (Application)
+### 7.3 Banderas (Application)
 
-**File:** `Bandera.Application/Services/BanderaService.cs`
+**File:** `Banderas.Application/Services/BanderasService.cs`
 
 Full replacement:
 
 ```csharp
-using Bandera.Application.Evaluation;
-using Bandera.Application.Interfaces;
-using Bandera.Domain.Entities;
-using Bandera.Domain.Enums;
-using Bandera.Domain.Interfaces;
-using Bandera.Domain.ValueObjects;
+using Banderas.Application.Evaluation;
+using Banderas.Application.Interfaces;
+using Banderas.Domain.Entities;
+using Banderas.Domain.Enums;
+using Banderas.Domain.Interfaces;
+using Banderas.Domain.ValueObjects;
 
-namespace Bandera.Application.Services;
+namespace Banderas.Application.Services;
 
-public sealed class BanderaService : IBanderaService
+public sealed class BanderasService : IBanderasService
 {
-    private readonly IBanderaRepository _repository;
+    private readonly IBanderasRepository _repository;
     private readonly FeatureEvaluator _evaluator;
 
-    public BanderaService(IBanderaRepository repository, FeatureEvaluator evaluator)
+    public BanderasService(IBanderasRepository repository, FeatureEvaluator evaluator)
     {
         _repository = repository;
         _evaluator = evaluator;
@@ -369,16 +369,16 @@ public sealed class BanderaService : IBanderaService
 
 ## 8. DTOs
 
-**Location:** `Bandera.Application/DTOs/`
+**Location:** `Banderas.Application/DTOs/`
 
 Create four DTO files and one mapping helper.
 
 ### 8.1 CreateFlagRequest.cs
 
 ```csharp
-using Bandera.Domain.Enums;
+using Banderas.Domain.Enums;
 
-namespace Bandera.Application.DTOs;
+namespace Banderas.Application.DTOs;
 
 public sealed record CreateFlagRequest(
     string Name,
@@ -392,9 +392,9 @@ public sealed record CreateFlagRequest(
 ### 8.2 UpdateFlagRequest.cs
 
 ```csharp
-using Bandera.Domain.Enums;
+using Banderas.Domain.Enums;
 
-namespace Bandera.Application.DTOs;
+namespace Banderas.Application.DTOs;
 
 public sealed record UpdateFlagRequest(
     bool IsEnabled,
@@ -406,9 +406,9 @@ public sealed record UpdateFlagRequest(
 ### 8.3 FlagResponse.cs
 
 ```csharp
-using Bandera.Domain.Enums;
+using Banderas.Domain.Enums;
 
-namespace Bandera.Application.DTOs;
+namespace Banderas.Application.DTOs;
 
 public sealed record FlagResponse(
     Guid Id,
@@ -426,9 +426,9 @@ public sealed record FlagResponse(
 ### 8.4 EvaluationRequest.cs
 
 ```csharp
-using Bandera.Domain.Enums;
+using Banderas.Domain.Enums;
 
-namespace Bandera.Application.DTOs;
+namespace Banderas.Application.DTOs;
 
 public sealed record EvaluationRequest(
     string FlagName,
@@ -441,9 +441,9 @@ public sealed record EvaluationRequest(
 ### 8.5 FlagMappings.cs
 
 ```csharp
-using Bandera.Domain.Entities;
+using Banderas.Domain.Entities;
 
-namespace Bandera.Application.DTOs;
+namespace Banderas.Application.DTOs;
 
 public static class FlagMappings
 {
@@ -468,15 +468,15 @@ public static class FlagMappings
 
 ### 9.1 FlagConfiguration
 
-**File:** `Bandera.Infrastructure/Persistence/FlagConfiguration.cs`
+**File:** `Banderas.Infrastructure/Persistence/FlagConfiguration.cs`
 
 ```csharp
-using Bandera.Domain.Entities;
-using Bandera.Domain.Enums;
+using Banderas.Domain.Entities;
+using Banderas.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
-namespace Bandera.Infrastructure.Persistence;
+namespace Banderas.Infrastructure.Persistence;
 
 public sealed class FlagConfiguration : IEntityTypeConfiguration<Flag>
 {
@@ -530,33 +530,33 @@ public sealed class FlagConfiguration : IEntityTypeConfiguration<Flag>
 }
 ```
 
-### 9.2 BanderaDbContext
+### 9.2 BanderasDbContext
 
-**File:** `Bandera.Infrastructure/Persistence/BanderaDbContext.cs`
+**File:** `Banderas.Infrastructure/Persistence/BanderasDbContext.cs`
 
 ```csharp
-using Bandera.Domain.Entities;
+using Banderas.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 
-namespace Bandera.Infrastructure.Persistence;
+namespace Banderas.Infrastructure.Persistence;
 
-public sealed class BanderaDbContext : DbContext
+public sealed class BanderasDbContext : DbContext
 {
-    public BanderaDbContext(DbContextOptions<BanderaDbContext> options)
+    public BanderasDbContext(DbContextOptions<BanderasDbContext> options)
         : base(options) { }
 
     public DbSet<Flag> Flags => Set<Flag>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        modelBuilder.ApplyConfigurationsFromAssembly(typeof(BanderaDbContext).Assembly);
+        modelBuilder.ApplyConfigurationsFromAssembly(typeof(BanderasDbContext).Assembly);
     }
 }
 ```
 
-### 9.3 BanderaDbContextFactory
+### 9.3 BanderasDbContextFactory
 
-**File:** `Bandera.Infrastructure/Persistence/BanderaDbContextFactory.cs`
+**File:** `Banderas.Infrastructure/Persistence/BanderasDbContextFactory.cs`
 
 > **WHY this exists**
 > `dotnet ef` needs to construct a `DbContext` at design time to generate migrations.
@@ -572,40 +572,40 @@ public sealed class BanderaDbContext : DbContext
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 
-namespace Bandera.Infrastructure.Persistence;
+namespace Banderas.Infrastructure.Persistence;
 
-public sealed class BanderaDbContextFactory
-    : IDesignTimeDbContextFactory<BanderaDbContext>
+public sealed class BanderasDbContextFactory
+    : IDesignTimeDbContextFactory<BanderasDbContext>
 {
-    public BanderaDbContext CreateDbContext(string[] args)
+    public BanderasDbContext CreateDbContext(string[] args)
     {
-        var options = new DbContextOptionsBuilder<BanderaDbContext>()
+        var options = new DbContextOptionsBuilder<BanderasDbContext>()
             .UseNpgsql(
                 "Host=localhost;Port=5432;Database=featureflags;Username=postgres;Password=postgres")
             .Options;
 
-        return new BanderaDbContext(options);
+        return new BanderasDbContext(options);
     }
 }
 ```
 
-### 9.4 BanderaRepository
+### 9.4 BanderasRepository
 
-**File:** `Bandera.Infrastructure/Persistence/BanderaRepository.cs`
+**File:** `Banderas.Infrastructure/Persistence/BanderasRepository.cs`
 
 ```csharp
-using Bandera.Domain.Entities;
-using Bandera.Domain.Enums;
-using Bandera.Domain.Interfaces;
+using Banderas.Domain.Entities;
+using Banderas.Domain.Enums;
+using Banderas.Domain.Interfaces;
 using Microsoft.EntityFrameworkCore;
 
-namespace Bandera.Infrastructure.Persistence;
+namespace Banderas.Infrastructure.Persistence;
 
-public sealed class BanderaRepository : IBanderaRepository
+public sealed class BanderasRepository : IBanderasRepository
 {
-    private readonly BanderaDbContext _context;
+    private readonly BanderasDbContext _context;
 
-    public BanderaRepository(BanderaDbContext context)
+    public BanderasRepository(BanderasDbContext context)
     {
         _context = context;
     }
@@ -643,18 +643,18 @@ public sealed class BanderaRepository : IBanderaRepository
 
 ### 9.5 Updated AddInfrastructure()
 
-**File:** `Bandera.Infrastructure/DependencyInjection.cs`
+**File:** `Banderas.Infrastructure/DependencyInjection.cs`
 
 Replace the stub:
 
 ```csharp
-using Bandera.Domain.Interfaces;
-using Bandera.Infrastructure.Persistence;
+using Banderas.Domain.Interfaces;
+using Banderas.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Bandera.Infrastructure;
+namespace Banderas.Infrastructure;
 
 public static class DependencyInjection
 {
@@ -662,10 +662,10 @@ public static class DependencyInjection
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        services.AddDbContext<BanderaDbContext>(options =>
+        services.AddDbContext<BanderasDbContext>(options =>
             options.UseNpgsql(configuration.GetConnectionString("DefaultConnection")));
 
-        services.AddScoped<IBanderaRepository, BanderaRepository>();
+        services.AddScoped<IBanderasRepository, BanderasRepository>();
 
         return services;
     }
@@ -676,26 +676,26 @@ public static class DependencyInjection
 
 ## 10. Controllers
 
-**Location:** `Bandera.Api/Controllers/`
+**Location:** `Banderas.Api/Controllers/`
 
 ### 10.1 BanderasController
 
 ```csharp
-using Bandera.Application.DTOs;
-using Bandera.Application.Interfaces;
-using Bandera.Domain.Entities;
-using Bandera.Domain.Enums;
+using Banderas.Application.DTOs;
+using Banderas.Application.Interfaces;
+using Banderas.Domain.Entities;
+using Banderas.Domain.Enums;
 using Microsoft.AspNetCore.Mvc;
 
-namespace Bandera.Api.Controllers;
+namespace Banderas.Api.Controllers;
 
 [ApiController]
 [Route("api/flags")]
 public sealed class BanderasController : ControllerBase
 {
-    private readonly IBanderaService _service;
+    private readonly IBanderasService _service;
 
-    public BanderasController(IBanderaService service)
+    public BanderasController(IBanderasService service)
     {
         _service = service;
     }
@@ -801,20 +801,20 @@ public sealed class BanderasController : ControllerBase
 > know about.
 
 ```csharp
-using Bandera.Application.DTOs;
-using Bandera.Application.Interfaces;
-using Bandera.Domain.ValueObjects;
+using Banderas.Application.DTOs;
+using Banderas.Application.Interfaces;
+using Banderas.Domain.ValueObjects;
 using Microsoft.AspNetCore.Mvc;
 
-namespace Bandera.Api.Controllers;
+namespace Banderas.Api.Controllers;
 
 [ApiController]
 [Route("api/evaluate")]
 public sealed class EvaluationController : ControllerBase
 {
-    private readonly IBanderaService _service;
+    private readonly IBanderasService _service;
 
-    public EvaluationController(IBanderaService service)
+    public EvaluationController(IBanderasService service)
     {
         _service = service;
     }
@@ -846,13 +846,13 @@ public sealed class EvaluationController : ControllerBase
 
 ## 11. Swagger / OpenAPI Wiring
 
-**File:** `Bandera.Api/Program.cs`
+**File:** `Banderas.Api/Program.cs`
 
 Replace the entire file:
 
 ```csharp
-using Bandera.Application;
-using Bandera.Infrastructure;
+using Banderas.Application;
+using Banderas.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -898,13 +898,13 @@ After the build passes, run migrations to create the database schema.
 ```bash
 # Add the initial migration
 dotnet ef migrations add InitialCreate \
-  --project Bandera.Infrastructure \
-  --startup-project Bandera.Api
+  --project Banderas.Infrastructure \
+  --startup-project Banderas.Api
 
 # Apply the migration to the database
 dotnet ef database update \
-  --project Bandera.Infrastructure \
-  --startup-project Bandera.Api
+  --project Banderas.Infrastructure \
+  --startup-project Banderas.Api
 ```
 
 > **PREREQUISITE:** Docker Compose must be running before applying the migration.
@@ -923,7 +923,7 @@ dotnet ef database update \
 ## 13. Folder Structure After Implementation
 
 ```
-Bandera.Application/
+Banderas.Application/
   DTOs/
     CreateFlagRequest.cs      ← NEW
     UpdateFlagRequest.cs      ← NEW
@@ -931,25 +931,25 @@ Bandera.Application/
     EvaluationRequest.cs      ← NEW
     FlagMappings.cs           ← NEW
   Interfaces/
-    IBanderaService.cs    ← UPDATED (async + CancellationToken)
+    IBanderasService.cs    ← UPDATED (async + CancellationToken)
   Services/
-    BanderaService.cs     ← UPDATED (async + CancellationToken + throws on missing flag)
+    BanderasService.cs     ← UPDATED (async + CancellationToken + throws on missing flag)
 
-Bandera.Domain/
+Banderas.Domain/
   Entities/
     Flag.cs                   ← UPDATED (new Update() method)
   Interfaces/
-    IBanderaRepository.cs ← UPDATED (async + CancellationToken)
+    IBanderasRepository.cs ← UPDATED (async + CancellationToken)
 
-Bandera.Infrastructure/
+Banderas.Infrastructure/
   Persistence/
-    BanderaDbContext.cs         ← NEW
-    BanderaDbContextFactory.cs  ← NEW
+    BanderasDbContext.cs         ← NEW
+    BanderasDbContextFactory.cs  ← NEW
     FlagConfiguration.cs            ← NEW
-    BanderaRepository.cs        ← NEW
+    BanderasRepository.cs        ← NEW
   DependencyInjection.cs            ← UPDATED (real wiring)
 
-Bandera.Api/
+Banderas.Api/
   Controllers/
     BanderasController.cs ← NEW
     EvaluationController.cs   ← NEW
@@ -971,20 +971,20 @@ Run these in order after implementation:
 docker compose up -d
 
 # 2. Build the solution
-dotnet build Bandera.sln
+dotnet build Banderas.sln
 # Expected: 0 errors, 0 warnings
 
 # 3. Run existing tests
-dotnet test Bandera.sln
+dotnet test Banderas.sln
 # Expected: 8/8 passing
 
 # 4. Apply migrations
 dotnet ef database update \
-  --project Bandera.Infrastructure \
-  --startup-project Bandera.Api
+  --project Banderas.Infrastructure \
+  --startup-project Banderas.Api
 
 # 5. Run the API
-dotnet run --project Bandera.Api
+dotnet run --project Banderas.Api
 
 # 6. Open Swagger
 # Navigate to: http://localhost:5227/openapi/v1.json
@@ -1044,22 +1044,22 @@ Then implement in this order:
 2. Create `docker-compose.yml` at repo root
 3. Update `appsettings.json` and `appsettings.Development.json`
 4. Add `Flag.Update()` method to `Flag.cs` in Domain
-5. Update `IBanderaRepository` — async signatures + `CancellationToken` + two new methods
-6. Update `IBanderaService` — async signatures + `CancellationToken` + new methods
-7. Update `Bandera` — async implementation + `CancellationToken` + throws on missing flag
+5. Update `IBanderasRepository` — async signatures + `CancellationToken` + two new methods
+6. Update `IBanderasService` — async signatures + `CancellationToken` + new methods
+7. Update `Banderas` — async implementation + `CancellationToken` + throws on missing flag
 8. Create DTOs in `Application/DTOs/`
 9. Create `FlagConfiguration` in Infrastructure — partial unique index with `HasFilter`
-10. Create `BanderaDbContext` in Infrastructure
-11. Create `BanderaDbContextFactory` in Infrastructure
-12. Create `BanderaRepository` in Infrastructure — thread `CancellationToken` into all EF Core calls
+10. Create `BanderasDbContext` in Infrastructure
+11. Create `BanderasDbContextFactory` in Infrastructure
+12. Create `BanderasRepository` in Infrastructure — thread `CancellationToken` into all EF Core calls
 13. Update `AddInfrastructure()` with real wiring
 14. Create `BanderasController` in Api — `CancellationToken` on all actions
 15. Create `EvaluationController` in Api — returns 404 for unknown flags
 16. Update `Program.cs`
-17. Run `dotnet build Bandera.sln` — confirm 0 errors
-18. Run `dotnet test Bandera.sln` — confirm 8/8 passing
+17. Run `dotnet build Banderas.sln` — confirm 0 errors
+18. Run `dotnet test Banderas.sln` — confirm 8/8 passing
 19. Start Docker, run migrations, start API, verify Swagger loads
 
 ---
 
-*Bandera | feature/persistence-and-controllers | Phase 0 Completion | v2*
+*Banderas | feature/persistence-and-controllers | Phase 0 Completion | v2*

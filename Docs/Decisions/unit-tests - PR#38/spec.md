@@ -7,7 +7,7 @@
 **Author:** Jose / Claude Architect Session
 **Date:** 2026-04-04
 
-[Pull Request #38](https://github.com/amodelandme/Bandera/pull/38)
+[Pull Request #38](https://github.com/amodelandme/Banderas/pull/38)
 
 ---
 
@@ -35,7 +35,7 @@
 
 ## User Story
 
-> As a developer on Bandera, I want a comprehensive suite of unit tests
+> As a developer on Banderas, I want a comprehensive suite of unit tests
 > for the evaluation strategies, evaluator, and request validators so that I can
 > confidently refactor and extend the system without introducing silent regressions.
 
@@ -50,8 +50,8 @@
 - Have all tests run in CI via the existing `build-test` job (no database required)
 
 **Non-Goals:**
-- Do not test `Bandera` — it orchestrates a real repository; leave for integration tests
-- Do not test `BanderaRepository` — requires a live database; integration tests only
+- Do not test `Banderas` — it orchestrates a real repository; leave for integration tests
+- Do not test `BanderasRepository` — requires a live database; integration tests only
 - Do not test controllers directly — integration tests only
 - Do not modify `FeatureEvaluationContextTests.cs` — already covers its own domain
 
@@ -61,7 +61,7 @@
 
 ### NuGet Packages
 
-Add the following to `Bandera.Tests/Bandera.Tests.csproj`:
+Add the following to `Banderas.Tests/Banderas.Tests.csproj`:
 
 ```xml
 <PackageReference Include="FluentAssertions" Version="7.*" />
@@ -72,13 +72,13 @@ present. Do not add or change any other packages.
 
 ### Project References
 
-The test project must reference `Bandera.Domain` and `Bandera.Application`.
-Verify these are already present. Do not add a reference to `Bandera.Infrastructure`
-or `Bandera.Api`.
+The test project must reference `Banderas.Domain` and `Banderas.Application`.
+Verify these are already present. Do not add a reference to `Banderas.Infrastructure`
+or `Banderas.Api`.
 
 ```xml
-<ProjectReference Include="..\Bandera.Domain\Bandera.Domain.csproj" />
-<ProjectReference Include="..\Bandera.Application\Bandera.Application.csproj" />
+<ProjectReference Include="..\Banderas.Domain\Banderas.Domain.csproj" />
+<ProjectReference Include="..\Banderas.Application\Banderas.Application.csproj" />
 ```
 
 ---
@@ -88,7 +88,7 @@ or `Bandera.Api`.
 Create the following files. Do not create any other files or folders.
 
 ```
-Bandera.Tests/
+Banderas.Tests/
 ├── Helpers/
 │   └── FlagBuilder.cs                         ← NEW
 ├── Strategies/
@@ -174,16 +174,16 @@ instantiate.
 
 ## Helper: FlagBuilder
 
-**File:** `Bandera.Tests/Helpers/FlagBuilder.cs`
+**File:** `Banderas.Tests/Helpers/FlagBuilder.cs`
 
 A static factory that creates `Flag` instances with sensible defaults. Tests override
 only the properties relevant to what they are testing.
 
 ```csharp
-using Bandera.Domain.Entities;
-using Bandera.Domain.Enums;
+using Banderas.Domain.Entities;
+using Banderas.Domain.Enums;
 
-namespace Bandera.Tests.Helpers;
+namespace Banderas.Tests.Helpers;
 
 internal static class FlagBuilder
 {
@@ -205,7 +205,7 @@ internal static class FlagBuilder
 > make it `public`.
 
 > **NOTE**
-> Check the `Flag` constructor signature in `Bandera.Domain/Entities/Flag.cs`
+> Check the `Flag` constructor signature in `Banderas.Domain/Entities/Flag.cs`
 > before implementing. Match the parameter names and order exactly. If the
 > constructor does not accept a nullable `string?` for `strategyConfig`, adjust
 > the default to `string.Empty` instead.
@@ -214,7 +214,7 @@ internal static class FlagBuilder
 
 ## NoneStrategyTests
 
-**File:** `Bandera.Tests/Strategies/NoneStrategyTests.cs`
+**File:** `Banderas.Tests/Strategies/NoneStrategyTests.cs`
 
 `NoneStrategy` is a passthrough. It must always return `true` regardless of the
 flag configuration or evaluation context. These tests confirm the contract.
@@ -254,7 +254,7 @@ Evaluate_WhenFlagIsDisabled_StillReturnsTrue
 ```
 > **IMPORTANT NOTE for Claude Code:** This test verifies that `NoneStrategy.Evaluate`
 > itself returns `true` even when `flag.IsEnabled` is `false`. The `IsEnabled` check
-> is the *service layer's* responsibility (enforced in `Bandera`), not the
+> is the *service layer's* responsibility (enforced in `Banderas`), not the
 > strategy's. This is a deliberate architectural decision documented in KI-002.
 
 Arrange a flag built with `isEnabled: false`.
@@ -265,7 +265,7 @@ Assert result is `true`.
 
 ## PercentageStrategyTests
 
-**File:** `Bandera.Tests/Strategies/PercentageStrategyTests.cs`
+**File:** `Banderas.Tests/Strategies/PercentageStrategyTests.cs`
 
 `PercentageStrategy` uses SHA-256 hashing to assign users deterministically to a
 0–99 bucket and returns true if that bucket falls below the configured percentage
@@ -376,7 +376,7 @@ if both results are identical (this is possible by chance but unlikely at 50%).
 
 ## RoleStrategyTests
 
-**File:** `Bandera.Tests/Strategies/RoleStrategyTests.cs`
+**File:** `Banderas.Tests/Strategies/RoleStrategyTests.cs`
 
 `RoleStrategy` deserializes a JSON config containing a `roles` array and returns
 `true` if the user's roles contain at least one match (OR logic, case-insensitive).
@@ -470,7 +470,7 @@ Assert result is `false`.
 
 ## FeatureEvaluatorTests
 
-**File:** `Bandera.Tests/Evaluation/FeatureEvaluatorTests.cs`
+**File:** `Banderas.Tests/Evaluation/FeatureEvaluatorTests.cs`
 
 `FeatureEvaluator` builds a `Dictionary<RolloutStrategy, IRolloutStrategy>` from
 injected strategies and dispatches at evaluation time. Tests confirm correct dispatch
@@ -545,7 +545,7 @@ Assert result is `false`.
 
 ## CreateFlagRequestValidatorTests
 
-**File:** `Bandera.Tests/Validators/CreateFlagRequestValidatorTests.cs`
+**File:** `Banderas.Tests/Validators/CreateFlagRequestValidatorTests.cs`
 
 Instantiate the validator directly — no DI:
 
@@ -718,7 +718,7 @@ Validate_WhenStrategyConfigExceedsMaxLength_ReturnsInvalid
 
 ## UpdateFlagRequestValidatorTests
 
-**File:** `Bandera.Tests/Validators/UpdateFlagRequestValidatorTests.cs`
+**File:** `Banderas.Tests/Validators/UpdateFlagRequestValidatorTests.cs`
 
 `UpdateFlagRequest` does not have a `Name` or `Environment` field — those come from
 the route. The validator covers `StrategyType` and `StrategyConfig` only.
@@ -797,7 +797,7 @@ Assert `IsValid == false`. Assert error on `"StrategyConfig"`.
 
 ## EvaluationRequestValidatorTests
 
-**File:** `Bandera.Tests/Validators/EvaluationRequestValidatorTests.cs`
+**File:** `Banderas.Tests/Validators/EvaluationRequestValidatorTests.cs`
 
 Instantiate directly: `var validator = new EvaluationRequestValidator();`
 
@@ -901,8 +901,8 @@ Assert `IsValid == true`.
 
 The implementation is complete when **all** of the following are true:
 
-- [ ] `Bandera.Tests.csproj` references `FluentAssertions Version="7.*"`
-- [ ] `FlagBuilder.cs` exists in `Bandera.Tests/Helpers/`
+- [ ] `Banderas.Tests.csproj` references `FluentAssertions Version="7.*"`
+- [ ] `FlagBuilder.cs` exists in `Banderas.Tests/Helpers/`
 - [ ] All 7 test files exist in their specified locations
 - [ ] Every test class and method carries `[Trait("Category", "Unit")]`
 - [ ] All assertions use FluentAssertions — no `Assert.*` calls remain
@@ -914,8 +914,8 @@ The implementation is complete when **all** of the following are true:
 - [ ] `CreateFlagRequestValidatorTests`: all 17 tests pass
 - [ ] `UpdateFlagRequestValidatorTests`: all 9 tests pass
 - [ ] `EvaluationRequestValidatorTests`: all 10 tests pass
-- [ ] `dotnet test Bandera.sln --filter "Category=Unit"` exits 0
-- [ ] `dotnet build Bandera.sln -warnaserror` exits 0 with 0 warnings
+- [ ] `dotnet test Banderas.sln --filter "Category=Unit"` exits 0
+- [ ] `dotnet build Banderas.sln -warnaserror` exits 0 with 0 warnings
 - [ ] `dotnet csharpier check .` exits 0
 
 **Total expected test count: 62 tests minimum.**
@@ -930,7 +930,7 @@ The implementation is complete when **all** of the following are true:
 The existing `build-test` CI job already runs:
 
 ```yaml
-dotnet test Bandera.sln --no-restore --filter "Category!=Integration"
+dotnet test Banderas.sln --no-restore --filter "Category!=Integration"
 ```
 
 This will pick up all `[Trait("Category", "Unit")]` tests automatically. No changes
@@ -944,7 +944,7 @@ After the PR is merged, confirm the `build-test` job passes in GitHub Actions.
 
 The following are explicitly **not** part of this PR:
 
-- `Bandera` unit tests (requires mocked `IBanderaRepository`)
+- `Banderas` unit tests (requires mocked `IBanderasRepository`)
 - Integration tests for any endpoint
 - Seed data
 - Evaluation logging
@@ -966,21 +966,21 @@ Read the following files in order before writing any code:
 
 then implement in this order:
 
-1. Add `FluentAssertions` to `Bandera.Tests/Bandera.Tests.csproj`
-2. Create `Bandera.Tests/Helpers/FlagBuilder.cs`
-3. Create `Bandera.Tests/Strategies/NoneStrategyTests.cs`
-4. Create `Bandera.Tests/Strategies/PercentageStrategyTests.cs`
-5. Create `Bandera.Tests/Strategies/RoleStrategyTests.cs`
-6. Create `Bandera.Tests/Evaluation/FeatureEvaluatorTests.cs`
-7. Create `Bandera.Tests/Validators/CreateFlagRequestValidatorTests.cs`
-8. Create `Bandera.Tests/Validators/UpdateFlagRequestValidatorTests.cs`
-9. Create `Bandera.Tests/Validators/EvaluationRequestValidatorTests.cs`
-10. Run `dotnet build Bandera.sln -warnaserror` — fix all warnings before proceeding
-11. Run `dotnet test Bandera.sln --filter "Category=Unit"` — all tests must pass
-12. Run `dotnet format Bandera.sln` followed by `dotnet csharpier format .`
+1. Add `FluentAssertions` to `Banderas.Tests/Banderas.Tests.csproj`
+2. Create `Banderas.Tests/Helpers/FlagBuilder.cs`
+3. Create `Banderas.Tests/Strategies/NoneStrategyTests.cs`
+4. Create `Banderas.Tests/Strategies/PercentageStrategyTests.cs`
+5. Create `Banderas.Tests/Strategies/RoleStrategyTests.cs`
+6. Create `Banderas.Tests/Evaluation/FeatureEvaluatorTests.cs`
+7. Create `Banderas.Tests/Validators/CreateFlagRequestValidatorTests.cs`
+8. Create `Banderas.Tests/Validators/UpdateFlagRequestValidatorTests.cs`
+9. Create `Banderas.Tests/Validators/EvaluationRequestValidatorTests.cs`
+10. Run `dotnet build Banderas.sln -warnaserror` — fix all warnings before proceeding
+11. Run `dotnet test Banderas.sln --filter "Category=Unit"` — all tests must pass
+12. Run `dotnet format Banderas.sln` followed by `dotnet csharpier format .`
 
 **DO NOT:**
-- Modify any file in `src/` (Bandera.Domain, Application, Infrastructure, Api)
+- Modify any file in `src/` (Banderas.Domain, Application, Infrastructure, Api)
 - Modify `FeatureEvaluationContextTests.cs`
 - Use `Assert.*` — use FluentAssertions only
 - Add `FluentValidation.AspNetCore` or any package not listed in this spec
@@ -989,4 +989,4 @@ then implement in this order:
 
 ---
 
-*Bandera | test/unit-and-integration-tests | Phase 1*
+*Banderas | test/unit-and-integration-tests | Phase 1*

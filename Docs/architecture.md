@@ -1,4 +1,4 @@
-# Architecture — Bandera
+# Architecture — Banderas
 
 ---
 
@@ -29,7 +29,7 @@
 
 ## 🎯 Product Vision
 
-**Bandera is being built to become an Azure-native, .NET-first, AI-assisted
+**Banderas is being built to become an Azure-native, .NET-first, AI-assisted
 feature flag platform for teams that live in the Microsoft ecosystem.**
 
 The competitive positioning is deliberate:
@@ -54,7 +54,7 @@ ergonomics, or AI integration wins.
 
 ## 🧭 Overview
 
-Bandera is a modular backend system designed to evaluate feature flags in a
+Banderas is a modular backend system designed to evaluate feature flags in a
 deterministic, extensible, and environment-aware manner.
 
 The system follows a **layered architecture with strong separation of concerns**, enabling:
@@ -79,7 +79,7 @@ The system follows a **layered architecture with strong separation of concerns**
 [ Controllers (API Layer) ]
   DTOs in, DTOs out — no domain knowledge
      ↓
-[ Application Layer (IBanderaService) ]
+[ Application Layer (IBanderasService) ]
   Speaks entirely in DTOs — Flag entity never crosses this boundary
   Applies InputSanitizer to evaluation context before passing to evaluator
      ↓
@@ -107,7 +107,7 @@ The system follows a **layered architecture with strong separation of concerns**
 **Key Characteristics:**
 
 * Thin controllers — no business logic, no domain knowledge
-* Delegates all work to application layer via `IBanderaService`
+* Delegates all work to application layer via `IBanderasService`
 * Receives and returns DTOs only — never touches domain entities
 * Calls `ValidateAsync()` manually on mutating actions (POST, PUT) — validation
   runs at the top of each action before any service code executes
@@ -129,14 +129,14 @@ The system follows a **layered architecture with strong separation of concerns**
   calls in `DependencyInjection.cs`. Controllers inject `IValidator<T>` and call
   `ValidateAsync()` manually at the top of each mutating action.
 * All three request DTOs have dedicated `AbstractValidator<T>` implementations
-  in `Bandera.Application/Validators/`
+  in `Banderas.Application/Validators/`
 * `InputSanitizer` is a shared static helper — trims whitespace, strips ASCII control
   characters below 0x20 (except tab) from all string inputs
 * Validators call `InputSanitizer.Clean()` inside `Must()` lambdas for rules where
   sanitization changes the outcome (e.g. regex checks). Structural rules
   (`NotEmpty`, `MaximumLength`) run on the raw value — a whitespace-only or
   oversized string fails these checks regardless of sanitization.
-* `BanderaService` calls `InputSanitizer` directly before evaluation — ensuring
+* `BanderasService` calls `InputSanitizer` directly before evaluation — ensuring
   consistent hashing and `HashSet` lookups regardless of caller whitespace behavior
 * All `400` responses use `ValidationProblemDetails` (RFC 9110 compliant)
 
@@ -176,7 +176,7 @@ access. `InputSanitizer` is the single source of truth for both surfaces.
 
 ---
 
-### 3. Application Layer (`IBanderaService`)
+### 3. Application Layer (`IBanderasService`)
 
 **Responsibility:**
 
@@ -187,8 +187,8 @@ access. `InputSanitizer` is the single source of truth for both surfaces.
 
 **Key Characteristics:**
 
-* `IBanderaService` interface speaks entirely in DTOs
-* `Flag` entity is constructed and mapped inside `BanderaService` — never exposed
+* `IBanderasService` interface speaks entirely in DTOs
+* `Flag` entity is constructed and mapped inside `BanderasService` — never exposed
   to callers
 * `ToResponse()` mapping is called inside the service, not in controllers
 * `IsEnabledAsync` reconstructs `FeatureEvaluationContext` with sanitized values
@@ -197,7 +197,7 @@ access. `InputSanitizer` is the single source of truth for both surfaces.
 
 **Boundary Rule:**
 
-> `Flag` domain entity must never appear in any `IBanderaService` method signature.
+> `Flag` domain entity must never appear in any `IBanderasService` method signature.
 > The controller layer must never call `.ToResponse()` directly.
 
 ---
@@ -269,7 +269,7 @@ access. `InputSanitizer` is the single source of truth for both surfaces.
 **Interfaces:**
 
 * `IRolloutStrategy` — strategy contract
-* `IBanderaRepository` — persistence contract
+* `IBanderasRepository` — persistence contract
 
 **Responsibility:**
 
@@ -296,7 +296,7 @@ access. `InputSanitizer` is the single source of truth for both surfaces.
 * Partial unique index on `(Name, Environment)` filtered to `IsArchived = false` —
   archived flags are invisible to the uniqueness constraint
 * Repository filters out archived flags on all read operations
-* Abstracted via `IBanderaRepository` — infrastructure detail hidden from domain
+* Abstracted via `IBanderasRepository` — infrastructure detail hidden from domain
   and application layers
 * All queries use EF Core parameterized queries — raw SQL via `FromSqlRaw()` with
   string concatenation is prohibited by architectural convention
@@ -346,8 +346,8 @@ This section summarizes the key decisions.
 2. **`EvaluationController` calls `ValidateAsync()`** — `EvaluationRequestValidator`
    checks all fields; invalid request returns `400` before any service code runs
 3. `EvaluationController` constructs `FeatureEvaluationContext` from the (still
-   unsanitized) DTO and calls `IBanderaService.IsEnabledAsync`
-5. **`BanderaService` applies `InputSanitizer`** to `UserId` and `UserRoles` in
+   unsanitized) DTO and calls `IBanderasService.IsEnabledAsync`
+5. **`BanderasService` applies `InputSanitizer`** to `UserId` and `UserRoles` in
    the context — ensures consistent hashing and HashSet lookups
 6. Service retrieves `Flag` entity from repository
 7. Service checks `Flag.IsEnabled` — returns false immediately if disabled
@@ -366,9 +366,9 @@ This section summarizes the key decisions.
    checks all fields including StrategyConfig cross-field rules; invalid request
    returns `400` before any service code runs
 3. `BanderasController` passes valid DTO directly to service
-4. **`BanderaService` applies `InputSanitizer.Clean()`** to `Name`
+4. **`BanderasService` applies `InputSanitizer.Clean()`** to `Name`
 5. Service constructs `Flag` entity from sanitized values
-6. Service calls `IBanderaRepository.AddAsync` and `SaveChangesAsync`
+6. Service calls `IBanderasRepository.AddAsync` and `SaveChangesAsync`
 7. Service maps `Flag` → `FlagResponse` via `FlagMappings.ToResponse()`
 8. Controller returns `201 Created` with `FlagResponse` body
 
@@ -384,7 +384,7 @@ Each layer has a single responsibility and minimal knowledge of others.
 
 ### DTO Boundary at the Service Interface
 
-`IBanderaService` is the hard boundary between the API world and the domain world.
+`IBanderasService` is the hard boundary between the API world and the domain world.
 DTOs cross the boundary inward. Domain entities never cross the boundary outward.
 This keeps controllers stable when the domain evolves, and keeps domain logic
 independent of serialization concerns.
@@ -437,8 +437,8 @@ on domain entities. `Flag.Update()` sets all related fields atomically.
 * Evaluation logic is isolated from persistence
 * Strategies are independently testable (pure functions)
 * Validators are independently testable — no DI required
-* `IBanderaRepository` is an interface — swappable in tests
-* `IBanderaService` is an interface — controllers are independently testable
+* `IBanderasRepository` is an interface — swappable in tests
+* `IBanderasService` is an interface — controllers are independently testable
 
 ---
 
@@ -446,7 +446,7 @@ on domain entities. `Flag.Update()` sets all related fields atomically.
 
 ### DTO Boundary vs Convenience
 
-**Decision:** `IBanderaService` speaks entirely in DTOs — no `Flag` entity in
+**Decision:** `IBanderasService` speaks entirely in DTOs — no `Flag` entity in
 signatures.
 
 **Pros:**
@@ -478,7 +478,7 @@ signatures.
 ### Two-Point Sanitization (Validator + Service)
 
 **Decision:** `InputSanitizer` called in both FluentValidation validators and
-`BanderaService`.
+`BanderasService`.
 
 **Pros:**
 * Consistent behavior — the value that is validated is the value that is used
@@ -559,7 +559,7 @@ signatures.
 
 ### Caching Layer (Phase 6)
 
-* In-memory or Redis between `BanderaService` and `BanderaRepository`
+* In-memory or Redis between `BanderasService` and `BanderasRepository`
 * Reduce DB lookups for frequently evaluated flags
 * Cache invalidation on flag update/archive
 
@@ -575,7 +575,7 @@ signatures.
 
 ### Event-Driven Observability (Phase 4)
 
-* Emit evaluation events from `FeatureEvaluator` or `BanderaService`
+* Emit evaluation events from `FeatureEvaluator` or `BanderasService`
 * Feed into analytics pipeline via Azure Service Bus
 * Enable "Why was this flag ON/OFF?" debugging endpoint
 * Audit log on flag mutations — requires identity from Phase 3
@@ -604,8 +604,8 @@ signatures.
 * Do not bypass `FeatureEvaluator` — all rollout logic lives in strategies
 * Preserve domain encapsulation — no public setters on `Flag`
 * Prefer adding new strategies over modifying existing ones
-* `IBanderaService` must never expose `Flag` in any method signature
-* `ToResponse()` must be called inside `BanderaService` — never in controllers
+* `IBanderasService` must never expose `Flag` in any method signature
+* `ToResponse()` must be called inside `BanderasService` — never in controllers
 * Connection string uses `Host=postgres` — do not change to `localhost`
 * See KI-002 before adding new callers to `FeatureEvaluator.Evaluate`
 * KI-003 is closed — `StrategyConfig` is now validated at write time via FluentValidation
@@ -613,7 +613,7 @@ signatures.
   `CreateFlagRequestValidator` and `UpdateFlagRequestValidator` — do not accept a new
   strategy type without adding its config validation
 * Do not inline sanitization logic — always call `InputSanitizer.Clean()` or
-  `CleanCollection()` from `Bandera.Application.Validators`
+  `CleanCollection()` from `Banderas.Application.Validators`
 * Any non-HTTP input surface (CLI, seeds, test helpers) must call `InputSanitizer`
   independently — auto-validation does not run outside the HTTP pipeline
 * Do not sanitize `StrategyConfig` content — it is JSON, stored verbatim; only its

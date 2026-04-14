@@ -1,4 +1,4 @@
-# Current State — Bandera
+# Current State — Banderas
 
 ---
 
@@ -54,9 +54,9 @@ Phase 1.5 begins immediately after the smoke test file is committed.
 - `RolloutStrategy` enum (None, Percentage, RoleBased)
 - `EnvironmentType` enum (None = 0 sentinel, Development, Staging, Production)
 - `IRolloutStrategy` interface — includes `StrategyType` for registry dispatch
-- `IBanderaRepository` interface — async signatures with `CancellationToken`
+- `IBanderasRepository` interface — async signatures with `CancellationToken`
 - Domain exceptions: `FlagNotFoundException`, `DuplicateFlagNameException`,
-  `BanderaValidationException`
+  `BanderasValidationException`
 
 ### Application Layer
 
@@ -64,8 +64,8 @@ Phase 1.5 begins immediately after the smoke test file is committed.
 - `PercentageStrategy` — deterministic SHA256 hashing into 100 buckets
 - `RoleStrategy` — config-driven, case-insensitive, fail-closed role matching
 - `FeatureEvaluator` — registry dispatch, `Dictionary<RolloutStrategy, IRolloutStrategy>`
-- `Bandera` — async, orchestrates repository + evaluator + logging
-- `IBanderaService` — async signatures with `CancellationToken`, full CRUD + evaluation
+- `Banderas` — async, orchestrates repository + evaluator + logging
+- `IBanderasService` — async signatures with `CancellationToken`, full CRUD + evaluation
 - `DependencyInjection.cs` — `AddApplication()` extension method
 - DTOs: `CreateFlagRequest`, `UpdateFlagRequest`, `FlagResponse`, `EvaluationRequest`,
   `EvaluationResponse`, `FlagMappings`
@@ -79,21 +79,21 @@ Phase 1.5 begins immediately after the smoke test file is committed.
 
 ### Infrastructure Layer
 
-- `BanderaDbContext` — EF Core, Postgres, `ApplyConfigurationsFromAssembly`
-- `BanderaDbContextFactory` — design-time factory for `dotnet ef` tooling
+- `BanderasDbContext` — EF Core, Postgres, `ApplyConfigurationsFromAssembly`
+- `BanderasDbContextFactory` — design-time factory for `dotnet ef` tooling
 - `FlagConfiguration` — EF Core Fluent API mapping; partial unique index
   `HasFilter("\"IsArchived\" = false")` prevents archived rows from blocking name reuse;
   `IsSeeded` column mapped with `HasDefaultValue(false)`
 - `AddIsSeededToFlag` migration — adds `IsSeeded bool NOT NULL DEFAULT false`;
   existing rows receive `false` automatically
-- `BanderaRepository` — async CRUD + `ExistsAsync`; `SaveChangesAsync` catches
+- `BanderasRepository` — async CRUD + `ExistsAsync`; `SaveChangesAsync` catches
   Postgres `23505` and rethrows as `DuplicateFlagNameException`
 - `DatabaseSeeder` (`public sealed`) — runs on startup in Development only;
   per-record backfill in normal mode; `SEED_RESET=true` wipes `IsSeeded = true`
   rows and re-inserts; skips slots occupied by non-seeded active flags with a
   `Warning` log; seeds six representative flags across all three strategies and
   two environments
-- `DependencyInjection.cs` — `AddInfrastructure()` registers `BanderaRepository`
+- `DependencyInjection.cs` — `AddInfrastructure()` registers `BanderasRepository`
   and `DatabaseSeeder`
 
 ### Api Layer
@@ -256,7 +256,7 @@ and logs a clear override warning rather than failing or deleting manual data.
 ## 🧩 Notes for AI Assistants
 
 - Architecture follows Clean Architecture: Api → Application → Domain ← Infrastructure
-- `IBanderaService` speaks entirely in DTOs — no `Flag` entity crosses the boundary
+- `IBanderasService` speaks entirely in DTOs — no `Flag` entity crosses the boundary
 - Domain logic is intentionally strict — no public setters, explicit mutation methods
 - Strategy pattern is central to extensibility — new strategies require zero changes to evaluator
 - Evaluation must remain deterministic and testable
@@ -266,7 +266,7 @@ and logs a clear override warning rather than failing or deleting manual data.
   `UpdateAsync`, and `ArchiveAsync` — do not remove or reorder
 - `StrategyConfigRules` is the single source of truth for strategy config validation
 - `EnvironmentRules` is the single source of truth for environment validation
-- `SaveChangesAsync` in `BanderaRepository` catches Postgres `23505` and rethrows
+- `SaveChangesAsync` in `BanderasRepository` catches Postgres `23505` and rethrows
   as `DuplicateFlagNameException` — intentional TOCTOU handling, do not remove
 - `ExistsAsync` checks non-archived flags only — archived flags do not block name reuse
 - `CreateFlagRequest.StrategyConfig` and `UpdateFlagRequest.StrategyConfig` are `string?`
@@ -280,7 +280,7 @@ and logs a clear override warning rather than failing or deleting manual data.
 - Any spec referencing ProblemDetails must specify `application/problem+json`
 - Any spec with uniqueness checks must address TOCTOU and designate the correct layer
 - `IsSeeded` must never appear on `FlagResponse` or any DTO
-- `DatabaseSeeder` is `public sealed` — required for resolution from `Bandera.Api`
+- `DatabaseSeeder` is `public sealed` — required for resolution from `Banderas.Api`
   across the assembly boundary; `internal` would cause `CS0122`
 - `MigrateAsync()` runs before `SeedAsync()` in the Development startup block —
   order is load-bearing; do not swap

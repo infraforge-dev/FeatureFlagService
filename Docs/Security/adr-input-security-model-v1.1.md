@@ -10,7 +10,7 @@ PR #30 to use manual `ValidateAsync()` in controllers and `Must()` lambdas for
 sanitization-aware rules. All other mitigations, threat actors, and deferred
 decisions are unchanged from v1.0.
 **Related PR:** `Docs/Decisions/fluent-validation - PR#30/`
-[Pull Request #XX](https://github.com/amodelandme/Bandera/pull/xx)
+[Pull Request #XX](https://github.com/amodelandme/Banderas/pull/xx)
 
 ---
 
@@ -30,7 +30,7 @@ decisions are unchanged from v1.0.
 
 ## Context
 
-Bandera exposes a REST API that accepts untrusted input across four
+Banderas exposes a REST API that accepts untrusted input across four
 endpoints. As of Phase 1, the API has no authentication layer — it is assumed to
 run in a controlled environment (local dev, internal network) rather than open
 internet. The API is designed to become publicly accessible in Phase 3, and an
@@ -61,8 +61,8 @@ being cleaned to `"Admin"` in the `Must()` check, but `RoleStrategy` would recei
 `" Admin "` and the `HashSet` lookup would silently fail, denying a legitimate user.
 
 `InputSanitizer` is a shared `internal static` helper in
-`Bandera.Application/Validators/`. Validators call it inside `Must()` lambdas.
-`Bandera` calls it directly before evaluation. Same function, two call
+`Banderas.Application/Validators/`. Validators call it inside `Must()` lambdas.
+`Banderas` calls it directly before evaluation. Same function, two call
 sites, one source of truth.
 
 ---
@@ -165,7 +165,7 @@ Rules enforced:
 - Cross-field `StrategyConfig` validation keyed on `StrategyType`
 
 ### 2. Input Sanitization — Two-Point Pattern
-`InputSanitizer` is an `internal static` class in `Bandera.Application/Validators/`.
+`InputSanitizer` is an `internal static` class in `Banderas.Application/Validators/`.
 It trims whitespace and strips ASCII control characters (below 0x20, except tab).
 
 **Point 1 — Validators:** `Must()` lambdas call `InputSanitizer.Clean()` for rules
@@ -173,7 +173,7 @@ where sanitization changes the outcome (e.g. regex checks on `Name`). Structural
 rules (`NotEmpty`, `MaximumLength`) run on the raw value — whitespace-only strings
 fail `NotEmpty`, and oversized strings with spaces are still too long after trimming.
 
-**Point 2 — Service layer:** `BanderaService.IsEnabledAsync` rebuilds
+**Point 2 — Service layer:** `BanderasService.IsEnabledAsync` rebuilds
 `FeatureEvaluationContext` with sanitized `UserId` and `UserRoles` before passing
 to the evaluator. `CreateFlagAsync` sanitizes `Name` before constructing the `Flag`
 entity. This ensures consistent SHA256 hashing in `PercentageStrategy` and HashSet
@@ -282,7 +282,7 @@ Identical private static methods in both `CreateFlagRequestValidator` and
 - False confidence — deferred items represent real, open risk
 
 **What future engineers must know:**
-- `InputSanitizer` is `internal` to `Bandera.Application` — the Api project
+- `InputSanitizer` is `internal` to `Banderas.Application` — the Api project
   cannot call it directly; sanitization in the service layer is the correct pattern
 - Any non-HTTP input surface must call `InputSanitizer` independently
 - Any new `IRolloutStrategy` requires a corresponding validator rule before the
@@ -292,4 +292,4 @@ Identical private static methods in both `CreateFlagRequestValidator` and
 
 ---
 
-*Bandera | Security ADR v1.1 — current*
+*Banderas | Security ADR v1.1 — current*

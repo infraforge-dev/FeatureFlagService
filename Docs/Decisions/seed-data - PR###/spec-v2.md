@@ -177,7 +177,7 @@ an automatic side effect of startup.
 | Migration | Infrastructure | `Infrastructure/Persistence/Migrations/` |
 | `DatabaseSeeder` class | Infrastructure | `Infrastructure/Seeding/DatabaseSeeder.cs` |
 | DI registration | Infrastructure | `Infrastructure/DependencyInjection.cs` |
-| Startup trigger + guard | Api | `Bandera.Api/Program.cs` |
+| Startup trigger + guard | Api | `Banderas.Api/Program.cs` |
 
 ---
 
@@ -190,7 +190,7 @@ an automatic side effect of startup.
 | 3 | New migration | `Infrastructure/Persistence/Migrations/` |
 | 4 | `DatabaseSeeder` class | `Infrastructure/Seeding/DatabaseSeeder.cs` |
 | 5 | DI registration | `Infrastructure/DependencyInjection.cs` |
-| 6 | Startup wiring + migration call | `Bandera.Api/Program.cs` |
+| 6 | Startup wiring + migration call | `Banderas.Api/Program.cs` |
 
 No new endpoints. No changes to validators, DTOs, or existing repository methods.
 
@@ -226,9 +226,9 @@ passes `"{}"` explicitly to avoid relying on that normalization as a side effect
 ### AC-1: IsSeeded Column and Migration
 
 **Files:**
-- `Bandera.Domain/Entities/Flag.cs`
-- `Bandera.Infrastructure/Persistence/Configurations/FlagConfiguration.cs`
-- `Bandera.Infrastructure/Persistence/Migrations/<timestamp>_AddIsSeededToFlag.cs`
+- `Banderas.Domain/Entities/Flag.cs`
+- `Banderas.Infrastructure/Persistence/Configurations/FlagConfiguration.cs`
+- `Banderas.Infrastructure/Persistence/Migrations/<timestamp>_AddIsSeededToFlag.cs`
 
 **Domain:**
 - Add `public bool IsSeeded { get; private set; }` to the `Flag` entity
@@ -253,13 +253,13 @@ builder.Property(f => f.IsSeeded)
 
 ### AC-2: DatabaseSeeder Class
 
-**File:** `Bandera.Infrastructure/Seeding/DatabaseSeeder.cs`
+**File:** `Banderas.Infrastructure/Seeding/DatabaseSeeder.cs`
 
 - Class is `internal sealed`
 - Constructor accepts `AppDbContext` and `ILogger<DatabaseSeeder>`
 - Exposes a single public method: `Task SeedAsync(bool reset, CancellationToken ct = default)`
 - Does not reference any Application layer types — uses `AppDbContext` directly
-- Does not reference `IBanderaRepository`
+- Does not reference `IBanderasRepository`
 
 ```csharp
 internal sealed class DatabaseSeeder(
@@ -318,7 +318,7 @@ are never touched — regardless of whether their name matches a seed record.
 
 ### AC-5: Startup Wiring in Program.cs
 
-**File:** `Bandera.Api/Program.cs`
+**File:** `Banderas.Api/Program.cs`
 
 The following block is added after `app.MapControllers()`:
 
@@ -340,7 +340,7 @@ if (app.Environment.IsDevelopment())
 - The seeder is resolved from a scoped `IServiceProvider` — required because
   `DatabaseSeeder` depends on the scoped `AppDbContext`
 - If `app.MigrateAsync()` does not exist as an extension method, implement it
-  as a local extension in `Bandera.Api/Extensions/WebApplicationExtensions.cs`:
+  as a local extension in `Banderas.Api/Extensions/WebApplicationExtensions.cs`:
 
 ```csharp
 public static async Task MigrateAsync(this WebApplication app)
@@ -355,7 +355,7 @@ public static async Task MigrateAsync(this WebApplication app)
 
 ### AC-6: DI Registration
 
-**File:** `Bandera.Infrastructure/DependencyInjection.cs`
+**File:** `Banderas.Infrastructure/DependencyInjection.cs`
 
 Add to the `AddInfrastructure()` extension method:
 
@@ -405,11 +405,11 @@ No user-identifying data is logged. Seed records contain no PII.
 ## File Layout
 
 ```
-Bandera.Domain/
+Banderas.Domain/
   Entities/
     Flag.cs                                         ← modified (IsSeeded property)
 
-Bandera.Infrastructure/
+Banderas.Infrastructure/
   Persistence/
     Configurations/
       FlagConfiguration.cs                          ← modified (IsSeeded mapping)
@@ -418,12 +418,12 @@ Bandera.Infrastructure/
   Seeding/
     DatabaseSeeder.cs                               ← new
 
-Bandera.Api/
+Banderas.Api/
   Extensions/
     WebApplicationExtensions.cs                     ← new (MigrateAsync helper)
   Program.cs                                        ← modified (Development block)
 
-Bandera.Infrastructure/
+Banderas.Infrastructure/
   DependencyInjection.cs                            ← modified (register DatabaseSeeder)
 ```
 
@@ -435,7 +435,7 @@ Bandera.Infrastructure/
 - `IsSeeded` must not appear on `FlagResponse` or any other DTO — it is an
   internal infrastructure concern only. API consumers have no knowledge of it.
 - The seeder calls `AppDbContext` directly — do not route through
-  `IBanderaRepository`. The repository is the Application layer's boundary;
+  `IBanderasRepository`. The repository is the Application layer's boundary;
   the seeder lives in Infrastructure and may use `DbContext` directly.
 - The manifest literals (`"dark-mode"`, `"Admin"`, etc.) are trusted constant
   data defined by the engineer — `InputSanitizer` is not required for seed

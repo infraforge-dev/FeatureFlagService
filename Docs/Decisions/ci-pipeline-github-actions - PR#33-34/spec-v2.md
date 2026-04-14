@@ -43,7 +43,7 @@
 | `dotnet format` vs CSharpier conflation | Used `dotnet format` | CSharpier is source of truth — `dotnet csharpier --check .` |
 | `GITHUB_TOKEN` permissions undeclared | Not specified | Explicit `pull-requests: write` on `ai-review` job |
 | Previous reviews accumulate | Claimed auto-dismiss | Explicit dismiss-previous-review step added |
-| Repo path mismatch in system prompt | `Bandera.Api` | Corrected to `Bandera.Api` |
+| Repo path mismatch in system prompt | `Banderas.Api` | Corrected to `Banderas.Api` |
 | NuGet caching absent | Not specified | `cache: 'nuget'` added to `setup-dotnet` in all jobs |
 | Token truncation underspecified | "12,000 tokens" with no impl | `head -c 48000` character approximation |
 | Inline comment positioning | Specified file + line | Top-level PR comment with `file:line` references |
@@ -54,7 +54,7 @@
 
 ## User Story
 
-> As a developer working on Bandera, I want every push and pull request to automatically verify that the code is correctly formatted, builds cleanly, and passes unit tests — and I want PRs labeled `ai-review` to receive an AI-assisted code review with structured feedback — so that I catch regressions and design issues before they reach protected branches.
+> As a developer working on Banderas, I want every push and pull request to automatically verify that the code is correctly formatted, builds cleanly, and passes unit tests — and I want PRs labeled `ai-review` to receive an AI-assisted code review with structured feedback — so that I catch regressions and design issues before they reach protected branches.
 
 ---
 
@@ -178,9 +178,9 @@ concurrency:
 | 1 | Checkout | `actions/checkout@v4` | Hard fail |
 | 2 | Setup .NET | `actions/setup-dotnet@v4` — `dotnet-version: '10.x'`, `cache: 'nuget'` | Hard fail |
 | 3 | Restore tools | `dotnet tool restore` | Hard fail — installs CSharpier from `dotnet-tools.json` |
-| 4 | Restore packages | `dotnet restore Bandera.sln` | Hard fail |
+| 4 | Restore packages | `dotnet restore Banderas.sln` | Hard fail |
 | 5 | Format check | `dotnet csharpier --check .` | Hard fail — PR cannot merge |
-| 6 | Build | `dotnet build Bandera.sln --no-restore --no-incremental -p:TreatWarningsAsErrors=true` | Hard fail — PR cannot merge |
+| 6 | Build | `dotnet build Banderas.sln --no-restore --no-incremental -p:TreatWarningsAsErrors=true` | Hard fail — PR cannot merge |
 
 **Notes:**
 - `dotnet tool restore` reads `.config/dotnet-tools.json` and installs the pinned CSharpier version. This is required — CSharpier is not part of the SDK.
@@ -204,13 +204,13 @@ concurrency:
 |---|---|---|---|
 | 1 | Checkout | `actions/checkout@v4` | Hard fail |
 | 2 | Setup .NET | `actions/setup-dotnet@v4` — `dotnet-version: '10.x'`, `cache: 'nuget'` | Hard fail |
-| 3 | Restore packages | `dotnet restore Bandera.sln` | Hard fail |
-| 4 | Run unit tests | `dotnet test Bandera.sln --no-restore --filter "Category!=Integration"` | Hard fail — PR cannot merge |
+| 3 | Restore packages | `dotnet restore Banderas.sln` | Hard fail |
+| 4 | Run unit tests | `dotnet test Banderas.sln --no-restore --filter "Category!=Integration"` | Hard fail — PR cannot merge |
 | 5 | _(Integration tests)_ | _Stubbed — not active in Phase 1_ | N/A |
 
 **Test category convention — enforced as part of this implementation:**
 
-All test classes in `Bandera.Tests` must carry a `[Trait]` attribute before this pipeline is activated. Claude Code must update existing test files as part of this work.
+All test classes in `Banderas.Tests` must carry a `[Trait]` attribute before this pipeline is activated. Claude Code must update existing test files as part of this work.
 
 ```csharp
 // Unit test — runs in CI Phase 1
@@ -331,9 +331,9 @@ Claude's response is parsed and posted as a single top-level PR comment in this 
 
 | Severity | File | Line | Comment |
 |---|---|---|---|
-| 🔴 error | Bandera.Api/Controllers/BanderasController.cs | 42 | Domain entity `Flag` returned directly from service call — map to `FlagResponse` DTO |
-| 🟡 warning | Bandera.Application/Services/BanderaService.cs | 88 | Missing CancellationToken propagation to repository call |
-| 🔵 suggestion | Bandera.Domain/Entities/Flag.cs | 15 | Consider guard clause for null name on construction |
+| 🔴 error | Banderas.Api/Controllers/BanderasController.cs | 42 | Domain entity `Flag` returned directly from service call — map to `FlagResponse` DTO |
+| 🟡 warning | Banderas.Application/Services/BanderasService.cs | 88 | Missing CancellationToken propagation to repository call |
+| 🔵 suggestion | Banderas.Domain/Entities/Flag.cs | 15 | Consider guard clause for null name on construction |
 
 ---
 _Reviewed by Claude claude-sonnet-4-6 · [Dismiss this review](link) to override_
@@ -350,19 +350,19 @@ After posting the comment, a formal GitHub review is submitted:
 Stored at `.github/prompts/ai-review-system.md`. Read at runtime by the workflow — never hardcoded in YAML.
 
 ```
-You are a senior .NET engineer performing a code review on a pull request for Bandera.
+You are a senior .NET engineer performing a code review on a pull request for Banderas.
 
-Bandera is a .NET 10 Web API following strict Clean Architecture:
+Banderas is a .NET 10 Web API following strict Clean Architecture:
 - Domain layer: entities, value objects, enums, interfaces. Zero outward dependencies.
 - Application layer: services, DTOs, validators, strategies. Depends only on Domain.
 - Infrastructure layer: EF Core + Npgsql, PostgreSQL, repository implementations. Depends on Application.
 - API layer: controllers, middleware, DI wiring. Depends on Application only.
 
-Project namespace roots: Bandera.Domain, Bandera.Application, Bandera.Infrastructure, Bandera.Api
+Project namespace roots: Banderas.Domain, Banderas.Application, Banderas.Infrastructure, Banderas.Api
 
 Rules to enforce:
 1. Domain entities must never appear in controller signatures or cross the service boundary. DTOs only.
-2. IBanderaService methods must accept and return DTOs only — never the Flag entity.
+2. IBanderasService methods must accept and return DTOs only — never the Flag entity.
 3. FluentValidation is v12. Do not suggest .Transform() — removed in v12. Use .Must() lambda instead.
 4. Validators are registered with explicit AddScoped<IValidator<T>, TValidator>() — not AddValidatorsFromAssemblyContaining.
 5. Controllers call ValidateAsync() manually — FluentValidation.AspNetCore is not used.
@@ -426,7 +426,7 @@ When any of the above occurs, the job must:
 2. Exit with code `0` — the job passes, the PR remains mergeable.
 
 **Future hardening note (tracked):**
-> This fail-open behavior is appropriate for Phase 1 on a portfolio project. When Bandera moves toward production infrastructure (Phase 8+) and the AI reviewer is gating changes to security-critical or customer-facing code paths, this should be revisited. Options include: retry with exponential backoff before failing open, alerting via a GitHub issue comment, or switching to fail-closed for PRs targeting `main` only.
+> This fail-open behavior is appropriate for Phase 1 on a portfolio project. When Banderas moves toward production infrastructure (Phase 8+) and the AI reviewer is gating changes to security-critical or customer-facing code paths, this should be revisited. Options include: retry with exponential backoff before failing open, alerting via a GitHub issue comment, or switching to fail-closed for PRs targeting `main` only.
 
 ---
 
@@ -473,7 +473,7 @@ Rules:
   prompts/
     ai-review-system.md          ← Implement this
 
-Bandera.Tests/
+Banderas.Tests/
   Domain/
     ValueObjects/
       FeatureEvaluationContextTests.cs   ← Add [Trait("Category", "Unit")]
@@ -497,7 +497,7 @@ Bandera.Tests/
 ### AC-3: Unit test gate
 - [ ] A failing unit test causes `build-test` to fail
 - [ ] Tests decorated `[Trait("Category", "Integration")]` do not run (confirmed via test output showing 0 Integration tests executed)
-- [ ] All existing tests in `Bandera.Tests` carry `[Trait("Category", "Unit")]`
+- [ ] All existing tests in `Banderas.Tests` carry `[Trait("Category", "Unit")]`
 
 ### AC-4: Parallel execution
 - [ ] `lint-format` and `build-test` appear as concurrent jobs in the GitHub Actions run timeline
@@ -577,7 +577,7 @@ services:
 
 Update test filter to run all categories:
 ```bash
-dotnet test Bandera.sln --no-restore
+dotnet test Banderas.sln --no-restore
 ```
 
 Add environment variable override for connection string pointing at `localhost:5432` (the service container port-mapped address).
@@ -585,7 +585,7 @@ Add environment variable override for connection string pointing at `localhost:5
 ### Phase 2 — Code coverage gate
 
 ```bash
-dotnet test Bandera.sln \
+dotnet test Banderas.sln \
   --collect:"XPlat Code Coverage" \
   --results-directory ./coverage
 

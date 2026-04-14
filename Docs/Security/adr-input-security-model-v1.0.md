@@ -29,7 +29,7 @@ corrected mitigations.
 
 ## Context
 
-Bandera exposes a REST API that accepts untrusted input across four
+Banderas exposes a REST API that accepts untrusted input across four
 endpoints. As of Phase 1, the API has no authentication layer — it is assumed to
 run in a controlled environment (local dev, internal network) rather than open
 internet. However, the API is designed to become publicly accessible in Phase 3,
@@ -235,4 +235,4 @@ controller actions.
 
 ---
 
-*Bandera | Security ADR v1.0 — superseded by v1.1*
+*Banderas | Security ADR v1.0 — superseded by v1.1*
