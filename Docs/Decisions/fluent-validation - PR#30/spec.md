@@ -2,7 +2,7 @@
 
 **Branch:** `feature/fluent-validation-dtos`  
 **Closes:** KI-003  
-**Layer:** `FeatureFlag.Application` (validators + sanitizer) + `FeatureFlag.Api` (wiring)  
+**Layer:** `Bandera.Application` (validators + sanitizer) + `Bandera.Api` (wiring)  
 **Related ADR:** `adr-input-security-model.md`
 
 ---
@@ -76,7 +76,7 @@ in evaluation logic. Same rules, one source of truth.
 
 ## Packages to Add
 
-### `FeatureFlag.Application/FeatureFlag.Application.csproj`
+### `Bandera.Application/Bandera.Application.csproj`
 ```xml
 <PackageReference Include="FluentValidation" Version="12.*" />
 ```
@@ -91,18 +91,18 @@ in evaluation logic. Same rules, one source of truth.
 
 ## New Files to Create
 
-All new files go in: `FeatureFlag.Application/Validators/`
+All new files go in: `Bandera.Application/Validators/`
 
 ---
 
 ### 1. `InputSanitizer.cs`
 
 Shared sanitization logic. Used by validators (via `Must()` lambdas) and by
-`FeatureFlagService` directly. Any future input surface (CLI, seed data) must also
+`Bandera` directly. Any future input surface (CLI, seed data) must also
 call this helper — do not inline equivalent logic elsewhere.
 
 ```csharp
-namespace FeatureFlag.Application.Validators;
+namespace Bandera.Application.Validators;
 
 /// <summary>
 /// Shared input sanitization helper.
@@ -151,11 +151,11 @@ internal static class InputSanitizer
 ### 2. `CreateFlagRequestValidator.cs`
 
 ```csharp
-using FeatureFlag.Application.DTOs;
-using FeatureFlag.Domain.Enums;
+using Bandera.Application.DTOs;
+using Bandera.Domain.Enums;
 using FluentValidation;
 
-namespace FeatureFlag.Application.Validators;
+namespace Bandera.Application.Validators;
 
 public sealed class CreateFlagRequestValidator : AbstractValidator<CreateFlagRequest>
 {
@@ -243,11 +243,11 @@ public sealed class CreateFlagRequestValidator : AbstractValidator<CreateFlagReq
 ### 3. `UpdateFlagRequestValidator.cs`
 
 ```csharp
-using FeatureFlag.Application.DTOs;
-using FeatureFlag.Domain.Enums;
+using Bandera.Application.DTOs;
+using Bandera.Domain.Enums;
 using FluentValidation;
 
-namespace FeatureFlag.Application.Validators;
+namespace Bandera.Application.Validators;
 
 public sealed class UpdateFlagRequestValidator : AbstractValidator<UpdateFlagRequest>
 {
@@ -320,11 +320,11 @@ public sealed class UpdateFlagRequestValidator : AbstractValidator<UpdateFlagReq
 ### 4. `EvaluationRequestValidator.cs`
 
 ```csharp
-using FeatureFlag.Application.DTOs;
-using FeatureFlag.Domain.Enums;
+using Bandera.Application.DTOs;
+using Bandera.Domain.Enums;
 using FluentValidation;
 
-namespace FeatureFlag.Application.Validators;
+namespace Bandera.Application.Validators;
 
 public sealed class EvaluationRequestValidator : AbstractValidator<EvaluationRequest>
 {
@@ -368,21 +368,21 @@ public sealed class EvaluationRequestValidator : AbstractValidator<EvaluationReq
 
 ## Files to Modify
 
-### `FeatureFlag.Application/DependencyInjection.cs`
+### `Bandera.Application/DependencyInjection.cs`
 
 Replace the full file content with:
 
 ```csharp
-using FeatureFlag.Application.Evaluation;
-using FeatureFlag.Application.Interfaces;
-using FeatureFlag.Application.Services;
-using FeatureFlag.Application.Strategies;
-using FeatureFlag.Application.Validators;
-using FeatureFlag.Domain.Interfaces;
+using Bandera.Application.Evaluation;
+using Bandera.Application.Interfaces;
+using Bandera.Application.Services;
+using Bandera.Application.Strategies;
+using Bandera.Application.Validators;
+using Bandera.Domain.Interfaces;
 using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace FeatureFlag.Application;
+namespace Bandera.Application;
 
 public static class DependencyInjection
 {
@@ -404,7 +404,7 @@ public static class DependencyInjection
         services.AddSingleton<FeatureEvaluator>();
 
         // Service — Scoped: depends on Scoped repository
-        services.AddScoped<IFeatureFlagService, FeatureFlagService>();
+        services.AddScoped<IBanderaService, BanderaService>();
 
         return services;
     }
@@ -413,7 +413,7 @@ public static class DependencyInjection
 
 ---
 
-### `FeatureFlag.Api/Program.cs`
+### `Bandera.Api/Program.cs`
 
 No changes required. `AddControllers()` stays exactly as-is. Do not add
 `AddFluentValidationAutoValidation()` — `FluentValidation.AspNetCore` is deprecated
@@ -421,7 +421,7 @@ and not installed. Validation is handled manually in each controller action.
 
 ---
 
-### `FeatureFlag.Application/Services/FeatureFlagService.cs`
+### `Bandera.Application/Services/BanderaService.cs`
 
 `.Transform()` in validators does not mutate the DTO — the service receives the original
 unsanitized values. Add `InputSanitizer` calls in two places:
@@ -482,7 +482,7 @@ public async Task<FlagResponse> CreateFlagAsync(
 
 ---
 
-### `FeatureFlag.Api/Controllers/FeatureFlagsController.cs`
+### `Bandera.Api/Controllers/BanderasController.cs`
 
 Inject `IValidator<CreateFlagRequest>` and `IValidator<UpdateFlagRequest>` and validate
 manually at the top of each mutating action. Read operations (GET) require no changes.
@@ -490,12 +490,12 @@ manually at the top of each mutating action. Read operations (GET) require no ch
 Add constructor parameters:
 
 ```csharp
-private readonly IFeatureFlagService _service;
+private readonly IBanderaService _service;
 private readonly IValidator<CreateFlagRequest> _createValidator;
 private readonly IValidator<UpdateFlagRequest> _updateValidator;
 
-public FeatureFlagsController(
-    IFeatureFlagService service,
+public BanderasController(
+    IBanderaService service,
     IValidator<CreateFlagRequest> createValidator,
     IValidator<UpdateFlagRequest> updateValidator)
 {
@@ -523,7 +523,7 @@ if (!validation.IsValid)
 
 ---
 
-### `FeatureFlag.Api/Controllers/EvaluationController.cs`
+### `Bandera.Api/Controllers/EvaluationController.cs`
 
 Inject `IValidator<EvaluationRequest>` and validate manually before constructing the
 context.
@@ -531,10 +531,10 @@ context.
 Add constructor parameter:
 
 ```csharp
-private readonly IFeatureFlagService _service;
+private readonly IBanderaService _service;
 private readonly IValidator<EvaluationRequest> _validator;
 
-public EvaluationController(IFeatureFlagService service, IValidator<EvaluationRequest> validator)
+public EvaluationController(IBanderaService service, IValidator<EvaluationRequest> validator)
 {
     _service = service;
     _validator = validator;
@@ -608,11 +608,11 @@ All `400` responses return `ValidationProblemDetails`:
 ```
 
 ### AC-8: Controller validation wiring
-- `FeatureFlagsController` POST and PUT actions return `400` with
+- `BanderasController` POST and PUT actions return `400` with
   `ValidationProblemDetails` shape before any service layer code runs
 - `EvaluationController` POST action returns `400` before `FeatureEvaluationContext`
   is constructed
-- GET and DELETE actions in `FeatureFlagsController` require no changes
+- GET and DELETE actions in `BanderasController` require no changes
 
 ### AC-9: Build integrity
 - `dotnet build` passes with 0 warnings and 0 errors
@@ -627,12 +627,12 @@ All `400` responses return `ValidationProblemDetails`:
   in controllers instead
 - Do not use `.Transform()` — removed in FluentValidation v12; use `RuleFor(x =>
   InputSanitizer.Clean(x.Field)).OverridePropertyName("Field")` instead
-- Do not add validation logic inside `FeatureFlagService` beyond the sanitization
+- Do not add validation logic inside `Bandera` beyond the sanitization
   calls described above
 - Do not sanitize `StrategyConfig` content — it is JSON and must be stored verbatim;
   only its length and structure are validated
 - Do not modify the `Flag` domain entity
-- Do not modify `IFeatureFlagService`
+- Do not modify `IBanderaService`
 - Do not change `StrategyConfig` from `string` to `JsonDocument`
 - Do not inline sanitization logic — always call `InputSanitizer.Clean()` or
   `CleanCollection()`
@@ -642,13 +642,13 @@ All `400` responses return `ValidationProblemDetails`:
 ## Folder Structure After This Change
 
 ```
-FeatureFlag.Api/
+Bandera.Api/
 ├── Controllers/
-│   ├── FeatureFlagsController.cs    ← MODIFIED (POST + PUT manual validation)
+│   ├── BanderasController.cs    ← MODIFIED (POST + PUT manual validation)
 │   └── EvaluationController.cs      ← MODIFIED (POST manual validation)
 └── Program.cs                        ← NO CHANGES
 
-FeatureFlag.Application/
+Bandera.Application/
 ├── DTOs/
 │   ├── CreateFlagRequest.cs
 │   ├── UpdateFlagRequest.cs
@@ -658,9 +658,9 @@ FeatureFlag.Application/
 ├── Evaluation/
 │   └── FeatureEvaluator.cs
 ├── Interfaces/
-│   └── IFeatureFlagService.cs
+│   └── IBanderaService.cs
 ├── Services/
-│   └── FeatureFlagService.cs        ← MODIFIED (sanitization calls added)
+│   └── BanderaService.cs        ← MODIFIED (sanitization calls added)
 ├── Strategies/
 │   ├── NoneStrategy.cs
 │   ├── PercentageStrategy.cs

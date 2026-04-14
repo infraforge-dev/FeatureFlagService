@@ -1,5 +1,5 @@
 {
-  "name": "Feature Flag Service",
+  "name": "Bandera",
   "image": "mcr.microsoft.com/devcontainers/base:ubuntu-24.04",
   "features": {
     "ghcr.io/anthropics/devcontainer-features/claude-code:1.0": {},
@@ -47,10 +47,10 @@
   // Both must match to avoid file permission issues
   "remoteUser": "vscode",
   "containerUser": "vscode",
-  "postCreateCommand": "sudo groupadd -f docker && sudo usermod -aG docker vscode && dotnet restore FeatureFlagService.sln && dotnet tool restore",
+  "postCreateCommand": "sudo groupadd -f docker && sudo usermod -aG docker vscode && dotnet restore Bandera.sln && dotnet tool restore",
   // Git safe.directory + join the Postgres network so "postgres" resolves as the DB host.
   // The network connect is idempotent (|| true) — safe if already connected or network not yet up.
-  "postStartCommand": "git config --global --add safe.directory ${containerWorkspaceFolder} && docker network connect featureflagservice_default $(cat /etc/hostname) 2>/dev/null || true",
+  "postStartCommand": "git config --global --add safe.directory ${containerWorkspaceFolder} && docker network connect bandera_default $(cat /etc/hostname) 2>/dev/null || true",
   "customizations": {
     "vscode": {
       "extensions": [
@@ -67,7 +67,7 @@
         "editor.insertSpaces": true,
         "editor.tabSize": 4,
         "files.eol": "\n",
-        "dotnet.defaultSolution": "FeatureFlagService.sln"
+        "dotnet.defaultSolution": "Bandera.sln"
       }
     }
   }

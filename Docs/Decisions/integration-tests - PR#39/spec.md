@@ -17,7 +17,7 @@
 - [Test Project Setup](#test-project-setup)
 - [Folder Structure](#folder-structure)
 - [Conventions](#conventions)
-- [Fixture: FeatureFlagApiFactory](#fixture-featureflagapifactory)
+- [Fixture: BanderaApiFactory](#fixture-featureflagapifactory)
 - [Fixture: IntegrationTestBase](#fixture-integrationtestbase)
 - [FlagEndpointTests](#flagendpointtests)
 - [EvaluationEndpointTests](#evaluationendpointtests)
@@ -32,7 +32,7 @@
 
 ## User Story
 
-> As a developer on FeatureFlagService, I want integration tests that exercise
+> As a developer on Bandera, I want integration tests that exercise
 > every API endpoint against a real Postgres database so that I can verify the
 > full HTTP pipeline — routing, validation, serialization, persistence, error
 > handling, and response shape — and catch regressions that unit tests cannot.
@@ -60,10 +60,10 @@
 
 ## Design Decisions
 
-### DD-1 — Separate project (`FeatureFlag.Tests.Integration`)
+### DD-1 — Separate project (`Bandera.Tests.Integration`)
 
-The existing `FeatureFlag.Tests` references only Application and Domain. Integration
-tests require `FeatureFlag.Api` (for `WebApplicationFactory<Program>`), which
+The existing `Bandera.Tests` references only Application and Domain. Integration
+tests require `Bandera.Api` (for `WebApplicationFactory<Program>`), which
 transitively pulls in Infrastructure, EF Core, and Npgsql. Adding these to the unit
 test project would blur the dependency boundary and slow down unit test builds.
 
@@ -221,7 +221,7 @@ while body DTOs do validate environment values.
    - **Cons:** not implementable if the new tests expose the current environment
      validation gap
 3. Expand the spec slightly to allow a narrow controller-layer fix in
-   `FeatureFlag.Api/Controllers/FeatureFlagsController.cs`, then add the missing
+   `Bandera.Api/Controllers/BanderasController.cs`, then add the missing
    integration tests so the documented API contract is actually enforced.
    - **Pros:** makes the spec internally consistent, locks down the full API
      boundary, and keeps the production change tightly scoped
@@ -230,7 +230,7 @@ while body DTOs do validate environment values.
 **Chosen solution:** Option 3.
 
 This spec now explicitly permits a targeted controller-layer validation fix for
-the `environment` query parameter in `FeatureFlagsController`. No Application,
+the `environment` query parameter in `BanderasController`. No Application,
 Domain, or Infrastructure changes are allowed for this fix. The integration suite
 will be expanded to cover the missing error paths and will require all `400`,
 `404`, and `409` responses in scope to assert `application/problem+json` plus the
@@ -242,7 +242,7 @@ expected `ProblemDetails` or `ValidationProblemDetails` shape.
 
 ### NuGet Packages
 
-Create `FeatureFlag.Tests.Integration/FeatureFlag.Tests.Integration.csproj` with:
+Create `Bandera.Tests.Integration/Bandera.Tests.Integration.csproj` with:
 
 ```xml
 <Project Sdk="Microsoft.NET.Sdk">
@@ -268,7 +268,7 @@ Create `FeatureFlag.Tests.Integration/FeatureFlag.Tests.Integration.csproj` with
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\FeatureFlag.Api\FeatureFlag.Api.csproj" />
+    <ProjectReference Include="..\Bandera.Api\Bandera.Api.csproj" />
   </ItemGroup>
 </Project>
 ```
@@ -277,16 +277,16 @@ Create `FeatureFlag.Tests.Integration/FeatureFlag.Tests.Integration.csproj` with
 > not specify a version — use the latest stable at time of implementation. Do not
 > pin to a specific version unless a compatibility issue is discovered.
 
-> **NOTE:** The project references `FeatureFlag.Api` only. This transitively
+> **NOTE:** The project references `Bandera.Api` only. This transitively
 > brings Application, Domain, and Infrastructure. Do not add direct references
 > to lower-layer projects.
 
 ### Solution Registration
 
-Add `FeatureFlag.Tests.Integration` to `FeatureFlagService.sln`. Use:
+Add `Bandera.Tests.Integration` to `Bandera.sln`. Use:
 
 ```bash
-dotnet sln FeatureFlagService.sln add FeatureFlag.Tests.Integration/FeatureFlag.Tests.Integration.csproj
+dotnet sln Bandera.sln add Bandera.Tests.Integration/Bandera.Tests.Integration.csproj
 ```
 
 ---
@@ -296,10 +296,10 @@ dotnet sln FeatureFlagService.sln add FeatureFlag.Tests.Integration/FeatureFlag.
 Create the following files. Do not create any other files or folders.
 
 ```
-FeatureFlag.Tests.Integration/
-├── FeatureFlag.Tests.Integration.csproj       ← NEW
+Bandera.Tests.Integration/
+├── Bandera.Tests.Integration.csproj       ← NEW
 ├── Fixtures/
-│   ├── FeatureFlagApiFactory.cs               ← NEW
+│   ├── BanderaApiFactory.cs               ← NEW
 │   ├── IntegrationTestCollection.cs           ← NEW
 │   └── IntegrationTestBase.cs                 ← NEW
 ├── FlagEndpointTests.cs                       ← NEW
@@ -367,9 +367,9 @@ All test methods are `async Task`. All HTTP calls use `await`. Do not use
 
 ---
 
-## Fixture: FeatureFlagApiFactory
+## Fixture: BanderaApiFactory
 
-**File:** `FeatureFlag.Tests.Integration/Fixtures/FeatureFlagApiFactory.cs`
+**File:** `Bandera.Tests.Integration/Fixtures/BanderaApiFactory.cs`
 
 A custom `WebApplicationFactory<Program>` that manages a Testcontainers
 Postgres instance and wires it into the ASP.NET Core host.
@@ -382,10 +382,10 @@ Postgres instance and wires it into the ASP.NET Core host.
    - Calls `base.CreateClient(new WebApplicationFactoryClientOptions { BaseAddress = new Uri("https://localhost"), AllowAutoRedirect = false })`
      once to trigger host startup after the container is ready
 3. `ConfigureWebHost` override:
-   - Removes the existing `DbContextOptions<FeatureFlagDbContext>` registration
-   - Registers a new `AddDbContext<FeatureFlagDbContext>` pointing at the
+   - Removes the existing `DbContextOptions<BanderaDbContext>` registration
+   - Registers a new `AddDbContext<BanderaDbContext>` pointing at the
      Testcontainer's connection string
-   - Creates a scope, resolves `FeatureFlagDbContext`, calls `Database.MigrateAsync()`
+   - Creates a scope, resolves `BanderaDbContext`, calls `Database.MigrateAsync()`
      to apply EF Core migrations
 4. `DisposeAsync`:
    - Disposes the Postgres container
@@ -394,16 +394,16 @@ Postgres instance and wires it into the ASP.NET Core host.
 
 ```csharp
 using DotNet.Testcontainers.Builders;
-using FeatureFlag.Infrastructure.Persistence;
+using Bandera.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Testcontainers.PostgreSql;
 
-namespace FeatureFlag.Tests.Integration.Fixtures;
+namespace Bandera.Tests.Integration.Fixtures;
 
-public sealed class FeatureFlagApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
+public sealed class BanderaApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 {
     private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder()
         .WithImage("postgres:16")
@@ -419,9 +419,9 @@ public sealed class FeatureFlagApiFactory : WebApplicationFactory<Program>, IAsy
     {
         builder.ConfigureServices(services =>
         {
-            // Remove the app's FeatureFlagDbContext registration
+            // Remove the app's BanderaDbContext registration
             var descriptor = services.SingleOrDefault(
-                d => d.ServiceType == typeof(DbContextOptions<FeatureFlagDbContext>));
+                d => d.ServiceType == typeof(DbContextOptions<BanderaDbContext>));
 
             if (descriptor is not null)
             {
@@ -429,7 +429,7 @@ public sealed class FeatureFlagApiFactory : WebApplicationFactory<Program>, IAsy
             }
 
             // Register with Testcontainer connection string
-            services.AddDbContext<FeatureFlagDbContext>(options =>
+            services.AddDbContext<BanderaDbContext>(options =>
                 options.UseNpgsql(_postgres.GetConnectionString()));
         });
     }
@@ -442,7 +442,7 @@ public sealed class FeatureFlagApiFactory : WebApplicationFactory<Program>, IAsy
 
         // Apply migrations once after container starts
         using var scope = Services.CreateScope();
-        var dbContext = scope.ServiceProvider.GetRequiredService<FeatureFlagDbContext>();
+        var dbContext = scope.ServiceProvider.GetRequiredService<BanderaDbContext>();
         await dbContext.Database.MigrateAsync();
     }
 
@@ -464,8 +464,8 @@ public sealed class FeatureFlagApiFactory : WebApplicationFactory<Program>, IAsy
 > assertions.
 
 > **IMPORTANT:** The `ConfigureWebHost` override must also remove any existing
-> `FeatureFlagDbContext` service registration (not just `DbContextOptions`).
-> Check for both. If only `DbContextOptions` is removed but `FeatureFlagDbContext`
+> `BanderaDbContext` service registration (not just `DbContextOptions`).
+> Check for both. If only `DbContextOptions` is removed but `BanderaDbContext`
 > itself is also registered as a service type, remove that too. Test by running
 > a single test — if it fails with a connection error to `Host=postgres`, the
 > replacement did not take effect.
@@ -474,17 +474,17 @@ public sealed class FeatureFlagApiFactory : WebApplicationFactory<Program>, IAsy
 
 ## Fixture: IntegrationTestCollection
 
-**File:** `FeatureFlag.Tests.Integration/Fixtures/IntegrationTestCollection.cs`
+**File:** `Bandera.Tests.Integration/Fixtures/IntegrationTestCollection.cs`
 
-Defines an xUnit collection that shares a single `FeatureFlagApiFactory`
+Defines an xUnit collection that shares a single `BanderaApiFactory`
 across all test classes. This means one Postgres container for the entire
 test suite.
 
 ```csharp
-namespace FeatureFlag.Tests.Integration.Fixtures;
+namespace Bandera.Tests.Integration.Fixtures;
 
 [CollectionDefinition("Integration")]
-public sealed class IntegrationTestCollection : ICollectionFixture<FeatureFlagApiFactory>;
+public sealed class IntegrationTestCollection : ICollectionFixture<BanderaApiFactory>;
 ```
 
 Both test classes must be decorated with `[Collection("Integration")]`.
@@ -493,16 +493,16 @@ Both test classes must be decorated with `[Collection("Integration")]`.
 
 ## Fixture: IntegrationTestBase
 
-**File:** `FeatureFlag.Tests.Integration/Fixtures/IntegrationTestBase.cs`
+**File:** `Bandera.Tests.Integration/Fixtures/IntegrationTestBase.cs`
 
 Base class for all integration test classes. Provides an `HttpClient`,
 JSON serialization options matching the API, and per-test database cleanup.
 
 ### Behavior
 
-1. Receives `FeatureFlagApiFactory` via constructor injection (xUnit collection fixture)
+1. Receives `BanderaApiFactory` via constructor injection (xUnit collection fixture)
 2. Implements `IAsyncLifetime`
-3. `InitializeAsync`: Runs `DELETE FROM flags` via a scoped `FeatureFlagDbContext`
+3. `InitializeAsync`: Runs `DELETE FROM flags` via a scoped `BanderaDbContext`
 4. `DisposeAsync`: No-op
 5. Exposes:
    - `Client` — `HttpClient` from the factory, created with
@@ -515,11 +515,11 @@ JSON serialization options matching the API, and per-test database cleanup.
 ```csharp
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using FeatureFlag.Infrastructure.Persistence;
+using Bandera.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace FeatureFlag.Tests.Integration.Fixtures;
+namespace Bandera.Tests.Integration.Fixtures;
 
 public abstract class IntegrationTestBase : IAsyncLifetime
 {
@@ -531,9 +531,9 @@ public abstract class IntegrationTestBase : IAsyncLifetime
         Converters = { new JsonStringEnumConverter() },
     };
 
-    private readonly FeatureFlagApiFactory _factory;
+    private readonly BanderaApiFactory _factory;
 
-    protected IntegrationTestBase(FeatureFlagApiFactory factory)
+    protected IntegrationTestBase(BanderaApiFactory factory)
     {
         _factory = factory;
         Client = factory.CreateClient(
@@ -548,7 +548,7 @@ public abstract class IntegrationTestBase : IAsyncLifetime
     public async Task InitializeAsync()
     {
         using var scope = _factory.Services.CreateScope();
-        var dbContext = scope.ServiceProvider.GetRequiredService<FeatureFlagDbContext>();
+        var dbContext = scope.ServiceProvider.GetRequiredService<BanderaDbContext>();
         await dbContext.Database.ExecuteSqlRawAsync("DELETE FROM flags");
     }
 
@@ -568,7 +568,7 @@ public abstract class IntegrationTestBase : IAsyncLifetime
 
 ## FlagEndpointTests
 
-**File:** `FeatureFlag.Tests.Integration/FlagEndpointTests.cs`
+**File:** `Bandera.Tests.Integration/FlagEndpointTests.cs`
 
 Tests all 5 `api/flags` endpoints: POST (create), GET all, GET by name,
 PUT (update), DELETE (archive).
@@ -932,7 +932,7 @@ Assert:
 
 ## EvaluationEndpointTests
 
-**File:** `FeatureFlag.Tests.Integration/EvaluationEndpointTests.cs`
+**File:** `Bandera.Tests.Integration/EvaluationEndpointTests.cs`
 
 Tests the `POST /api/evaluate` endpoint.
 
@@ -1060,11 +1060,11 @@ dependency.
           dotnet-version: '10.x'
 
       - name: Restore packages
-        run: dotnet restore FeatureFlagService.sln
+        run: dotnet restore Bandera.sln
 
       - name: Run integration tests
         run: >
-          dotnet test FeatureFlagService.sln
+          dotnet test Bandera.sln
           --no-restore
           --filter "Category=Integration"
           --logger "console;verbosity=normal"
@@ -1083,7 +1083,7 @@ The `ai-review` job must wait for integration tests to pass:
 
 ## Changes to Existing Files
 
-### `FeatureFlag.Api/Program.cs`
+### `Bandera.Api/Program.cs`
 
 Add to the very end of the file, after `app.Run();`:
 
@@ -1097,7 +1097,7 @@ with top-level statements. It does not change runtime behavior.
 
 ---
 
-### `FeatureFlag.Api/Controllers/FeatureFlagsController.cs`
+### `Bandera.Api/Controllers/BanderasController.cs`
 
 Add a narrow controller-layer validation guard for the `environment` query
 parameter on `GetAllAsync`, `GetByNameAsync`, `UpdateAsync`, and `ArchiveAsync`.
@@ -1111,12 +1111,12 @@ for invalid query-environment handling on all flag endpoints.
 
 ---
 
-### `FeatureFlagService.sln`
+### `Bandera.sln`
 
 Add the new project:
 
 ```bash
-dotnet sln FeatureFlagService.sln add FeatureFlag.Tests.Integration/FeatureFlag.Tests.Integration.csproj
+dotnet sln Bandera.sln add Bandera.Tests.Integration/Bandera.Tests.Integration.csproj
 ```
 
 ---
@@ -1131,22 +1131,22 @@ See [CI Pipeline Changes](#ci-pipeline-changes) for the full diff.
 
 The implementation is complete when **all** of the following are true:
 
-- [ ] `FeatureFlag.Tests.Integration/FeatureFlag.Tests.Integration.csproj` exists with correct packages and project reference
-- [ ] `FeatureFlag.Tests.Integration` is registered in `FeatureFlagService.sln`
-- [ ] `FeatureFlagApiFactory.cs` starts a Testcontainers Postgres, applies EF Core migrations, and boots the host with an HTTPS client configuration
+- [ ] `Bandera.Tests.Integration/Bandera.Tests.Integration.csproj` exists with correct packages and project reference
+- [ ] `Bandera.Tests.Integration` is registered in `Bandera.sln`
+- [ ] `BanderaApiFactory.cs` starts a Testcontainers Postgres, applies EF Core migrations, and boots the host with an HTTPS client configuration
 - [ ] `IntegrationTestCollection.cs` defines the shared `"Integration"` collection
 - [ ] `IntegrationTestBase.cs` provides an HTTPS `HttpClient`, `JsonOptions`, and per-test `DELETE FROM flags` cleanup
 - [ ] `Program.cs` ends with `public partial class Program { }`
-- [ ] `FeatureFlagsController.cs` rejects invalid query `environment` values with `400` `ProblemDetails`
+- [ ] `BanderasController.cs` rejects invalid query `environment` values with `400` `ProblemDetails`
 - [ ] Every test class and method carries `[Trait("Category", "Integration")]`
 - [ ] Every test class is decorated with `[Collection("Integration")]`
 - [ ] All assertions use FluentAssertions — no `Assert.*` calls
 - [ ] All test methods follow the `MethodName_StateUnderTest_ExpectedBehavior` naming convention
 - [ ] `FlagEndpointTests`: all 24 tests pass
 - [ ] `EvaluationEndpointTests`: all 7 tests pass
-- [ ] `dotnet test FeatureFlagService.sln --filter "Category=Integration"` exits 0
-- [ ] `dotnet test FeatureFlagService.sln --filter "Category!=Integration"` still passes (existing unit tests unbroken)
-- [ ] `dotnet build FeatureFlagService.sln -p:TreatWarningsAsErrors=true` exits 0
+- [ ] `dotnet test Bandera.sln --filter "Category=Integration"` exits 0
+- [ ] `dotnet test Bandera.sln --filter "Category!=Integration"` still passes (existing unit tests unbroken)
+- [ ] `dotnet build Bandera.sln -p:TreatWarningsAsErrors=true` exits 0
 - [ ] `dotnet csharpier check .` exits 0
 - [ ] `ci.yml` contains `integration-test` job with `--filter "Category=Integration"`
 - [ ] `ai-review` job has `needs: [lint-format, build-test, integration-test]`
@@ -1169,9 +1169,9 @@ The following are explicitly **not** part of this PR:
 - `.http` smoke test file (separate Phase 1 task)
 - Evaluation decision logging (separate Phase 1 task)
 - Changes to any production code other than `Program.cs` and the targeted
-  `FeatureFlagsController.cs` query-environment validation fix described in
+  `BanderasController.cs` query-environment validation fix described in
   DD-8
-- Any changes to `FeatureFlag.Tests/` (existing unit test project)
+- Any changes to `Bandera.Tests/` (existing unit test project)
 
 ---
 
@@ -1224,26 +1224,26 @@ Read the following files in order before writing any code:
 
 Then implement in this order:
 
-1. Add `public partial class Program { }` to the end of `FeatureFlag.Api/Program.cs`
-2. Add the targeted query-`environment` validation fix to `FeatureFlag.Api/Controllers/FeatureFlagsController.cs`
-3. Create `FeatureFlag.Tests.Integration/FeatureFlag.Tests.Integration.csproj`
-4. Run `dotnet sln FeatureFlagService.sln add FeatureFlag.Tests.Integration/FeatureFlag.Tests.Integration.csproj`
-5. Create `FeatureFlag.Tests.Integration/Fixtures/FeatureFlagApiFactory.cs`
-6. Create `FeatureFlag.Tests.Integration/Fixtures/IntegrationTestCollection.cs`
-7. Create `FeatureFlag.Tests.Integration/Fixtures/IntegrationTestBase.cs`
-8. Create `FeatureFlag.Tests.Integration/FlagEndpointTests.cs`
-9. Create `FeatureFlag.Tests.Integration/EvaluationEndpointTests.cs`
-10. Run `dotnet build FeatureFlagService.sln -p:TreatWarningsAsErrors=true` — fix all warnings
-11. Run `dotnet test FeatureFlagService.sln --filter "Category=Integration"` — all 31 tests must pass
-12. Run `dotnet test FeatureFlagService.sln --filter "Category!=Integration"` — existing unit tests must still pass
+1. Add `public partial class Program { }` to the end of `Bandera.Api/Program.cs`
+2. Add the targeted query-`environment` validation fix to `Bandera.Api/Controllers/BanderasController.cs`
+3. Create `Bandera.Tests.Integration/Bandera.Tests.Integration.csproj`
+4. Run `dotnet sln Bandera.sln add Bandera.Tests.Integration/Bandera.Tests.Integration.csproj`
+5. Create `Bandera.Tests.Integration/Fixtures/BanderaApiFactory.cs`
+6. Create `Bandera.Tests.Integration/Fixtures/IntegrationTestCollection.cs`
+7. Create `Bandera.Tests.Integration/Fixtures/IntegrationTestBase.cs`
+8. Create `Bandera.Tests.Integration/FlagEndpointTests.cs`
+9. Create `Bandera.Tests.Integration/EvaluationEndpointTests.cs`
+10. Run `dotnet build Bandera.sln -p:TreatWarningsAsErrors=true` — fix all warnings
+11. Run `dotnet test Bandera.sln --filter "Category=Integration"` — all 31 tests must pass
+12. Run `dotnet test Bandera.sln --filter "Category!=Integration"` — existing unit tests must still pass
 13. Run `dotnet csharpier format .`
 14. Update `.github/workflows/ci.yml` — add `integration-test` job, update `ai-review` needs
 
 **DO NOT:**
-- Modify any file in `FeatureFlag.Domain/`, `FeatureFlag.Application/`, or `FeatureFlag.Infrastructure/`
-- Modify any file in `FeatureFlag.Api/` other than `Program.cs` and the targeted
-  `FeatureFlagsController.cs` query-environment validation fix described in DD-8
-- Modify any file in `FeatureFlag.Tests/` (existing unit test project)
+- Modify any file in `Bandera.Domain/`, `Bandera.Application/`, or `Bandera.Infrastructure/`
+- Modify any file in `Bandera.Api/` other than `Program.cs` and the targeted
+  `BanderasController.cs` query-environment validation fix described in DD-8
+- Modify any file in `Bandera.Tests/` (existing unit test project)
 - Use `Assert.*` — use FluentAssertions only
 - Use `UseInMemoryDatabase` — use Testcontainers with real Postgres only
 - Add `try/catch` blocks anywhere in the test project
@@ -1252,4 +1252,4 @@ Then implement in this order:
 
 ---
 
-*FeatureFlagService | test/integration-tests | Phase 1*
+*Bandera | test/integration-tests | Phase 1*

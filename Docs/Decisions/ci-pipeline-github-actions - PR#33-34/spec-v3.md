@@ -46,7 +46,7 @@
 | `dotnet format` vs CSharpier conflation | Used `dotnet format` | CSharpier is source of truth |
 | `GITHUB_TOKEN` permissions undeclared | Not specified | Explicit `pull-requests: write` on `ai-review` job |
 | Previous reviews accumulate | Claimed auto-dismiss | Explicit dismiss-previous-review step |
-| Repo path mismatch in system prompt | `FeatureFlagService.Api` | Corrected to `FeatureFlag.Api` |
+| Repo path mismatch in system prompt | `Bandera.Api` | Corrected to `Bandera.Api` |
 | NuGet caching absent | Not specified | `cache: 'nuget'` on all jobs |
 | Token truncation underspecified | "12,000 tokens" vague | `head -c 48000` specified |
 | Inline comment positioning risk | Specified file + line | Top-level PR comment with `file:line` refs |
@@ -68,7 +68,7 @@
 
 ## User Story
 
-> As a developer working on FeatureFlagService, I want every push and pull request to automatically verify that the code is correctly formatted, builds cleanly, and passes unit tests — so that I catch regressions and formatting drift before they reach protected branches.
+> As a developer working on Bandera, I want every push and pull request to automatically verify that the code is correctly formatted, builds cleanly, and passes unit tests — so that I catch regressions and formatting drift before they reach protected branches.
 
 *(The AI reviewer user story is covered in `spec-ai-reviewer.md`.)*
 
@@ -205,9 +205,9 @@ This configures VS Code to auto-format on save using CSharpier. Developers never
 
 ### Test Trait Decoration
 
-All existing test classes in `FeatureFlag.Tests` must be decorated with `[Trait("Category", "Unit")]` as part of PR 1.
+All existing test classes in `Bandera.Tests` must be decorated with `[Trait("Category", "Unit")]` as part of PR 1.
 
-**This is in-scope for PR 1, not a prerequisite blocking implementation.** Claude Code should scan `FeatureFlag.Tests/**/*.cs` for test classes and add the trait to any class decorated with xUnit attributes (`[Fact]`, `[Theory]`) that does not already have a `[Trait("Category", ...)]` attribute.
+**This is in-scope for PR 1, not a prerequisite blocking implementation.** Claude Code should scan `Bandera.Tests/**/*.cs` for test classes and add the trait to any class decorated with xUnit attributes (`[Fact]`, `[Theory]`) that does not already have a `[Trait("Category", ...)]` attribute.
 
 **Convention going forward:**
 
@@ -244,8 +244,8 @@ Using `!=Integration` means any undecorated test still runs rather than being si
 - [ ] Running `dotnet csharpier --check .` from repo root passes on the existing codebase (no files would be reformatted)
 - [ ] If `dotnet csharpier --check .` fails: Claude Code must run `dotnet csharpier .` to fix violations, then commit the formatted files, then verify `--check` passes
 - [ ] `.vscode/settings.json` present with `formatOnSave: true` and CSharpier as default formatter
-- [ ] All existing test classes in `FeatureFlag.Tests` carry `[Trait("Category", "Unit")]`
-- [ ] Running `dotnet test FeatureFlagService.sln --filter "Category!=Integration"` succeeds with all tests passing
+- [ ] All existing test classes in `Bandera.Tests` carry `[Trait("Category", "Unit")]`
+- [ ] Running `dotnet test Bandera.sln --filter "Category!=Integration"` succeeds with all tests passing
 
 ---
 
@@ -320,14 +320,14 @@ lint-format:
       run: dotnet tool restore
 
     - name: Restore packages
-      run: dotnet restore FeatureFlagService.sln
+      run: dotnet restore Bandera.sln
 
     - name: Check formatting
       run: dotnet csharpier --check .
 
     - name: Build
       run: >
-        dotnet build FeatureFlagService.sln
+        dotnet build Bandera.sln
         --no-restore
         --no-incremental
         -p:TreatWarningsAsErrors=true
@@ -368,11 +368,11 @@ build-test:
         cache: 'nuget'
 
     - name: Restore packages
-      run: dotnet restore FeatureFlagService.sln
+      run: dotnet restore Bandera.sln
 
     - name: Run unit tests
       run: >
-        dotnet test FeatureFlagService.sln
+        dotnet test Bandera.sln
         --no-restore
         --filter "Category!=Integration"
         --logger "console;verbosity=normal"
@@ -481,7 +481,7 @@ Files Claude Code must produce for PRs 1 and 2:
 .vscode/
   settings.json                        ← PR 1 — create or update
 
-FeatureFlag.Tests/
+Bandera.Tests/
   **/*.cs                              ← PR 1 — add [Trait("Category", "Unit")] to all test classes
 
 .github/
@@ -537,7 +537,7 @@ services:
 
 Update test step to run all categories:
 ```bash
-dotnet test FeatureFlagService.sln --no-restore --logger "console;verbosity=normal"
+dotnet test Bandera.sln --no-restore --logger "console;verbosity=normal"
 ```
 
 Add environment variable override for connection string:
@@ -551,7 +551,7 @@ env:
 ### Phase 2 — Code coverage gate (add after unit tests in `build-test`)
 
 ```bash
-dotnet test FeatureFlagService.sln \
+dotnet test Bandera.sln \
   --no-restore \
   --collect:"XPlat Code Coverage" \
   --results-directory ./coverage

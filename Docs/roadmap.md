@@ -1,4 +1,4 @@
-# Roadmap — FeatureFlagService
+# Roadmap — Bandera
 
 ---
 
@@ -27,7 +27,7 @@
 
 **Azure-native. .NET-first. AI-assisted feature flag management.**
 
-FeatureFlagService is being built to compete in the developer tooling market as the
+Bandera is being built to compete in the developer tooling market as the
 feature flag platform for teams that live in the Microsoft ecosystem. The competitive
 positioning is specific and deliberate:
 
@@ -77,7 +77,7 @@ Every phase of this roadmap builds toward that demo.
 * [x] `PercentageStrategy`, `RoleStrategy`, `NoneStrategy`
 * [x] EF Core + Postgres repository
 * [x] Controllers wired, Swagger configured
-* [x] Service interface boundary — `IFeatureFlagService` speaks entirely in DTOs
+* [x] Service interface boundary — `IBanderaService` speaks entirely in DTOs
 
 ---
 
@@ -109,19 +109,19 @@ Every phase of this roadmap builds toward that demo.
 * [x] `GlobalExceptionMiddleware` — RFC 9457 `ProblemDetails`
 * [x] `application/problem+json` on all error responses
 * [x] Domain exception hierarchy (`FlagNotFoundException`,
-      `DuplicateFlagNameException`, `FeatureFlagValidationException`)
+      `DuplicateFlagNameException`, `BanderaValidationException`)
 * [x] All controllers cleaned — zero `try/catch` blocks
 * [x] All error responses return `ProblemDetails` with `Content-Type: application/problem+json`
 
 ### Input Validation Hardening ✅ Complete (PR #37)
 
 * [x] `StrategyConfigRules` extracted — shared `internal static` class; closes KI-NEW-001
-* [x] `FeatureFlagValidationException` — 400 domain exception for route parameter failures
-* [x] `RouteParameterGuard` — compiled regex allowlist guard in `FeatureFlag.Api/Helpers/`;
+* [x] `BanderaValidationException` — 400 domain exception for route parameter failures
+* [x] `RouteParameterGuard` — compiled regex allowlist guard in `Bandera.Api/Helpers/`;
       closes KI-008
 * [x] `RouteParameterGuard.ValidateName(name)` called first in `GetByNameAsync`,
       `UpdateAsync`, and `ArchiveAsync`
-* [x] `ExistsAsync` added to `IFeatureFlagRepository` and implemented with `AnyAsync`
+* [x] `ExistsAsync` added to `IBanderaRepository` and implemented with `AnyAsync`
 * [x] `CreateFlagAsync` — sanitizes name, calls `ExistsAsync`, throws
       `DuplicateFlagNameException` before insert
 * [x] `SaveChangesAsync` in repository intercepts Postgres `23505` unique constraint
@@ -149,9 +149,9 @@ Every phase of this roadmap builds toward that demo.
 * [x] `LogResult` — structured log output, consistent prefix, `UnreachableException` default
 * [x] `IsEnabled(LogLevel.Information)` guard — CA1873 compliance on hot path
 * [x] 16 new unit tests — `EvaluationResultTests`, `UserIdHashTests`,
-      `FeatureFlagServiceLoggingTests`
+      `BanderaServiceLoggingTests`
 * [x] `Microsoft.Extensions.Diagnostics.Testing` `10.4.0` — `FakeLogger<T>`
-* [x] `AssemblyInfo.cs` — `InternalsVisibleTo("FeatureFlag.Tests")`
+* [x] `AssemblyInfo.cs` — `InternalsVisibleTo("Bandera.Tests")`
 
 ### NuGet Locked Restore ✅ Complete (rolled into PR #48)
 
@@ -244,11 +244,11 @@ Every phase of this roadmap builds toward that demo.
 
 ## 📦 Phase 7 — .NET SDK ⭐ Key Product Milestone
 
-* [ ] `FeatureFlag.Client` NuGet package
-* [ ] `IFeatureFlagClient` — `IsEnabledAsync(string flagName, string userId, string[] roles)`
-* [ ] ASP.NET Core middleware extensions — `UseFeatureFlags()`
+* [ ] `Bandera.Client` NuGet package
+* [ ] `IBanderaClient` — `IsEnabledAsync(string flagName, string userId, string[] roles)`
+* [ ] ASP.NET Core middleware extensions — `UseBanderas()`
 * [ ] Action filter attributes — `[RequireFlag("my-flag")]`
-* [ ] Service registration helpers — `services.AddFeatureFlagClient()`
+* [ ] Service registration helpers — `services.AddBanderaClient()`
 * [ ] SDK documentation and quickstart guide
 * [ ] NuGet publish via GitHub Actions on tag
 
@@ -288,7 +288,7 @@ Phase 1 DoD is met when this is complete. Phase 1.5 begins immediately after.
 ## 🧩 Notes for AI Assistants (Claude Context)
 
 - Architecture follows Clean Architecture: Api → Application → Domain ← Infrastructure
-- `IFeatureFlagService` speaks entirely in DTOs — no `Flag` entity crosses the boundary
+- `IBanderaService` speaks entirely in DTOs — no `Flag` entity crosses the boundary
 - Domain logic is intentionally strict — no public setters, explicit mutation methods
 - Strategy pattern is central to extensibility — new strategies require zero changes to evaluator
 - Evaluation must remain deterministic and testable
@@ -299,7 +299,7 @@ Phase 1 DoD is met when this is complete. Phase 1.5 begins immediately after.
 - `StrategyConfigRules` is the single source of truth for strategy config validation methods
 - `EnvironmentRules` is the single source of truth for environment validation —
   `IsValid(...)` in validators, `RequireValid(...)` at the service boundary
-- `SaveChangesAsync` in `FeatureFlagRepository` catches Postgres `23505` and rethrows as
+- `SaveChangesAsync` in `BanderaRepository` catches Postgres `23505` and rethrows as
   `DuplicateFlagNameException` — intentional TOCTOU handling, do not remove
 - `ExistsAsync` checks non-archived flags only — archived flags do not block name reuse
 - `CreateFlagRequest.StrategyConfig` and `UpdateFlagRequest.StrategyConfig` are `string?`
@@ -315,7 +315,7 @@ Phase 1 DoD is met when this is complete. Phase 1.5 begins immediately after.
 - Any spec providing `JsonDocument` code must use `using JsonDocument doc = ...`
 - Any spec with optional DTO fields must explicitly state nullability and wire contract
 - `IsSeeded` must never appear on `FlagResponse` or any DTO — internal infrastructure only
-- `DatabaseSeeder` is `public sealed` — required for DI resolution from `FeatureFlag.Api`
+- `DatabaseSeeder` is `public sealed` — required for DI resolution from `Bandera.Api`
   across the assembly boundary; `internal` causes `CS0122`
 - `MigrateAsync()` runs before `SeedAsync()` in the Development startup block —
   order is load-bearing; do not swap

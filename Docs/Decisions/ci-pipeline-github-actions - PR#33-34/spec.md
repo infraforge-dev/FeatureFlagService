@@ -33,7 +33,7 @@
 
 ## User Story
 
-> As a developer working on FeatureFlagService, I want every push and pull request to automatically verify that the code builds, is correctly formatted, and passes unit tests — and I want every labeled PR to receive an AI-assisted code review with inline comments — so that I catch regressions and design issues before they reach protected branches.
+> As a developer working on Bandera, I want every push and pull request to automatically verify that the code builds, is correctly formatted, and passes unit tests — and I want every labeled PR to receive an AI-assisted code review with inline comments — so that I catch regressions and design issues before they reach protected branches.
 
 ---
 
@@ -127,9 +127,9 @@ on:
 |---|---|---|
 | Checkout | `actions/checkout@v4` | Hard fail |
 | Setup .NET | `actions/setup-dotnet@v4` with `dotnet-version: '10.x'` | Hard fail |
-| Restore | `dotnet restore FeatureFlagService.sln` | Hard fail |
-| Format check | `dotnet format FeatureFlagService.sln --verify-no-changes` | Hard fail — PR cannot merge |
-| Build | `dotnet build FeatureFlagService.sln --no-restore --no-incremental -warnaserror` | Hard fail — PR cannot merge |
+| Restore | `dotnet restore Bandera.sln` | Hard fail |
+| Format check | `dotnet format Bandera.sln --verify-no-changes` | Hard fail — PR cannot merge |
+| Build | `dotnet build Bandera.sln --no-restore --no-incremental -warnaserror` | Hard fail — PR cannot merge |
 
 **Notes:**
 - `--verify-no-changes` means CSharpier/dotnet format will exit non-zero if any file would be changed, causing the step to fail
@@ -150,8 +150,8 @@ on:
 |---|---|---|
 | Checkout | `actions/checkout@v4` | Hard fail |
 | Setup .NET | `actions/setup-dotnet@v4` with `dotnet-version: '10.x'` | Hard fail |
-| Restore | `dotnet restore FeatureFlagService.sln` | Hard fail |
-| Unit tests | `dotnet test FeatureFlagService.sln --no-restore --filter "Category!=Integration"` | Hard fail — PR cannot merge |
+| Restore | `dotnet restore Bandera.sln` | Hard fail |
+| Unit tests | `dotnet test Bandera.sln --no-restore --filter "Category!=Integration"` | Hard fail — PR cannot merge |
 | Integration tests | _(stubbed — see note)_ | Not active in Phase 1 |
 
 **Integration test stub note:**
@@ -226,7 +226,7 @@ Claude must be prompted to return structured JSON (no markdown fences):
   "summary": "One paragraph summary of the review",
   "issues": [
     {
-      "file": "FeatureFlagService.Api/Controllers/FeatureFlagsController.cs",
+      "file": "Bandera.Api/Controllers/BanderasController.cs",
       "line": 42,
       "severity": "error|warning|suggestion",
       "comment": "Plain text comment to post inline"
@@ -245,9 +245,9 @@ If `approved` is `true` and `issues` is empty, the job posts an approving review
 This prompt must be committed as `.github/prompts/ai-review-system.md` and read into the workflow at runtime. It must not be hardcoded in the YAML.
 
 ```
-You are a senior .NET engineer performing a code review on a pull request for FeatureFlagService.
+You are a senior .NET engineer performing a code review on a pull request for Bandera.
 
-FeatureFlagService is a .NET 10 Web API following strict Clean Architecture:
+Bandera is a .NET 10 Web API following strict Clean Architecture:
 - Domain layer: entities, value objects, enums, interfaces. No outward dependencies.
 - Application layer: services, DTOs, validators, strategies. Depends only on Domain.
 - Infrastructure layer: EF Core, Postgres, repository implementations. Depends on Application.
@@ -255,7 +255,7 @@ FeatureFlagService is a .NET 10 Web API following strict Clean Architecture:
 
 Key rules to enforce:
 1. Domain entities must never appear in controller signatures or cross the service boundary. Use DTOs.
-2. IFeatureFlagService methods must accept and return DTOs only — never the Flag entity.
+2. IBanderaService methods must accept and return DTOs only — never the Flag entity.
 3. FluentValidation is v12. Do not suggest .Transform() — it was removed. Use .Must() lambda pattern.
 4. FluentValidation validators are registered explicitly with AddScoped<>() — not AddValidatorsFromAssemblyContaining.
 5. Controllers call ValidateAsync() manually — FluentValidation.AspNetCore is not used.
@@ -419,7 +419,7 @@ services:
 
 Update test step to run all categories:
 ```bash
-dotnet test FeatureFlagService.sln --no-restore
+dotnet test Bandera.sln --no-restore
 ```
 
 Add connection string override via environment variable pointing to the service container.
@@ -428,7 +428,7 @@ Add connection string override via environment variable pointing to the service 
 
 Add after unit test step:
 ```bash
-dotnet test FeatureFlagService.sln \
+dotnet test Bandera.sln \
   --collect:"XPlat Code Coverage" \
   --results-directory ./coverage
 

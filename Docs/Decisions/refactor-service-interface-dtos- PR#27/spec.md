@@ -5,12 +5,12 @@
 
 **Implementation notes:** `docs/Decisions/refactor-service-interface-dtos/implementation-notes.md`
 
-[Pull Request #24](https://github.com/amodelandme/FeatureFlagService/pull/24)
+[Pull Request #24](https://github.com/amodelandme/Bandera/pull/24)
 
 
 ## Problem
 
-`IFeatureFlagService` currently:
+`IBanderaService` currently:
 - Returns `Flag` domain entities to callers (controllers)
 - Accepts a raw `Flag` entity in `CreateFlagAsync`
 - Accepts 5 primitive parameters in `UpdateFlagAsync` instead of a DTO
@@ -20,15 +20,15 @@ and must call `.ToResponse()` itself — logic that belongs inside the service.
 
 ## Goal
 
-Make `IFeatureFlagService` speak entirely in DTOs. The domain entity `Flag`
+Make `IBanderaService` speak entirely in DTOs. The domain entity `Flag`
 must never cross the service boundary. All mapping happens inside
-`FeatureFlagService`, not in controllers.
+`Bandera`, not in controllers.
 
 ---
 
 ## Changes Required
 
-### 1. `IFeatureFlagService` — update signatures
+### 1. `IBanderaService` — update signatures
 ```csharp
 Task<FlagResponse> GetFlagAsync(
     string name, EnvironmentType environment, CancellationToken ct = default);
@@ -51,7 +51,7 @@ Task ArchiveFlagAsync(
 
 ---
 
-### 2. `FeatureFlagService` — update implementation
+### 2. `Bandera` — update implementation
 
 **`CreateFlagAsync`:**
 - Accept `CreateFlagRequest` instead of `Flag`
@@ -70,7 +70,7 @@ Task ArchiveFlagAsync(
 
 ---
 
-### 3. `FeatureFlagsController` — simplify
+### 3. `BanderasController` — simplify
 
 - Remove all `.ToResponse()` calls — service now handles mapping
 - `Create`: pass `request` directly to `_service.CreateFlagAsync(request, ct)`
@@ -82,7 +82,7 @@ Task ArchiveFlagAsync(
 ### 4. `FlagMappings.cs` — no changes needed
 
 `ToResponse()` extension method stays. It is now called from inside
-`FeatureFlagService` only, not from controllers.
+`Bandera` only, not from controllers.
 
 ---
 
@@ -98,10 +98,10 @@ Task ArchiveFlagAsync(
 
 ## Acceptance Criteria
 
-- [ ] `IFeatureFlagService` has no `Flag` type in any method signature
-- [ ] `FeatureFlagsController` contains zero `.ToResponse()` calls
-- [ ] `FeatureFlagService.CreateFlagAsync` constructs `Flag` internally
-- [ ] `FeatureFlagService.UpdateFlagAsync` accepts `UpdateFlagRequest`, not primitives
+- [ ] `IBanderaService` has no `Flag` type in any method signature
+- [ ] `BanderasController` contains zero `.ToResponse()` calls
+- [ ] `BanderaService.CreateFlagAsync` constructs `Flag` internally
+- [ ] `BanderaService.UpdateFlagAsync` accepts `UpdateFlagRequest`, not primitives
 - [ ] Build passes: `dotnet build` — 0 errors, 0 warnings
 - [ ] All 8 existing tests still pass: `dotnet test`
 - [ ] Manual smoke test: POST `/api/flags`, GET `/api/flags`, PUT, DELETE all return correct responses

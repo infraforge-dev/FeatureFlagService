@@ -5,7 +5,7 @@
 **Spec reference:** `docs/Decisions/evaluation-engine/spec.md`  
 **Build status:** Passed — 0 warnings, 0 errors
 
-[Pull Request #22](https://github.com/amodelandme/FeatureFlagService/pull/22)
+[Pull Request #22](https://github.com/amodelandme/Bandera/pull/22)
  
 ---
  
@@ -16,12 +16,12 @@ All items in scope per the spec were completed:
 | File | Status |
 |---|---|
 | `Domain/Interfaces/IRolloutStrategy.cs` | Updated — `StrategyType` property added |
-| `Domain/Interfaces/IFeatureFlagRepository.cs` | Created |
+| `Domain/Interfaces/IBanderaRepository.cs` | Created |
 | `Application/Strategies/NoneStrategy.cs` | Created |
 | `Application/Strategies/PercentageStrategy.cs` | Created |
 | `Application/Strategies/RoleStrategy.cs` | Created |
 | `Application/Evaluation/FeatureEvaluator.cs` | Created |
-| `Application/Services/FeatureFlagService.cs` | Created |
+| `Application/Services/BanderaService.cs` | Created |
 | `Application/DependencyInjection.cs` | Created |
 | `Infrastructure/DependencyInjection.cs` | Created (stub) |
 | `Api/Program.cs` | Updated — wired up `AddApplication()` and `AddInfrastructure()` |
@@ -59,8 +59,8 @@ The spec instructed uncommenting the two wiring lines in `Program.cs` but did no
 the required `using` directives. The following were added:
  
 ```csharp
-using FeatureFlag.Application;
-using FeatureFlag.Infrastructure;
+using Bandera.Application;
+using Bandera.Infrastructure;
 ```
  
 Without these, the extension methods `AddApplication()` and `AddInfrastructure()` are not
@@ -72,7 +72,7 @@ in place. Minor spec gap — no architectural impact.
 ### 2.3 `IsEnabled` Check Consolidated to Service Layer
  
 The spec placed an `IsEnabled` short-circuit in `FeatureEvaluator.Evaluate`, but
-`FeatureFlagService.IsEnabled` already checks the same property before calling the evaluator.
+`Bandera.IsEnabled` already checks the same property before calling the evaluator.
 The check was removed from the evaluator.
  
 `FeatureEvaluator` is now a pure strategy dispatcher — given a flag, select the strategy
@@ -98,9 +98,9 @@ The comment reads:
 ///
 /// This contract is intentionally not enforced here via a guard clause — the
 /// evaluator is a pure strategy dispatcher, not a policy enforcer. Policy lives
-/// at the service boundary (<see cref="FeatureFlagService"/>).
+/// at the service boundary (<see cref="Bandera"/>).
 ///
-/// If this method is called from any context other than FeatureFlagService,
+/// If this method is called from any context other than Bandera,
 /// revisit whether the IsEnabled check needs to be added back here.
 /// </remarks>
 public bool Evaluate(Flag flag, FeatureEvaluationContext context)
@@ -113,10 +113,10 @@ public bool Evaluate(Flag flag, FeatureEvaluationContext context)
 Per the spec, the following were not implemented and remain as stubs or placeholders:
  
 - **EF Core / `DbContext`** — `Infrastructure/DependencyInjection.cs` contains `TODO` comments
-  for `AddDbContext` and `AddScoped<IFeatureFlagRepository>`. The real repository does not
+  for `AddDbContext` and `AddScoped<IBanderaRepository>`. The real repository does not
   exist yet.
-- **`IFeatureFlagRepository` implementation** — The interface is defined in Domain; no concrete
-  class exists. Any attempt to call `IFeatureFlagService` at runtime will fail with an unresolved
+- **`IBanderaRepository` implementation** — The interface is defined in Domain; no concrete
+  class exists. Any attempt to call `IBanderaService` at runtime will fail with an unresolved
   dependency error until this is implemented.
 - **Controllers** — No API endpoints exist. The service layer is fully wired but unreachable
   from HTTP.
@@ -173,9 +173,9 @@ The following decisions from the spec were implemented as written and held up wi
   IRolloutStrategy>` at construction time. No switch statements. Adding a new strategy
   requires only a new class and one DI registration line.
 - **DI lifetime separation** — Strategies and `FeatureEvaluator` are Singleton;
-  `FeatureFlagService` is Scoped. This matches the dependency chain and avoids the
+  `Bandera` is Scoped. This matches the dependency chain and avoids the
   captive dependency bug with EF Core `DbContext`.
-- **`IFeatureFlagRepository` in Domain** — Infrastructure implements it; Domain defines it;
+- **`IBanderaRepository` in Domain** — Infrastructure implements it; Domain defines it;
   Application consumes it. Dependency Inversion Principle is intact.
 - **Fail-closed behavior** — All strategies return `false` on null config, malformed JSON,
   or missing strategy registration. No exceptions are thrown from the evaluation path.
@@ -188,11 +188,11 @@ The following decisions from the spec were implemented as written and held up wi
  
 1. `refactor/upgrade-net10` — custom Dockerfile, upgrade all projects to `net10.0` **(do first)**
 2. Implement EF Core `DbContext` and entity configuration
-3. Implement `FeatureFlagRepository`
+3. Implement `BanderaRepository`
 4. Register repository in `Infrastructure/DependencyInjection.cs`
 5. Create feature flag controllers
 6. Configure Swagger/OpenAPI with meaningful examples
  
 ---
  
-*FeatureFlagService | feature/evaluation-engine | Phase 0*
+*Bandera | feature/evaluation-engine | Phase 0*

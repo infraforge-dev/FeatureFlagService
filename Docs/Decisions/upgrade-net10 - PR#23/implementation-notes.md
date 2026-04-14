@@ -6,7 +6,7 @@
 **Build status:** Passed — 0 warnings, 0 errors
 **Test status:** Passed — 8/8
 
-[Pull Request #23](https://github.com/amodelandme/FeatureFlagService/pull/23)
+[Pull Request #23](https://github.com/amodelandme/Bandera/pull/23)
 
 ---
 
@@ -17,11 +17,11 @@ All items in scope per the spec were completed:
 | File | Change |
 |---|---|
 | `.devcontainer/devcontainer.json` | Base image swapped from `devcontainers/dotnet:9.0` to `devcontainers/base:ubuntu-24.04` |
-| `FeatureFlag.Api/FeatureFlag.Api.csproj` | `net9.0` → `net10.0` |
-| `FeatureFlag.Application/FeatureFlag.Application.csproj` | `net9.0` → `net10.0` |
-| `FeatureFlag.Domain/FeatureFlag.Domain.csproj` | `net9.0` → `net10.0` |
-| `FeatureFlag.Infrastructure/FeatureFlag.Infrastructure.csproj` | `net9.0` → `net10.0` |
-| `FeatureFlag.Tests/FeatureFlag.Tests.csproj` | `net9.0` → `net10.0` |
+| `Bandera.Api/Bandera.Api.csproj` | `net9.0` → `net10.0` |
+| `Bandera.Application/Bandera.Application.csproj` | `net9.0` → `net10.0` |
+| `Bandera.Domain/Bandera.Domain.csproj` | `net9.0` → `net10.0` |
+| `Bandera.Infrastructure/Bandera.Infrastructure.csproj` | `net9.0` → `net10.0` |
+| `Bandera.Tests/Bandera.Tests.csproj` | `net9.0` → `net10.0` |
 | `docs/current-state.md` | KI-001 marked resolved |
 
 ---
@@ -48,7 +48,7 @@ instruction. No functional impact.
 
 ### 2.2 `Microsoft.AspNetCore.OpenApi` Remains at Version 9.0.3
 
-`FeatureFlag.Api` carries a package reference to `Microsoft.AspNetCore.OpenApi`
+`Bandera.Api` carries a package reference to `Microsoft.AspNetCore.OpenApi`
 version `9.0.3`. The spec explicitly stated:
 
 > Do not add or remove NuGet packages unless the build explicitly fails and the error
@@ -82,11 +82,11 @@ EF Core and controller work remain deferred to the next session.
 ## 5. Next Session Scope (Phase 0 Completion)
 
 1. Implement EF Core `DbContext` and entity configuration
-2. Implement `FeatureFlagRepository`
+2. Implement `BanderaRepository`
 3. Register repository in `Infrastructure/DependencyInjection.cs`
 4. Create feature flag controllers
 5. Configure Swagger/OpenAPI with meaningful examples
 
 ---
 
-*FeatureFlagService | refactor/upgrade-net10 | Phase 0*
+*Bandera | refactor/upgrade-net10 | Phase 0*

@@ -1,5 +1,5 @@
 # ============================================================
-# FeatureFlagService — .editorconfig
+# Bandera — .editorconfig
 # .NET 10 / C# / ASP.NET Core / Clean Architecture
 #
 # Jurisdiction split:
@@ -83,7 +83,7 @@ csharp_space_between_square_brackets                               = false
 # Explicit types preferred everywhere — makes types visible
 # during code review and when reading unfamiliar code.
 # Exception: when the type is immediately obvious on the right
-# (e.g. var service = new FeatureFlagService(...))
+# (e.g. var service = new BanderaService(...))
 # ------------------------------------------------------------
 csharp_style_var_for_built_in_types     = false:warning
 csharp_style_var_when_type_is_apparent  = true:suggestion
@@ -238,8 +238,8 @@ dotnet_remove_unnecessary_suppression_exclusions = none
 
 # ------------------------------------------------------------
 # Namespace matches folder structure
-# FeatureFlag.Application.Services should live in
-# FeatureFlag.Application/Services/ — enforced by this rule
+# Bandera.Application.Services should live in
+# Bandera.Application/Services/ — enforced by this rule
 # ------------------------------------------------------------
 dotnet_style_namespace_match_folder = true:warning
 
@@ -458,7 +458,7 @@ generated_code = true
 # Test projects — slightly relaxed rules
 # Readability in tests sometimes justifies flexibility
 # ============================================================
-[FeatureFlag.Tests/**/*.cs]
+[Bandera.Tests/**/*.cs]
 
 # Allow discard in test assertions without warning
 dotnet_diagnostic.CS8600.severity = suggestion

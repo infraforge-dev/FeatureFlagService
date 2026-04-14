@@ -39,7 +39,7 @@
 
 ## User Story
 
-> As a developer submitting a pull request to FeatureFlagService, I want an AI reviewer
+> As a developer submitting a pull request to Bandera, I want an AI reviewer
 > to automatically inspect my diff and flag Clean Architecture violations, FluentValidation v12
 > misuse, and missing CancellationToken propagation — so that I catch design issues before
 > human review, without blocking my PR on transient infrastructure failures.
@@ -501,7 +501,7 @@ Markdown fences, no preamble, no trailing explanation.
   "summary": "string — one paragraph describing the overall state of the PR",
   "issues": [
     {
-      "file": "string — relative path from repo root, e.g. FeatureFlag.Api/Controllers/FeatureFlagsController.cs",
+      "file": "string — relative path from repo root, e.g. Bandera.Api/Controllers/BanderasController.cs",
       "line": "number — approximate line number in the file (not the diff position)",
       "severity": "error | warning | suggestion",
       "comment": "string — plain English, actionable description of the issue"
@@ -539,8 +539,8 @@ for improved guard clause placement.
 
 | Severity | File | Line | Comment |
 |---|---|---|---|
-| 🔴 error | `FeatureFlag.Application/Validators/CreateFlagRequestValidator.cs` | 24 | `.Transform()` was removed in FluentValidation v12. Replace with a `.Must()` lambda that applies the same sanitization. |
-| 🔵 suggestion | `FeatureFlag.Api/Controllers/FeatureFlagsController.cs` | 18 | Consider moving the null guard above the validation call for consistency with other actions. |
+| 🔴 error | `Bandera.Application/Validators/CreateFlagRequestValidator.cs` | 24 | `.Transform()` was removed in FluentValidation v12. Replace with a `.Must()` lambda that applies the same sanitization. |
+| 🔵 suggestion | `Bandera.Api/Controllers/BanderasController.cs` | 18 | Consider moving the null guard above the validation call for consistency with other actions. |
 
 ---
 _Reviewed by Claude `claude-sonnet-4-6` · Dismiss this review in the GitHub UI to override_
@@ -631,14 +631,14 @@ Stored at `.github/prompts/ai-review-system.md`. Read at runtime — never hardc
 Versioned in Git so changes to review behavior are auditable.
 
 ```markdown
-You are a senior .NET engineer performing a code review on a pull request for FeatureFlagService.
+You are a senior .NET engineer performing a code review on a pull request for Bandera.
 
-FeatureFlagService is a .NET 10 Web API built with strict Clean Architecture:
+Bandera is a .NET 10 Web API built with strict Clean Architecture:
 
-- Domain layer (FeatureFlag.Domain): entities, value objects, enums, interfaces. Zero outward dependencies.
-- Application layer (FeatureFlag.Application): services, DTOs, validators, strategies. Depends only on Domain.
-- Infrastructure layer (FeatureFlag.Infrastructure): EF Core, Npgsql, PostgreSQL, repository implementations. Depends on Application and Domain.
-- API layer (FeatureFlag.Api): controllers, middleware, DI wiring. Depends only on Application.
+- Domain layer (Bandera.Domain): entities, value objects, enums, interfaces. Zero outward dependencies.
+- Application layer (Bandera.Application): services, DTOs, validators, strategies. Depends only on Domain.
+- Infrastructure layer (Bandera.Infrastructure): EF Core, Npgsql, PostgreSQL, repository implementations. Depends on Application and Domain.
+- API layer (Bandera.Api): controllers, middleware, DI wiring. Depends only on Application.
 
 The dependency rule is absolute: inner layers never reference outer layers.
 
@@ -646,7 +646,7 @@ Rules to enforce:
 
 1. Domain entities (e.g. `Flag`) must never appear in controller method signatures,
    return types, or cross any service boundary. Use DTOs only.
-2. `IFeatureFlagService` methods must accept and return DTOs only — never the `Flag` entity.
+2. `IBanderaService` methods must accept and return DTOs only — never the `Flag` entity.
 3. FluentValidation version is 12. Do not suggest `.Transform()` — it was removed in v12.
    The correct pattern is a `.Must()` lambda that performs the same transformation.
 4. Validators are registered with explicit `AddScoped<IValidator<T>, TValidator>()` in DI.
@@ -798,4 +798,4 @@ Must not be implemented in this PR:
 
 ---
 
-*FeatureFlagService | feature/ci-ai-reviewer | Phase 1 — AI Reviewer | v1.0*
+*Bandera | feature/ci-ai-reviewer | Phase 1 — AI Reviewer | v1.0*
