@@ -447,7 +447,7 @@ All AI features will use **Azure OpenAI** and **Semantic Kernel** — consistent
 
 ```
 Phase 0  ✅  Foundation — domain, strategies, persistence, API
-Phase 1  🔄  MVP Completion — validation, CI, error handling, unit tests ← (final stretch)
+Phase 1  ✅  MVP Completion — validation, CI, error handling, unit tests ← (final stretch)
 Phase 1.5    Azure Foundation + AI — Key Vault, App Insights, AI analysis endpoint
 Phase 2      Testing & Reliability — integration tests, contract tests
 Phase 3      Auth & Security — JWT, RBAC, rate limiting, audit trail
@@ -468,9 +468,9 @@ Phase 9      Open Core Launch — public Docker image, hosted offering
 - [x] Unit tests for all strategies and evaluator (75/75 passing)
 - [x] CI pipeline — format gate + zero-warnings build
 - [x] AI PR reviewer in CI
-- [ ] Integration tests for all 6 endpoints
-- [ ] `.http` smoke test file
-- [ ] Seed data for local development
+- [x] Integration tests for all 6 endpoints
+- [x] `.http` smoke test file
+- [x] Seed data for local development
 - [ ] Evaluation decision logging
 
 ---
