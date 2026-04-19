@@ -4,6 +4,7 @@ using System.Text;
 using Banderas.Application.DTOs;
 using Banderas.Application.Evaluation;
 using Banderas.Application.Interfaces;
+using Banderas.Application.Telemetry;
 using Banderas.Application.Validation;
 using Banderas.Domain.Entities;
 using Banderas.Domain.Enums;
@@ -19,16 +20,19 @@ public sealed class BanderasService : IBanderasService
     private readonly IBanderasRepository _repository;
     private readonly FeatureEvaluator _evaluator;
     private readonly ILogger<BanderasService> _logger;
+    private readonly ITelemetryService _telemetryService;
 
     public BanderasService(
         IBanderasRepository repository,
         FeatureEvaluator evaluator,
-        ILogger<BanderasService> logger
+        ILogger<BanderasService> logger,
+        ITelemetryService telemetryService
     )
     {
         _repository = repository;
         _evaluator = evaluator;
         _logger = logger;
+        _telemetryService = telemetryService;
     }
 
     public async Task<FlagResponse> GetFlagAsync(
@@ -83,6 +87,12 @@ public sealed class BanderasService : IBanderasService
             );
 
             LogResult(result);
+            _telemetryService.TrackEvaluation(
+                flagName,
+                false,
+                RolloutStrategy.None,
+                sanitizedContext.Environment
+            );
             return false;
         }
 
@@ -97,6 +107,12 @@ public sealed class BanderasService : IBanderasService
         );
 
         LogResult(strategyResult);
+        _telemetryService.TrackEvaluation(
+            flagName,
+            isEnabled,
+            flag.StrategyType,
+            sanitizedContext.Environment
+        );
         return isEnabled;
     }
 

@@ -1,6 +1,7 @@
 using Banderas.Application.Evaluation;
 using Banderas.Application.Services;
 using Banderas.Application.Strategies;
+using Banderas.Application.Telemetry;
 using Banderas.Domain.Entities;
 using Banderas.Domain.Enums;
 using Banderas.Domain.Exceptions;
@@ -24,7 +25,7 @@ public sealed class BanderasServiceLoggingTests
         _repo = new TestBanderasRepository();
         _evaluator = new FeatureEvaluator(new IRolloutStrategy[] { new NoneStrategy() });
         _fakeLogger = new FakeLogger<BanderasService>();
-        _service = new BanderasService(_repo, _evaluator, _fakeLogger);
+        _service = new BanderasService(_repo, _evaluator, _fakeLogger, new NullTelemetryService());
     }
 
     [Fact]
@@ -117,6 +118,16 @@ public sealed class BanderasServiceLoggingTests
 
         Assert.Equal(LogLevel.Warning, record.Level);
         Assert.Contains("missing-flag", record.Message);
+    }
+
+    private sealed class NullTelemetryService : ITelemetryService
+    {
+        public void TrackEvaluation(
+            string flagName,
+            bool result,
+            RolloutStrategy strategy,
+            EnvironmentType environment
+        ) { }
     }
 
     private sealed class TestBanderasRepository : IBanderasRepository
