@@ -483,3 +483,6 @@ $RECYCLE.BIN/
 
 # Claude local settings
 .claude/settings.local.json
+
+# skills folder
+/skills
