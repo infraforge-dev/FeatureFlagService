@@ -205,7 +205,7 @@ Phase 1 DoD is complete when this is shipped. Phase 1.5 begins immediately after
 - [x] Seed data for local development — `DatabaseSeeder`, six flags, `IsSeeded`
       provenance marker, reset mode via `SEED_RESET=true` (PR #49)
 - [x] `MigrateAsync()` on startup in Development — schema guaranteed before seeding
-- [ ] `.http` smoke test file committed and finalized
+- [X] `.http` smoke test file committed and finalized
 
 ---
 

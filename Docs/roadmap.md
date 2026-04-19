@@ -176,7 +176,7 @@ Every phase of this roadmap builds toward that demo.
 
 ### Developer Experience
 
-* [ ] `.http` smoke test request file committed to repo (`requests/smoke-test.http`)
+* [X] `.http` smoke test request file committed to repo (`requests/smoke-test.http`)
 
 ---
 

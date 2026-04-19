@@ -1,7 +1,9 @@
 using Banderas.Infrastructure.Persistence;
+using Banderas.Infrastructure.Seeding;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Testcontainers.PostgreSql;
@@ -20,6 +22,15 @@ public sealed class BanderasApiFactory : WebApplicationFactory<Program>, IAsyncL
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
+        builder.UseEnvironment("Testing");
+
+        builder.ConfigureAppConfiguration(config =>
+        {
+            config.AddInMemoryCollection(
+                new Dictionary<string, string?> { ["Azure:KeyVaultUri"] = "" }
+            );
+        });
+
         builder.ConfigureServices(services =>
         {
             services.RemoveAll<DbContextOptions<BanderasDbContext>>();
@@ -40,6 +51,9 @@ public sealed class BanderasApiFactory : WebApplicationFactory<Program>, IAsyncL
         using IServiceScope scope = Services.CreateScope();
         BanderasDbContext dbContext = scope.ServiceProvider.GetRequiredService<BanderasDbContext>();
         await dbContext.Database.MigrateAsync();
+
+        DatabaseSeeder seeder = scope.ServiceProvider.GetRequiredService<DatabaseSeeder>();
+        await seeder.SeedAsync(reset: false);
     }
 
     public new async Task DisposeAsync()

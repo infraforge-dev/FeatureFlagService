@@ -1,3 +1,4 @@
+using Azure.Identity;
 using Banderas.Api.Extensions;
 using Banderas.Api.OpenApi;
 using Banderas.Application;
@@ -6,6 +7,13 @@ using Banderas.Infrastructure.Seeding;
 using Scalar.AspNetCore;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
+
+string? keyVaultUri = builder.Configuration["Azure:KeyVaultUri"];
+
+if (!string.IsNullOrWhiteSpace(keyVaultUri))
+{
+    builder.Configuration.AddAzureKeyVault(new Uri(keyVaultUri), new DefaultAzureCredential());
+}
 
 builder
     .Services.AddControllers()
@@ -54,5 +62,3 @@ if (app.Environment.IsDevelopment())
 }
 
 app.Run();
-
-public partial class Program { }
