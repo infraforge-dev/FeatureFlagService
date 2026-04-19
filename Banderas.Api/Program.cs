@@ -30,8 +30,9 @@ builder.Services.AddOpenApi(options =>
     options.AddDocumentTransformer<ApiInfoTransformer>();
 });
 
+builder.Services.AddApplicationInsightsTelemetry();
 builder.Services.AddApplication();
-builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddInfrastructure(builder.Configuration, builder.Environment);
 
 WebApplication app = builder.Build();
 
