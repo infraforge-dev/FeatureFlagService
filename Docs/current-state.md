@@ -40,7 +40,7 @@
 ---
 
 **Phase 1.5 — Azure Key Vault Integration (PR #50): ✅ Complete**
-**Phase 1.5 — Application Insights Integration (PR #51): 🔲 Not started**
+**Phase 1.5 — Application Insights Integration (PR #51): ✅ Complete**
 **Phase 1.5 — AI Flag Health Analysis Endpoint (PR #52): 🔲 Not started**
 
 **Phase 1.5 — Azure Foundation + AI Integration: 🔄 In Progress**
@@ -71,55 +71,44 @@
 - `PercentageStrategy` — deterministic SHA256 hashing into 100 buckets
 - `RoleStrategy` — config-driven, case-insensitive, fail-closed role matching
 - `FeatureEvaluator` — registry dispatch, `Dictionary<RolloutStrategy, IRolloutStrategy>`
-- `Banderas` service — async, orchestrates repository + evaluator + logging
+- `BanderasService` — async, orchestrates repository + evaluator + logging + telemetry
 - `IBanderasService` — async signatures with `CancellationToken`, full CRUD + evaluation
 - `DependencyInjection.cs` — `AddApplication()` extension method
 - DTOs: `CreateFlagRequest`, `UpdateFlagRequest`, `FlagResponse`, `EvaluationRequest`,
   `EvaluationResponse`, `FlagMappings`
-- `InputSanitizer` — single source of truth for HTTP boundary sanitization
-- `EnvironmentRules` — single source of truth for environment validation
-- `StrategyConfigRules` — extracted shared validation logic across validators
-- FluentValidation v12 on all request DTOs — `CreateFlagRequestValidator`,
-  `UpdateFlagRequestValidator`, `EvaluationRequestValidator`
-- Evaluation decision logging — `EvaluationReason` enum, `HashUserId` (SHA256 surrogate),
-  `LogResult` structured output, `IsEnabled(LogLevel.Information)` guard (CA1873)
+- `InputSanitizer` — single source of sanitization at HTTP boundary
+- `EvaluationResult` discriminated union — `FlagDisabled`, `StrategyEvaluated`, `EvaluationReason`
+- `ITelemetryService` — telemetry abstraction; Application layer has no SDK reference
 
 ### Infrastructure Layer
 
-- `BanderasRepository` — EF Core + Npgsql, full async CRUD + soft archive
-- `BanderasDbContext` — EF Core 10, Npgsql provider
-- `RouteParameterGuard` — compiled regex allowlist for `{name}` route parameters
-- `GlobalExceptionMiddleware` — RFC 9457 `ProblemDetails`, `application/problem+json`
-- OpenAPI enrichment — Scalar UI, `EnumSchemaTransformer`, `ApiInfoTransformer`,
-  XML doc comments, `[ProducesResponseType]` attributes
-- `WebApplicationExtensions.MigrateAsync()` — runs `db.Database.MigrateAsync()`
-  in a scoped service provider; called in Development startup block before seeder
-- `Program.cs` Development startup block — runs migration then seeder on every
-  startup; `SEED_RESET` env var controls reset mode
+- `BanderasRepository` — EF Core async repository
+- `BanderasDbContext` — Postgres via EF Core
+- `DatabaseSeeder` — six seed flags; `IsSeeded` stamped `true`; idempotent
+- `DependencyInjection.cs` — `AddInfrastructure(IConfiguration, IHostEnvironment)` extension
+- `ApplicationInsightsTelemetryService` — `TelemetryClient`-backed; emits `flag.evaluated`
+  custom events with `FlagName`, `Result`, `Strategy`, `Environment` dimensions
+- `NullTelemetryService` — no-op; registered when environment is `"Testing"`
 
-### Azure Infrastructure (Phase 1.5 — Provisioned)
+### Api Layer
 
-- `rg-banderas-dev` — Azure Resource Group, West US
-- `kv-banderas-dev` — Azure Key Vault; `ConnectionStrings--DefaultConnection` secret enabled
-- `appi-banderas-dev` — Azure Application Insights, West US
-- `aoai-banderas-dev` — Azure OpenAI resource, East US, Standard S0
-- `gpt-5-mini` model deployment — deployed inside `aoai-banderas-dev`, Standard tier
+- `BanderasController` — full CRUD (create, read, update, archive)
+- `EvaluationController` — `POST /api/evaluate`
+- RFC 9457 `ProblemDetails` global exception middleware
+- `RouteParameterGuard` — route `{name}` validation
+- FluentValidation v12 — manual `ValidateAsync()` in controllers
+- OpenAPI enrichment — Scalar UI, enum schema transformer, XML doc comments
+- `requests/smoke-test.http` — all 6 endpoints covered
 
-### Phase 1.5 — Key Vault Integration (PR #50) ✅ Complete
+### Azure / Infrastructure
 
-- `Azure.Extensions.AspNetCore.Configuration.Secrets` + `Azure.Identity` added to
-  `Banderas.Api.csproj`
-- `Program.cs` — `AddAzureKeyVault()` called with `DefaultAzureCredential` before
-  all service registrations; guarded by `string.IsNullOrWhiteSpace(keyVaultUri)` for
-  graceful local fallback
-- `appsettings.json` — `"Azure": { "KeyVaultUri": "" }` placeholder added
-- `appsettings.Development.json` — `Azure:KeyVaultUri` set to `kv-banderas-dev` URI;
-  local Docker connection string retained as fallback
-- `BanderasApiFactory.cs` — `UseEnvironment("Testing")` added to prevent Key Vault
-  credential chain from firing during integration tests; `DatabaseSeeder.SeedAsync()`
-  called explicitly in `InitializeAsync` since seeder no longer runs under "Testing"
-  environment
-- 113/113 tests passing after integration test factory fix
+- Key Vault integration — `DefaultAzureCredential`, configuration provider pattern,
+  `ConnectionStrings--DefaultConnection` sourced from `kv-banderas-dev`
+- Application Insights — `AddApplicationInsightsTelemetry()` auto-captures requests,
+  exceptions, and EF Core dependencies; `flag.evaluated` custom event per evaluation;
+  connection string sourced from Key Vault (`ApplicationInsights--ConnectionString`)
+- `appsettings.json` — `Azure:KeyVaultUri` and `ApplicationInsights:ConnectionString`
+  placeholders present; real values from Key Vault at runtime
 
 ### CI/CD
 
@@ -133,10 +122,11 @@
 
 ### Tests
 
-- 81 unit tests — strategies, evaluator, validators
+- 81 unit tests — strategies, evaluator, validators, logging behavior
 - 32 integration tests — all 6 endpoints via Testcontainers Postgres
 - 113/113 passing
 - `AssemblyInfo.cs` — `InternalsVisibleTo("Banderas.Tests")`
+- `BanderasServiceLoggingTests` — local `NullTelemetryService` stub satisfies updated constructor
 
 ### Developer Experience
 
@@ -147,11 +137,10 @@
 
 ## 🚧 What Is Not Yet Built — Phase 1.5 Remaining
 
-- [ ] Application Insights integration (PR #51) — structured telemetry sink;
-  `EvaluationReason` from PR #48 feeds directly into custom events
 - [ ] AI flag health analysis endpoint (PR #52) — natural language summary of
   flag status via Azure OpenAI + Semantic Kernel; `IPromptSanitizer` introduced
   alongside `IAiFlagAnalyzer`
+- [ ] Architecture Review Document — technical health audit before Phase 2
 
 ---
 
@@ -172,9 +161,8 @@ not `localhost`. This is correct for the devcontainer environment. Do not change
 
 ### Immediate Next Tasks
 
-1. Application Insights integration spec + implementation (PR #51)
-2. AI flag health analysis endpoint spec + implementation (PR #52)
-3. Architecture Review Document — technical health audit before Phase 2
+1. AI flag health analysis endpoint spec + implementation (PR #52)
+2. Architecture Review Document — technical health audit before Phase 2
 
 ---
 
@@ -210,7 +198,7 @@ not `localhost`. This is correct for the devcontainer environment. Do not change
 ## 📌 Definition of Done — Phase 1.5
 
 - [x] Azure Key Vault integration — connection string sourced from vault at startup
-- [ ] Application Insights integration — structured telemetry, evaluation custom events
+- [x] Application Insights integration — structured telemetry, evaluation custom events
 - [ ] AI flag health analysis endpoint — natural language flag status via Azure OpenAI
 - [ ] `IPromptSanitizer` introduced alongside `IAiFlagAnalyzer`
 - [ ] Architecture Review Document committed to `Docs/`
@@ -228,22 +216,29 @@ not `localhost`. This is correct for the devcontainer environment. Do not change
   model types in root `Microsoft.OpenApi` namespace, not `Microsoft.OpenApi.Models`
 - Integration test factory must use `UseEnvironment("Testing")` to prevent
   `appsettings.Development.json` from loading Azure config during tests
-- Key Vault secret naming: `--` maps to `:` in `IConfiguration` automatically
+- `AddInfrastructure()` must accept `IHostEnvironment` to support conditional
+  service registration (e.g. `NullTelemetryService` vs `ApplicationInsightsTelemetryService`)
+- `TelemetryClient` must be registered as Singleton — it maintains an internal buffer
+  and is designed for application-lifetime use
+- Unit tests that construct `BanderasService` directly need a `NullTelemetryService`
+  stub — add as a private class in the test file; no new project reference required
 
 ---
 
 ## 🧩 Notes for AI Assistants
 
+- The system is not production-ready
+- Prioritize correctness over feature expansion
 - Follow Clean Architecture — dependencies point inward toward Domain
 - Work within the established layer boundaries (Api → Application → Domain ← Infrastructure)
 - `IBanderasService` speaks entirely in DTOs — never return `Flag` from the service
 - All evaluation logic must remain deterministic and isolated from persistence
+- `FeatureEvaluator` is a pure function — no side effects, no ILogger, no ITelemetryService
+- `BanderasService` is the imperative shell — owns all side effects (logging, telemetry)
 - `appsettings.Development.json` is intentionally committed — local Docker defaults only
 - Connection string uses `Host=postgres` — do not change to `localhost`
 - Both Infrastructure and Api projects require `Microsoft.EntityFrameworkCore.Design`
   with `PrivateAssets=all`
-- Integration test factory uses `UseEnvironment("Testing")` — do not change this;
-  it prevents Key Vault credential chain from firing during tests
-- Azure resources are provisioned in `rg-banderas-dev`, West US (App Insights) /
-  East US (OpenAI)
-- GPT model deployment name: `gpt-5-mini` inside `aoai-banderas-dev`
+- `ITelemetryService` lives in Application layer — no SDK reference there
+- `NullTelemetryService` is registered when `IHostEnvironment.IsEnvironment("Testing")`
+  is true — integration tests resolve it automatically via `UseEnvironment("Testing")`
