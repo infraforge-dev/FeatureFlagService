@@ -6,11 +6,12 @@
 
 - [Status Summary](#-status-summary)
 - [What Is Completed](#-what-is-completed)
-- [What Is Not Yet Built](#-what-is-not-yet-built-phase-1-remaining)
+- [What Is Not Yet Built](#-what-is-not-yet-built-phase-15-remaining)
 - [Known Issues](#-known-issues)
 - [Current Focus](#-current-focus)
 - [What Not To Do Right Now](#-what-not-to-do-right-now)
 - [Definition of Done — Phase 1](#-definition-of-done--phase-1)
+- [Definition of Done — Phase 1.5](#-definition-of-done--phase-15)
 - [Spec Writing — Lessons Learned](#-spec-writing--lessons-learned)
 - [Notes for AI Assistants](#-notes-for-ai-assistants)
 
@@ -30,13 +31,19 @@
 **Phase 1 — Evaluation Decision Logging (PR #48): ✅ Complete**
 **Phase 1 — NuGet Locked Restore (rolled into PR #48): ✅ Complete**
 **Phase 1 — Seed Data for Local Development (PR #49): ✅ Complete**
+**Phase 1 — Smoke Test File (`requests/smoke-test.http`): ✅ Complete**
+
+**🎉 Phase 1 — MVP Completion: ✅ COMPLETE**
 
 113/113 tests passing (81 unit + 32 integration).
 
-**One task remains before Phase 1 DoD is declared complete:**
-1. `.http` smoke test file (`requests/smoke-test.http`)
+---
 
-Phase 1.5 begins immediately after the smoke test file is committed.
+**Phase 1.5 — Azure Key Vault Integration (PR #50): ✅ Complete**
+**Phase 1.5 — Application Insights Integration (PR #51): 🔲 Not started**
+**Phase 1.5 — AI Flag Health Analysis Endpoint (PR #52): 🔲 Not started**
+
+**Phase 1.5 — Azure Foundation + AI Integration: 🔄 In Progress**
 
 ---
 
@@ -64,52 +71,55 @@ Phase 1.5 begins immediately after the smoke test file is committed.
 - `PercentageStrategy` — deterministic SHA256 hashing into 100 buckets
 - `RoleStrategy` — config-driven, case-insensitive, fail-closed role matching
 - `FeatureEvaluator` — registry dispatch, `Dictionary<RolloutStrategy, IRolloutStrategy>`
-- `Banderas` — async, orchestrates repository + evaluator + logging
+- `Banderas` service — async, orchestrates repository + evaluator + logging
 - `IBanderasService` — async signatures with `CancellationToken`, full CRUD + evaluation
 - `DependencyInjection.cs` — `AddApplication()` extension method
 - DTOs: `CreateFlagRequest`, `UpdateFlagRequest`, `FlagResponse`, `EvaluationRequest`,
   `EvaluationResponse`, `FlagMappings`
 - `InputSanitizer` — single source of truth for HTTP boundary sanitization
 - `EnvironmentRules` — single source of truth for environment validation
-- `StrategyConfigRules` — single source of truth for strategy config validation
-- Validators: `CreateFlagRequestValidator`, `UpdateFlagRequestValidator`,
-  `EvaluationRequestValidator` (FluentValidation v12)
-- `EvaluationResult` discriminated union — `FlagDisabled` | `StrategyEvaluated`
-- `EvaluationReason` enum — explicit reason dimension on every evaluation log entry
+- `StrategyConfigRules` — extracted shared validation logic across validators
+- FluentValidation v12 on all request DTOs — `CreateFlagRequestValidator`,
+  `UpdateFlagRequestValidator`, `EvaluationRequestValidator`
+- Evaluation decision logging — `EvaluationReason` enum, `HashUserId` (SHA256 surrogate),
+  `LogResult` structured output, `IsEnabled(LogLevel.Information)` guard (CA1873)
 
 ### Infrastructure Layer
 
-- `BanderasDbContext` — EF Core, Postgres, `ApplyConfigurationsFromAssembly`
-- `BanderasDbContextFactory` — design-time factory for `dotnet ef` tooling
-- `FlagConfiguration` — EF Core Fluent API mapping; partial unique index
-  `HasFilter("\"IsArchived\" = false")` prevents archived rows from blocking name reuse;
-  `IsSeeded` column mapped with `HasDefaultValue(false)`
-- `AddIsSeededToFlag` migration — adds `IsSeeded bool NOT NULL DEFAULT false`;
-  existing rows receive `false` automatically
-- `BanderasRepository` — async CRUD + `ExistsAsync`; `SaveChangesAsync` catches
-  Postgres `23505` and rethrows as `DuplicateFlagNameException`
-- `DatabaseSeeder` (`public sealed`) — runs on startup in Development only;
-  per-record backfill in normal mode; `SEED_RESET=true` wipes `IsSeeded = true`
-  rows and re-inserts; skips slots occupied by non-seeded active flags with a
-  `Warning` log; seeds six representative flags across all three strategies and
-  two environments
-- `DependencyInjection.cs` — `AddInfrastructure()` registers `BanderasRepository`
-  and `DatabaseSeeder`
-
-### Api Layer
-
-- `BanderasController` — full CRUD (Create, GetAll, GetByName, Update, Archive)
-- `EvaluationController` — POST `/api/evaluate`
-- `GlobalExceptionMiddleware` — catches domain exceptions, maps to RFC 9457
-  `ProblemDetails` with `Content-Type: application/problem+json`
-- `RouteParameterGuard` — compiled regex allowlist; called first in GetByName,
-  Update, Archive
+- `BanderasRepository` — EF Core + Npgsql, full async CRUD + soft archive
+- `BanderasDbContext` — EF Core 10, Npgsql provider
+- `RouteParameterGuard` — compiled regex allowlist for `{name}` route parameters
+- `GlobalExceptionMiddleware` — RFC 9457 `ProblemDetails`, `application/problem+json`
 - OpenAPI enrichment — Scalar UI, `EnumSchemaTransformer`, `ApiInfoTransformer`,
   XML doc comments, `[ProducesResponseType]` attributes
 - `WebApplicationExtensions.MigrateAsync()` — runs `db.Database.MigrateAsync()`
   in a scoped service provider; called in Development startup block before seeder
 - `Program.cs` Development startup block — runs migration then seeder on every
   startup; `SEED_RESET` env var controls reset mode
+
+### Azure Infrastructure (Phase 1.5 — Provisioned)
+
+- `rg-banderas-dev` — Azure Resource Group, West US
+- `kv-banderas-dev` — Azure Key Vault; `ConnectionStrings--DefaultConnection` secret enabled
+- `appi-banderas-dev` — Azure Application Insights, West US
+- `aoai-banderas-dev` — Azure OpenAI resource, East US, Standard S0
+- `gpt-5-mini` model deployment — deployed inside `aoai-banderas-dev`, Standard tier
+
+### Phase 1.5 — Key Vault Integration (PR #50) ✅ Complete
+
+- `Azure.Extensions.AspNetCore.Configuration.Secrets` + `Azure.Identity` added to
+  `Banderas.Api.csproj`
+- `Program.cs` — `AddAzureKeyVault()` called with `DefaultAzureCredential` before
+  all service registrations; guarded by `string.IsNullOrWhiteSpace(keyVaultUri)` for
+  graceful local fallback
+- `appsettings.json` — `"Azure": { "KeyVaultUri": "" }` placeholder added
+- `appsettings.Development.json` — `Azure:KeyVaultUri` set to `kv-banderas-dev` URI;
+  local Docker connection string retained as fallback
+- `BanderasApiFactory.cs` — `UseEnvironment("Testing")` added to prevent Key Vault
+  credential chain from firing during integration tests; `DatabaseSeeder.SeedAsync()`
+  called explicitly in `InitializeAsync` since seeder no longer runs under "Testing"
+  environment
+- 113/113 tests passing after integration test factory fix
 
 ### CI/CD
 
@@ -125,19 +135,23 @@ Phase 1.5 begins immediately after the smoke test file is committed.
 
 - 81 unit tests — strategies, evaluator, validators
 - 32 integration tests — all 6 endpoints via Testcontainers Postgres
-- 2 production bugs caught by unit tests (PR #38)
-- 2 production bugs caught by integration tests (PR #39)
+- 113/113 passing
+- `AssemblyInfo.cs` — `InternalsVisibleTo("Banderas.Tests")`
 
 ### Developer Experience
 
-- `requests/smoke-test.http` — partial; covers all 6 endpoints (needs final review)
+- `requests/smoke-test.http` — all 6 endpoints covered ✅
 - `DatabaseSeeder` — six seed flags available immediately on `docker compose up`
 
 ---
 
-## 🚧 What Is Not Yet Built — Phase 1 Remaining
+## 🚧 What Is Not Yet Built — Phase 1.5 Remaining
 
-- [ ] `.http` smoke test file reviewed and finalized (`requests/smoke-test.http`)
+- [ ] Application Insights integration (PR #51) — structured telemetry sink;
+  `EvaluationReason` from PR #48 feeds directly into custom events
+- [ ] AI flag health analysis endpoint (PR #52) — natural language summary of
+  flag status via Azure OpenAI + Semantic Kernel; `IPromptSanitizer` introduced
+  alongside `IAiFlagAnalyzer`
 
 ---
 
@@ -154,11 +168,13 @@ not `localhost`. This is correct for the devcontainer environment. Do not change
 
 ## 🎯 Current Focus
 
-**Phase 1 — Final Task**
+**Phase 1.5 — Azure Foundation + AI Integration**
 
-1. `.http` smoke test file reviewed, finalized, and committed (`requests/smoke-test.http`)
+### Immediate Next Tasks
 
-Phase 1 DoD is complete when this is shipped. Phase 1.5 begins immediately after.
+1. Application Insights integration spec + implementation (PR #51)
+2. AI flag health analysis endpoint spec + implementation (PR #52)
+3. Architecture Review Document — technical health audit before Phase 2
 
 ---
 
@@ -167,120 +183,67 @@ Phase 1 DoD is complete when this is shipped. Phase 1.5 begins immediately after
 - No authentication or authorization yet (Phase 3)
 - No caching layer yet (Phase 6)
 - No advanced rollout strategies yet (Phase 5)
-- No observability pipeline yet (Phase 4) — App Insights comes in Phase 1.5
-- No AI analysis endpoint yet (Phase 1.5)
 - No UI work
 - Do not change `Host=postgres` back to `localhost` in connection string
-- Do not use `FluentValidation.AspNetCore` or `AddFluentValidationAutoValidation()`
-- Do not use `.Transform()` — removed in FluentValidation v12
-- Do not add `try/catch` blocks to controllers
-- Do not catch `DbUpdateException` in the Application layer
-- Do not log raw `UserId` — always use `HashUserId()` and log `HashedUserId`
-- Do not add new `EvaluationResult` subtypes without adding a `LogResult` branch and
-  updating the `UnreachableException` message
-- Do not expose `IsSeeded` on any DTO or API response
-- Do not set `IsSeeded = true` anywhere outside `DatabaseSeeder`
+- Do not start Phase 2 until Phase 1.5 DoD is met and architecture review is complete
 
 ---
 
 ## 📌 Definition of Done — Phase 1
 
-- [x] `InputSanitizer` implemented and called in validators and service layer
-- [x] `FluentValidation` v12 on all three request DTOs
-- [x] Manual `ValidateAsync` in controllers
-- [x] CSharpier formatting enforced — CI blocks on violations
-- [x] CI — `lint-format` and `build-test` parallel jobs live
-- [x] AI reviewer job live (PR #35) — activated by `ai-review` label
-- [x] `ANTHROPIC_API_KEY` secret added to GitHub repo
-- [x] Global exception middleware in place
-- [x] Standardized `ProblemDetails` error responses with `application/problem+json`
-- [x] `RouteParameterGuard` — route parameter allowlist with compiled regex
-- [x] `DuplicateFlagNameException` — TOCTOU-safe uniqueness via `DbUpdateException` catch
-- [x] Unit tests — 81 passing; 2 production bugs caught and fixed
-- [x] Integration tests — 32 passing; 2 production bugs caught and fixed
-- [x] `integration-test` CI job live; `ai-review` depends on all three jobs
-- [x] Evaluation decision logging — discriminated union result, `EvaluationReason`,
-      SHA256 `HashedUserId`, structured log output
-- [x] NuGet locked restore enforced in CI
-- [x] Seed data for local development — `DatabaseSeeder`, six flags, `IsSeeded`
-      provenance marker, reset mode via `SEED_RESET=true` (PR #49)
-- [x] `MigrateAsync()` on startup in Development — schema guaranteed before seeding
-- [X] `.http` smoke test file committed and finalized
+- [x] `FluentValidation` on all request DTOs
+- [x] Global exception middleware — RFC 9457 ProblemDetails
+- [x] Input sanitization + route parameter hardening
+- [x] Name uniqueness with TOCTOU protection
+- [x] Unit tests for all strategies and evaluator
+- [x] CI pipeline — format gate + zero-warnings build
+- [x] AI PR reviewer in CI
+- [x] Integration tests for all 6 endpoints
+- [x] `.http` smoke test file committed
+- [x] Seed data for local development
+- [x] Evaluation decision logging
+
+**Phase 1 DoD: ✅ COMPLETE**
 
 ---
 
-## 📚 Spec Writing — Lessons Learned
+## 📌 Definition of Done — Phase 1.5
 
-**Audit all service methods in AC-6-style tasks:** When a spec instructs updating
-methods that throw or return null, explicitly list every affected method.
+- [x] Azure Key Vault integration — connection string sourced from vault at startup
+- [ ] Application Insights integration — structured telemetry, evaluation custom events
+- [ ] AI flag health analysis endpoint — natural language flag status via Azure OpenAI
+- [ ] `IPromptSanitizer` introduced alongside `IAiFlagAnalyzer`
+- [ ] Architecture Review Document committed to `Docs/`
 
-**ProblemDetails responses require `application/problem+json`:** RFC 9457 §8.1.
-Future specs must specify `"application/problem+json"` explicitly.
+---
 
-**Address race conditions (TOCTOU) in uniqueness checks:** Designate the correct
-layer for the catch — `DbUpdateException` belongs in Infrastructure.
+## 📝 Spec Writing — Lessons Learned
 
-**Dispose `JsonDocument` after parsing:** Always wrap with `using JsonDocument doc = ...`.
-
-**DTO nullability must match wire contract:** Explicitly state nullability on DTO
-fields when the field is optional on the wire.
-
-**Log PII defensively from day one:** Raw user identifiers must not appear in log
-output. Use a SHA256 surrogate (`HashedUserId`) from the start.
-
-**`EvaluationReason` must be a first-class log dimension:** Always log `Reason`
-explicitly — inferring it from branch shape is fragile.
-
-**`IsEnabled` guard before logging:** Add `if (!_logger.IsEnabled(level)) return;`
-in any void log helper method (CA1873).
-
-**Pin test package versions explicitly:** Floating NuGet references in test projects
-cause CI drift. Pin to exact version; commit `packages.lock.json`.
-
-**Provenance markers beat name-matching for seeder ownership:** A seeder that
-identifies its rows by name cannot distinguish seeded from manually-created flags
-that share the same identity. An `IsSeeded` column is unambiguous, cheap, and
-self-documenting.
-
-**`internal` does not cross assembly boundaries:** `internal` is assembly-scoped.
-A type in `Infrastructure` marked `internal` is not accessible from `Api` without
-`InternalsVisibleTo`. Prefer constructor overloads or narrowly scoped public members.
-
-**Seed identities are reserved baseline slots, not enforced constraints:** The
-seeder treats its manifest identities as the expected local dev baseline, but
-does not block developers from occupying those slots. Reset skips occupied slots
-and logs a clear override warning rather than failing or deleting manual data.
+- RFC 9457 ProblemDetails — response content type must be `application/problem+json`,
+  not `application/json`
+- FluentValidation v12 — `.Transform()` removed; use `Must()` lambda instead
+- `FluentValidation.AspNetCore` deprecated — use manual `ValidateAsync()` in controllers
+- CSharpier 1.x — subcommand syntax: `dotnet csharpier check .` not `--check`
+- `System.Text.Json` in .NET 10 — `schema.Type` is `JsonSchemaType` flags enum;
+  model types in root `Microsoft.OpenApi` namespace, not `Microsoft.OpenApi.Models`
+- Integration test factory must use `UseEnvironment("Testing")` to prevent
+  `appsettings.Development.json` from loading Azure config during tests
+- Key Vault secret naming: `--` maps to `:` in `IConfiguration` automatically
 
 ---
 
 ## 🧩 Notes for AI Assistants
 
-- Architecture follows Clean Architecture: Api → Application → Domain ← Infrastructure
-- `IBanderasService` speaks entirely in DTOs — no `Flag` entity crosses the boundary
-- Domain logic is intentionally strict — no public setters, explicit mutation methods
-- Strategy pattern is central to extensibility — new strategies require zero changes to evaluator
-- Evaluation must remain deterministic and testable
-- `GlobalExceptionMiddleware` wraps the entire pipeline — controllers contain only happy path
-- All error responses return `ProblemDetails` with `Content-Type: application/problem+json`
-- `RouteParameterGuard.ValidateName(name)` is the first call in `GetByNameAsync`,
-  `UpdateAsync`, and `ArchiveAsync` — do not remove or reorder
-- `StrategyConfigRules` is the single source of truth for strategy config validation
-- `EnvironmentRules` is the single source of truth for environment validation
-- `SaveChangesAsync` in `BanderasRepository` catches Postgres `23505` and rethrows
-  as `DuplicateFlagNameException` — intentional TOCTOU handling, do not remove
-- `ExistsAsync` checks non-archived flags only — archived flags do not block name reuse
-- `CreateFlagRequest.StrategyConfig` and `UpdateFlagRequest.StrategyConfig` are `string?`
-- `GetByNameAsync` has a named route — used by `CreatedAtRoute` in POST; do not remove
-- `public partial class Program { }` is required for `WebApplicationFactory<Program>`
+- Follow Clean Architecture — dependencies point inward toward Domain
+- Work within the established layer boundaries (Api → Application → Domain ← Infrastructure)
+- `IBanderasService` speaks entirely in DTOs — never return `Flag` from the service
+- All evaluation logic must remain deterministic and isolated from persistence
+- `appsettings.Development.json` is intentionally committed — local Docker defaults only
 - Connection string uses `Host=postgres` — do not change to `localhost`
 - Both Infrastructure and Api projects require `Microsoft.EntityFrameworkCore.Design`
   with `PrivateAssets=all`
-- Do not use `FluentValidation.AspNetCore`, `AddFluentValidationAutoValidation()`,
-  or `.Transform()` — all deprecated or removed in FluentValidation v12
-- Any spec referencing ProblemDetails must specify `application/problem+json`
-- Any spec with uniqueness checks must address TOCTOU and designate the correct layer
-- `IsSeeded` must never appear on `FlagResponse` or any DTO
-- `DatabaseSeeder` is `public sealed` — required for resolution from `Banderas.Api`
-  across the assembly boundary; `internal` would cause `CS0122`
-- `MigrateAsync()` runs before `SeedAsync()` in the Development startup block —
-  order is load-bearing; do not swap
+- Integration test factory uses `UseEnvironment("Testing")` — do not change this;
+  it prevents Key Vault credential chain from firing during tests
+- Azure resources are provisioned in `rg-banderas-dev`, West US (App Insights) /
+  East US (OpenAI)
+- GPT model deployment name: `gpt-5-mini` inside `aoai-banderas-dev`
