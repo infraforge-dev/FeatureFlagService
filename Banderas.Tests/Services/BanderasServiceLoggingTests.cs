@@ -1,3 +1,5 @@
+using Banderas.Application.AI;
+using Banderas.Application.DTOs;
 using Banderas.Application.Evaluation;
 using Banderas.Application.Services;
 using Banderas.Application.Strategies;
@@ -25,7 +27,9 @@ public sealed class BanderasServiceLoggingTests
         _repo = new TestBanderasRepository();
         _evaluator = new FeatureEvaluator(new IRolloutStrategy[] { new NoneStrategy() });
         _fakeLogger = new FakeLogger<BanderasService>();
-        _service = new BanderasService(_repo, _evaluator, _fakeLogger, new NullTelemetryService());
+        _service = new BanderasService(
+            _repo, _evaluator, _fakeLogger, new NullTelemetryService(),
+            new NullPromptSanitizer(), new NullAiFlagAnalyzer());
     }
 
     [Fact]
@@ -130,6 +134,20 @@ public sealed class BanderasServiceLoggingTests
         ) { }
     }
 
+    private sealed class NullPromptSanitizer : IPromptSanitizer
+    {
+        public string Sanitize(string input) => input;
+    }
+
+    private sealed class NullAiFlagAnalyzer : IAiFlagAnalyzer
+    {
+        public Task<FlagHealthAnalysisResponse> AnalyzeAsync(
+            IReadOnlyList<FlagResponse> flags,
+            int stalenessThresholdDays,
+            CancellationToken cancellationToken = default
+        ) => throw new NotSupportedException();
+    }
+
     private sealed class TestBanderasRepository : IBanderasRepository
     {
         public Flag? FlagToReturn { get; set; }
@@ -147,7 +165,7 @@ public sealed class BanderasServiceLoggingTests
         ) => throw new NotSupportedException();
 
         public Task<IReadOnlyList<Flag>> GetAllAsync(
-            EnvironmentType environment,
+            EnvironmentType? environment = null,
             CancellationToken ct = default
         ) => throw new NotSupportedException();
 

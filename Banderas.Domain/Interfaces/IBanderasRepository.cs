@@ -22,7 +22,7 @@ public interface IBanderasRepository
     );
 
     Task<IReadOnlyList<Flag>> GetAllAsync(
-        EnvironmentType environment,
+        EnvironmentType? environment = null,
         CancellationToken ct = default
     );
     Task AddAsync(Flag flag, CancellationToken ct = default);

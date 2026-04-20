@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Banderas.Application.Exceptions;
 using Banderas.Domain.Exceptions;
 using Microsoft.AspNetCore.Mvc;
 
@@ -44,6 +45,17 @@ public sealed class GlobalExceptionMiddleware
                 detail: ex.Message
             );
         }
+        catch (AiAnalysisUnavailableException)
+        {
+            await WriteProblemDetailsAsync(
+                context,
+                statusCode: StatusCodes.Status503ServiceUnavailable,
+                title: "AI analysis is currently unavailable.",
+                detail: "The flag health analysis service could not be reached. " +
+                        "Please try again later.",
+                type: "https://tools.ietf.org/html/rfc9110#section-15.6.4"
+            );
+        }
         catch (Exception ex)
         {
             _logger.LogError(
@@ -66,15 +78,13 @@ public sealed class GlobalExceptionMiddleware
         HttpContext context,
         int statusCode,
         string title,
-        string detail
+        string detail,
+        string type = "about:blank"
     )
     {
         var problem = new ProblemDetails
         {
-            // "about:blank" is the RFC 9457 recommendation for standard HTTP errors
-            // with no additional domain-specific semantics. No maintenance required.
-            // Custom URIs will be introduced in Phase 1.5 for domain-specific errors.
-            Type = "about:blank",
+            Type = type,
             Title = title,
             Status = statusCode,
             Detail = detail,

@@ -1,3 +1,5 @@
+using Banderas.Application.AI;
+using Banderas.Application.DTOs;
 using Banderas.Infrastructure.Persistence;
 using Banderas.Infrastructure.Seeding;
 using Microsoft.AspNetCore.Hosting;
@@ -39,7 +41,34 @@ public sealed class BanderasApiFactory : WebApplicationFactory<Program>, IAsyncL
             services.AddDbContext<BanderasDbContext>(options =>
                 options.UseNpgsql(_postgres.GetConnectionString())
             );
+
+            // Semantic Kernel and Azure OpenAI are not registered in Testing.
+            // Provide a deterministic stub so integration tests don't hit Azure.
+            services.AddScoped<IAiFlagAnalyzer, StubAiFlagAnalyzer>();
         });
+    }
+
+    private sealed class StubAiFlagAnalyzer : IAiFlagAnalyzer
+    {
+        public Task<FlagHealthAnalysisResponse> AnalyzeAsync(
+            IReadOnlyList<FlagResponse> flags,
+            int stalenessThresholdDays,
+            CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(new FlagHealthAnalysisResponse
+            {
+                Summary = $"{flags.Count} flag(s) analyzed.",
+                Flags = flags.Select(f => new FlagAssessment
+                {
+                    Name = f.Name,
+                    Status = "Healthy",
+                    Reason = "Stub assessment.",
+                    Recommendation = "No action required."
+                }).ToList(),
+                AnalyzedAt = DateTimeOffset.UtcNow,
+                StalenessThresholdDays = stalenessThresholdDays
+            });
+        }
     }
 
     public async Task InitializeAsync()

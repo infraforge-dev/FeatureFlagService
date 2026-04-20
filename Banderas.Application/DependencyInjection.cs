@@ -1,3 +1,4 @@
+using Banderas.Application.AI;
 using Banderas.Application.Evaluation;
 using Banderas.Application.Interfaces;
 using Banderas.Application.Services;
@@ -17,6 +18,10 @@ public static class DependencyInjection
         services.AddScoped<IValidator<DTOs.CreateFlagRequest>, CreateFlagRequestValidator>();
         services.AddScoped<IValidator<DTOs.UpdateFlagRequest>, UpdateFlagRequestValidator>();
         services.AddScoped<IValidator<DTOs.EvaluationRequest>, EvaluationRequestValidator>();
+        services.AddScoped<IValidator<DTOs.FlagHealthRequest>, FlagHealthRequestValidator>();
+
+        // AI — Prompt sanitizer lives in Application (pure string logic, no I/O)
+        services.AddScoped<IPromptSanitizer, PromptSanitizer>();
 
         // Strategies — Singleton: stateless, safe to share across requests
         services.AddSingleton<IRolloutStrategy, NoneStrategy>();

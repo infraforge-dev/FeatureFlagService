@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text;
+using Banderas.Application.AI;
 using Banderas.Application.DTOs;
 using Banderas.Application.Evaluation;
 using Banderas.Application.Interfaces;
@@ -21,18 +22,24 @@ public sealed class BanderasService : IBanderasService
     private readonly FeatureEvaluator _evaluator;
     private readonly ILogger<BanderasService> _logger;
     private readonly ITelemetryService _telemetryService;
+    private readonly IPromptSanitizer _promptSanitizer;
+    private readonly IAiFlagAnalyzer _aiFlagAnalyzer;
 
     public BanderasService(
         IBanderasRepository repository,
         FeatureEvaluator evaluator,
         ILogger<BanderasService> logger,
-        ITelemetryService telemetryService
+        ITelemetryService telemetryService,
+        IPromptSanitizer promptSanitizer,
+        IAiFlagAnalyzer aiFlagAnalyzer
     )
     {
         _repository = repository;
         _evaluator = evaluator;
         _logger = logger;
         _telemetryService = telemetryService;
+        _promptSanitizer = promptSanitizer;
+        _aiFlagAnalyzer = aiFlagAnalyzer;
     }
 
     public async Task<FlagResponse> GetFlagAsync(
@@ -187,6 +194,28 @@ public sealed class BanderasService : IBanderasService
 
         flag.Archive();
         await _repository.SaveChangesAsync(ct);
+    }
+
+    public async Task<FlagHealthAnalysisResponse> AnalyzeFlagsAsync(
+        FlagHealthRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        int threshold = request.StalenessThresholdDays
+            ?? FlagHealthConstants.DefaultStalenessThresholdDays;
+
+        IReadOnlyList<Flag> flags = await _repository.GetAllAsync(ct: cancellationToken);
+        List<FlagResponse> flagResponses = flags.Select(FlagMappings.ToResponse).ToList();
+
+        // StrategyConfig is string? — null guard required (AC-7)
+        List<FlagResponse> sanitizedFlags = flagResponses.Select(f => f with
+        {
+            Name = _promptSanitizer.Sanitize(f.Name),
+            StrategyConfig = f.StrategyConfig is not null
+                ? _promptSanitizer.Sanitize(f.StrategyConfig)
+                : null
+        }).ToList();
+
+        return await _aiFlagAnalyzer.AnalyzeAsync(sanitizedFlags, threshold, cancellationToken);
     }
 
     /// <summary>

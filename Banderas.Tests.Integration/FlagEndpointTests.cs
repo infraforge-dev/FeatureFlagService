@@ -335,7 +335,7 @@ public sealed class FlagEndpointTests : IntegrationTestBase
         FlagResponse updated = await GetFlagAsync("update-flag");
         updated.IsEnabled.Should().BeFalse();
         updated.StrategyType.Should().Be(RolloutStrategy.Percentage);
-        AssertPercentageConfig(updated.StrategyConfig, 50);
+        AssertPercentageConfig(updated.StrategyConfig!, 50);
     }
 
     [Fact]

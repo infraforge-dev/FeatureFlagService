@@ -9,7 +9,7 @@ with AI-assisted flag analysis and a first-class .NET SDK as core product featur
 [![.NET](https://img.shields.io/badge/.NET-10.0-512BD4?logo=dotnet)](https://dotnet.microsoft.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![CI](https://img.shields.io/github/actions/workflow/status/amodelandme/Banderas/ci.yml?label=CI&logo=github)](https://github.com/amodelandme/Banderas/actions)
-[![Tests](https://img.shields.io/badge/Tests-113%20passing-brightgreen?logo=github)](#testing)
+[![Tests](https://img.shields.io/badge/Tests-144%20passing-brightgreen?logo=github)](#testing)
 [![Phase](https://img.shields.io/badge/Phase-1%20MVP%20%E2%80%94%20Final%20Stretch-blue)](#️-roadmap)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 

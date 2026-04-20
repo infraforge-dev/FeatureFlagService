@@ -28,14 +28,18 @@ public sealed class BanderasRepository : IBanderasRepository
     }
 
     public async Task<IReadOnlyList<Flag>> GetAllAsync(
-        EnvironmentType environment,
+        EnvironmentType? environment = null,
         CancellationToken ct = default
     )
     {
-        return await _context
-            .Flags.Where(f => f.Environment == environment && !f.IsArchived)
-            .OrderBy(f => f.Name)
-            .ToListAsync(ct);
+        IQueryable<Flag> query = _context.Flags.Where(f => !f.IsArchived);
+
+        if (environment.HasValue)
+        {
+            query = query.Where(f => f.Environment == environment.Value);
+        }
+
+        return await query.OrderBy(f => f.Name).ToListAsync(ct);
     }
 
     public async Task<bool> ExistsAsync(

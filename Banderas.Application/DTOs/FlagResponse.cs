@@ -21,7 +21,7 @@ public sealed record FlagResponse(
     bool IsEnabled,
     bool IsArchived,
     RolloutStrategy StrategyType,
-    string StrategyConfig,
+    string? StrategyConfig,
     DateTime CreatedAt,
     DateTime UpdatedAt
 );
