@@ -131,7 +131,8 @@ public sealed class BanderasServiceLoggingTests
             bool result,
             RolloutStrategy strategy,
             EnvironmentType environment
-        ) { }
+        )
+        { }
     }
 
     private sealed class NullPromptSanitizer : IPromptSanitizer

@@ -10,5 +10,6 @@ public sealed class NullTelemetryService : ITelemetryService
         bool result,
         RolloutStrategy strategy,
         EnvironmentType environment
-    ) { }
+    )
+    { }
 }
