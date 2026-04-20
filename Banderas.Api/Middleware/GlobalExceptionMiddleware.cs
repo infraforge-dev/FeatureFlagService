@@ -51,8 +51,8 @@ public sealed class GlobalExceptionMiddleware
                 context,
                 statusCode: StatusCodes.Status503ServiceUnavailable,
                 title: "AI analysis is currently unavailable.",
-                detail: "The flag health analysis service could not be reached. " +
-                        "Please try again later.",
+                detail: "The flag health analysis service could not be reached. "
+                    + "Please try again later.",
                 type: "https://tools.ietf.org/html/rfc9110#section-15.6.4"
             );
         }

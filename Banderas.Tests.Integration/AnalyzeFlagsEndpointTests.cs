@@ -10,14 +10,14 @@ namespace Banderas.Tests.Integration;
 [Trait("Category", "Integration")]
 public sealed class AnalyzeFlagsEndpointTests : IntegrationTestBase
 {
-    public AnalyzeFlagsEndpointTests(BanderasApiFactory factory) : base(factory) { }
+    public AnalyzeFlagsEndpointTests(BanderasApiFactory factory)
+        : base(factory) { }
 
     [Fact]
     [Trait("Category", "Integration")]
     public async Task PostHealth_EmptyBody_Returns200WithStructuredResponseAsync()
     {
-        HttpResponseMessage response = await Client.PostAsJsonAsync(
-            "/api/flags/health", new { });
+        HttpResponseMessage response = await Client.PostAsJsonAsync("/api/flags/health", new { });
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
 
@@ -36,7 +36,9 @@ public sealed class AnalyzeFlagsEndpointTests : IntegrationTestBase
     public async Task PostHealth_WithThreshold_UsesSuppliedThresholdAsync()
     {
         HttpResponseMessage response = await Client.PostAsJsonAsync(
-            "/api/flags/health", new { stalenessThresholdDays = 7 });
+            "/api/flags/health",
+            new { stalenessThresholdDays = 7 }
+        );
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
 
@@ -51,7 +53,9 @@ public sealed class AnalyzeFlagsEndpointTests : IntegrationTestBase
     public async Task PostHealth_ThresholdZero_Returns400Async()
     {
         HttpResponseMessage response = await Client.PostAsJsonAsync(
-            "/api/flags/health", new { stalenessThresholdDays = 0 });
+            "/api/flags/health",
+            new { stalenessThresholdDays = 0 }
+        );
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
         AssertProblemContentType(response);
@@ -62,7 +66,9 @@ public sealed class AnalyzeFlagsEndpointTests : IntegrationTestBase
     public async Task PostHealth_ThresholdTooHigh_Returns400Async()
     {
         HttpResponseMessage response = await Client.PostAsJsonAsync(
-            "/api/flags/health", new { stalenessThresholdDays = 366 });
+            "/api/flags/health",
+            new { stalenessThresholdDays = 366 }
+        );
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
         AssertProblemContentType(response);
@@ -72,8 +78,7 @@ public sealed class AnalyzeFlagsEndpointTests : IntegrationTestBase
     [Trait("Category", "Integration")]
     public async Task PostHealth_AnalyzedAt_IsUtcAsync()
     {
-        HttpResponseMessage response = await Client.PostAsJsonAsync(
-            "/api/flags/health", new { });
+        HttpResponseMessage response = await Client.PostAsJsonAsync("/api/flags/health", new { });
 
         FlagHealthAnalysisResponse? body =
             await response.Content.ReadFromJsonAsync<FlagHealthAnalysisResponse>(JsonOptions);

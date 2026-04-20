@@ -29,7 +29,8 @@ public sealed class BanderasServiceAnalysisTests
             NullLogger<BanderasService>.Instance,
             new NullTelemetryService(),
             _sanitizer,
-            _analyzer);
+            _analyzer
+        );
     }
 
     [Fact]
@@ -57,10 +58,18 @@ public sealed class BanderasServiceAnalysisTests
     {
         _repo.Flags =
         [
-            new Flag("flag-no-config", EnvironmentType.Development, true, RolloutStrategy.None, null)
+            new Flag(
+                "flag-no-config",
+                EnvironmentType.Development,
+                true,
+                RolloutStrategy.None,
+                null
+            ),
         ];
 
-        FlagHealthAnalysisResponse response = await _service.AnalyzeFlagsAsync(new FlagHealthRequest());
+        FlagHealthAnalysisResponse response = await _service.AnalyzeFlagsAsync(
+            new FlagHealthRequest()
+        );
 
         Assert.NotNull(response);
     }
@@ -70,7 +79,7 @@ public sealed class BanderasServiceAnalysisTests
     {
         _repo.Flags =
         [
-            new Flag("flag-a", EnvironmentType.Development, true, RolloutStrategy.None, "{}")
+            new Flag("flag-a", EnvironmentType.Development, true, RolloutStrategy.None, "{}"),
         ];
 
         await _service.AnalyzeFlagsAsync(new FlagHealthRequest());
@@ -84,8 +93,9 @@ public sealed class BanderasServiceAnalysisTests
     {
         _analyzer.ShouldThrow = true;
 
-        await Assert.ThrowsAsync<AiAnalysisUnavailableException>(
-            () => _service.AnalyzeFlagsAsync(new FlagHealthRequest()));
+        await Assert.ThrowsAsync<AiAnalysisUnavailableException>(() =>
+            _service.AnalyzeFlagsAsync(new FlagHealthRequest())
+        );
     }
 
     // --- Test doubles ---
@@ -96,20 +106,26 @@ public sealed class BanderasServiceAnalysisTests
 
         public Task<IReadOnlyList<Flag>> GetAllAsync(
             EnvironmentType? environment = null,
-            CancellationToken ct = default)
-            => Task.FromResult<IReadOnlyList<Flag>>(Flags);
+            CancellationToken ct = default
+        ) => Task.FromResult<IReadOnlyList<Flag>>(Flags);
 
-        public Task<Flag?> GetByNameAsync(string name, EnvironmentType environment, CancellationToken ct = default)
-            => throw new NotSupportedException();
+        public Task<Flag?> GetByNameAsync(
+            string name,
+            EnvironmentType environment,
+            CancellationToken ct = default
+        ) => throw new NotSupportedException();
 
-        public Task<bool> ExistsAsync(string name, EnvironmentType environment, CancellationToken ct = default)
-            => throw new NotSupportedException();
+        public Task<bool> ExistsAsync(
+            string name,
+            EnvironmentType environment,
+            CancellationToken ct = default
+        ) => throw new NotSupportedException();
 
-        public Task AddAsync(Flag flag, CancellationToken ct = default)
-            => throw new NotSupportedException();
+        public Task AddAsync(Flag flag, CancellationToken ct = default) =>
+            throw new NotSupportedException();
 
-        public Task SaveChangesAsync(CancellationToken ct = default)
-            => throw new NotSupportedException();
+        public Task SaveChangesAsync(CancellationToken ct = default) =>
+            throw new NotSupportedException();
     }
 
     private sealed class CapturingPromptSanitizer : IPromptSanitizer
@@ -131,7 +147,8 @@ public sealed class BanderasServiceAnalysisTests
         public Task<FlagHealthAnalysisResponse> AnalyzeAsync(
             IReadOnlyList<FlagResponse> flags,
             int stalenessThresholdDays,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken = default
+        )
         {
             if (ShouldThrow)
             {
@@ -139,13 +156,15 @@ public sealed class BanderasServiceAnalysisTests
             }
 
             CapturedThreshold = stalenessThresholdDays;
-            return Task.FromResult(new FlagHealthAnalysisResponse
-            {
-                Summary = "All good.",
-                Flags = [],
-                AnalyzedAt = DateTimeOffset.UtcNow,
-                StalenessThresholdDays = stalenessThresholdDays
-            });
+            return Task.FromResult(
+                new FlagHealthAnalysisResponse
+                {
+                    Summary = "All good.",
+                    Flags = [],
+                    AnalyzedAt = DateTimeOffset.UtcNow,
+                    StalenessThresholdDays = stalenessThresholdDays,
+                }
+            );
         }
     }
 
@@ -156,7 +175,6 @@ public sealed class BanderasServiceAnalysisTests
             bool result,
             RolloutStrategy strategy,
             EnvironmentType environment
-        )
-        { }
+        ) { }
     }
 }

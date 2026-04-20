@@ -20,5 +20,6 @@ public interface IAiFlagAnalyzer
     Task<FlagHealthAnalysisResponse> AnalyzeAsync(
         IReadOnlyList<FlagResponse> flags,
         int stalenessThresholdDays,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default
+    );
 }

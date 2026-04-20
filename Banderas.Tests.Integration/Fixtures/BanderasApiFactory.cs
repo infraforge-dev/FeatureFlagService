@@ -53,21 +53,26 @@ public sealed class BanderasApiFactory : WebApplicationFactory<Program>, IAsyncL
         public Task<FlagHealthAnalysisResponse> AnalyzeAsync(
             IReadOnlyList<FlagResponse> flags,
             int stalenessThresholdDays,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken = default
+        )
         {
-            return Task.FromResult(new FlagHealthAnalysisResponse
-            {
-                Summary = $"{flags.Count} flag(s) analyzed.",
-                Flags = flags.Select(f => new FlagAssessment
+            return Task.FromResult(
+                new FlagHealthAnalysisResponse
                 {
-                    Name = f.Name,
-                    Status = "Healthy",
-                    Reason = "Stub assessment.",
-                    Recommendation = "No action required."
-                }).ToList(),
-                AnalyzedAt = DateTimeOffset.UtcNow,
-                StalenessThresholdDays = stalenessThresholdDays
-            });
+                    Summary = $"{flags.Count} flag(s) analyzed.",
+                    Flags = flags
+                        .Select(f => new FlagAssessment
+                        {
+                            Name = f.Name,
+                            Status = "Healthy",
+                            Reason = "Stub assessment.",
+                            Recommendation = "No action required.",
+                        })
+                        .ToList(),
+                    AnalyzedAt = DateTimeOffset.UtcNow,
+                    StalenessThresholdDays = stalenessThresholdDays,
+                }
+            );
         }
     }
 

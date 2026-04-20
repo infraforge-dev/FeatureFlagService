@@ -35,5 +35,6 @@ public interface IBanderasService
     /// </summary>
     Task<FlagHealthAnalysisResponse> AnalyzeFlagsAsync(
         FlagHealthRequest request,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default
+    );
 }

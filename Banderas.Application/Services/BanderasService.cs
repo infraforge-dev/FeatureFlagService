@@ -198,22 +198,27 @@ public sealed class BanderasService : IBanderasService
 
     public async Task<FlagHealthAnalysisResponse> AnalyzeFlagsAsync(
         FlagHealthRequest request,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default
+    )
     {
-        int threshold = request.StalenessThresholdDays
-            ?? FlagHealthConstants.DefaultStalenessThresholdDays;
+        int threshold =
+            request.StalenessThresholdDays ?? FlagHealthConstants.DefaultStalenessThresholdDays;
 
         IReadOnlyList<Flag> flags = await _repository.GetAllAsync(ct: cancellationToken);
         List<FlagResponse> flagResponses = flags.Select(FlagMappings.ToResponse).ToList();
 
         // StrategyConfig is string? — null guard required (AC-7)
-        List<FlagResponse> sanitizedFlags = flagResponses.Select(f => f with
-        {
-            Name = _promptSanitizer.Sanitize(f.Name),
-            StrategyConfig = f.StrategyConfig is not null
-                ? _promptSanitizer.Sanitize(f.StrategyConfig)
-                : null
-        }).ToList();
+        List<FlagResponse> sanitizedFlags = flagResponses
+            .Select(f =>
+                f with
+                {
+                    Name = _promptSanitizer.Sanitize(f.Name),
+                    StrategyConfig = f.StrategyConfig is not null
+                        ? _promptSanitizer.Sanitize(f.StrategyConfig)
+                        : null,
+                }
+            )
+            .ToList();
 
         return await _aiFlagAnalyzer.AnalyzeAsync(sanitizedFlags, threshold, cancellationToken);
     }

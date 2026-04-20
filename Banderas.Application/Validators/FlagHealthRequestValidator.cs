@@ -8,16 +8,21 @@ public sealed class FlagHealthRequestValidator : AbstractValidator<FlagHealthReq
 {
     public FlagHealthRequestValidator()
     {
-        When(x => x.StalenessThresholdDays.HasValue, () =>
-        {
-            RuleFor(x => x.StalenessThresholdDays!.Value)
-                .InclusiveBetween(
-                    FlagHealthConstants.MinStalenessThresholdDays,
-                    FlagHealthConstants.MaxStalenessThresholdDays)
-                .WithMessage(
-                    $"Staleness threshold must be between " +
-                    $"{FlagHealthConstants.MinStalenessThresholdDays} and " +
-                    $"{FlagHealthConstants.MaxStalenessThresholdDays} days.");
-        });
+        When(
+            x => x.StalenessThresholdDays.HasValue,
+            () =>
+            {
+                RuleFor(x => x.StalenessThresholdDays!.Value)
+                    .InclusiveBetween(
+                        FlagHealthConstants.MinStalenessThresholdDays,
+                        FlagHealthConstants.MaxStalenessThresholdDays
+                    )
+                    .WithMessage(
+                        $"Staleness threshold must be between "
+                            + $"{FlagHealthConstants.MinStalenessThresholdDays} and "
+                            + $"{FlagHealthConstants.MaxStalenessThresholdDays} days."
+                    );
+            }
+        );
     }
 }

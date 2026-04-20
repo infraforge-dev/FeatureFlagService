@@ -199,13 +199,19 @@ public sealed class BanderasController : ControllerBase
         CancellationToken cancellationToken
     )
     {
-        ValidationResult validation = await _healthValidator.ValidateAsync(request, cancellationToken);
+        ValidationResult validation = await _healthValidator.ValidateAsync(
+            request,
+            cancellationToken
+        );
         if (!validation.IsValid)
         {
             return ValidationProblem(new ValidationProblemDetails(validation.ToDictionary()));
         }
 
-        FlagHealthAnalysisResponse result = await _service.AnalyzeFlagsAsync(request, cancellationToken);
+        FlagHealthAnalysisResponse result = await _service.AnalyzeFlagsAsync(
+            request,
+            cancellationToken
+        );
         return Ok(result);
     }
 }

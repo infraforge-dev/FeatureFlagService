@@ -28,8 +28,13 @@ public sealed class BanderasServiceLoggingTests
         _evaluator = new FeatureEvaluator(new IRolloutStrategy[] { new NoneStrategy() });
         _fakeLogger = new FakeLogger<BanderasService>();
         _service = new BanderasService(
-            _repo, _evaluator, _fakeLogger, new NullTelemetryService(),
-            new NullPromptSanitizer(), new NullAiFlagAnalyzer());
+            _repo,
+            _evaluator,
+            _fakeLogger,
+            new NullTelemetryService(),
+            new NullPromptSanitizer(),
+            new NullAiFlagAnalyzer()
+        );
     }
 
     [Fact]
@@ -131,8 +136,7 @@ public sealed class BanderasServiceLoggingTests
             bool result,
             RolloutStrategy strategy,
             EnvironmentType environment
-        )
-        { }
+        ) { }
     }
 
     private sealed class NullPromptSanitizer : IPromptSanitizer

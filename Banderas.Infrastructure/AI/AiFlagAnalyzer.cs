@@ -16,7 +16,7 @@ public sealed class AiFlagAnalyzer : IAiFlagAnalyzer
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
-        PropertyNameCaseInsensitive = true
+        PropertyNameCaseInsensitive = true,
     };
 
     private const string SystemPrompt = """
@@ -61,12 +61,14 @@ public sealed class AiFlagAnalyzer : IAiFlagAnalyzer
     public async Task<FlagHealthAnalysisResponse> AnalyzeAsync(
         IReadOnlyList<FlagResponse> flags,
         int stalenessThresholdDays,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default
+    )
     {
         try
         {
             string prompt = BuildPrompt(flags, stalenessThresholdDays);
-            IChatCompletionService chatService = _kernel.GetRequiredService<IChatCompletionService>();
+            IChatCompletionService chatService =
+                _kernel.GetRequiredService<IChatCompletionService>();
 
             ChatHistory history = new();
             history.AddSystemMessage(SystemPrompt);
@@ -74,20 +76,27 @@ public sealed class AiFlagAnalyzer : IAiFlagAnalyzer
 
             AzureOpenAIPromptExecutionSettings settings = new()
             {
-                ResponseFormat = typeof(FlagHealthAnalysisResponse)
+                ResponseFormat = typeof(FlagHealthAnalysisResponse),
             };
 
             Microsoft.SemanticKernel.ChatMessageContent result =
                 await chatService.GetChatMessageContentAsync(
-                    history, settings, _kernel, cancellationToken);
+                    history,
+                    settings,
+                    _kernel,
+                    cancellationToken
+                );
 
-            string json = result.Content
+            string json =
+                result.Content
                 ?? throw new AiAnalysisUnavailableException(
-                    "Azure OpenAI returned an empty response.");
+                    "Azure OpenAI returned an empty response."
+                );
 
             return JsonSerializer.Deserialize<FlagHealthAnalysisResponse>(json, JsonOptions)
                 ?? throw new AiAnalysisUnavailableException(
-                    "Failed to deserialize Azure OpenAI response.");
+                    "Failed to deserialize Azure OpenAI response."
+                );
         }
         catch (AiAnalysisUnavailableException)
         {
@@ -97,24 +106,26 @@ public sealed class AiFlagAnalyzer : IAiFlagAnalyzer
         {
             _logger.LogError(ex, "Azure OpenAI flag analysis failed.");
             throw new AiAnalysisUnavailableException(
-                "Azure OpenAI flag analysis is currently unavailable.", ex);
+                "Azure OpenAI flag analysis is currently unavailable.",
+                ex
+            );
         }
     }
 
-    private static string BuildPrompt(
-        IReadOnlyList<FlagResponse> flags,
-        int stalenessThresholdDays)
+    private static string BuildPrompt(IReadOnlyList<FlagResponse> flags, int stalenessThresholdDays)
     {
-        string flagData = JsonSerializer.Serialize(flags.Select(f => new
-        {
-            f.Name,
-            f.IsEnabled,
-            f.Environment,
-            f.StrategyType,   // property name on FlagResponse (type is RolloutStrategy enum)
-            f.StrategyConfig,
-            f.CreatedAt,
-            f.UpdatedAt
-        }));
+        string flagData = JsonSerializer.Serialize(
+            flags.Select(f => new
+            {
+                f.Name,
+                f.IsEnabled,
+                f.Environment,
+                f.StrategyType, // property name on FlagResponse (type is RolloutStrategy enum)
+                f.StrategyConfig,
+                f.CreatedAt,
+                f.UpdatedAt,
+            })
+        );
 
         return $"""
             Analyze the following feature flags.
