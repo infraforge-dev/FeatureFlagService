@@ -74,6 +74,24 @@ Content-Type: application/json
 }
 
 # =========================
+# AI Flag Health Analysis
+# =========================
+
+### Analyze all flags — uses default staleness threshold (30 days)
+POST {{host}}/api/flags/health
+Content-Type: application/json
+
+{}
+
+### Analyze all flags — custom staleness threshold (7 days for fast-release teams)
+POST {{host}}/api/flags/health
+Content-Type: application/json
+
+{
+  "stalenessThresholdDays": 7
+}
+
+# =========================
 # Teardown
 # =========================
 

@@ -15,16 +15,19 @@ public sealed class BanderasController : ControllerBase
     private readonly IBanderasService _service;
     private readonly IValidator<CreateFlagRequest> _createValidator;
     private readonly IValidator<UpdateFlagRequest> _updateValidator;
+    private readonly IValidator<FlagHealthRequest> _healthValidator;
 
     public BanderasController(
         IBanderasService service,
         IValidator<CreateFlagRequest> createValidator,
-        IValidator<UpdateFlagRequest> updateValidator
+        IValidator<UpdateFlagRequest> updateValidator,
+        IValidator<FlagHealthRequest> healthValidator
     )
     {
         _service = service;
         _createValidator = createValidator;
         _updateValidator = updateValidator;
+        _healthValidator = healthValidator;
     }
 
     /// <summary>
@@ -178,5 +181,37 @@ public sealed class BanderasController : ControllerBase
         RouteParameterGuard.ValidateName(name);
         await _service.ArchiveFlagAsync(name, environment, ct);
         return NoContent();
+    }
+
+    /// <summary>
+    /// Requests an AI-generated health analysis of all feature flags.
+    /// Analytical only — no flags are modified.
+    /// </summary>
+    /// <response code="200">Returns the structured health analysis.</response>
+    /// <response code="400">Validation failed. See the errors collection for details.</response>
+    /// <response code="503">AI analysis service is currently unavailable.</response>
+    [HttpPost("health")]
+    [ProducesResponseType(typeof(FlagHealthAnalysisResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status503ServiceUnavailable)]
+    public async Task<IActionResult> AnalyzeFlagsAsync(
+        [FromBody] FlagHealthRequest request,
+        CancellationToken cancellationToken
+    )
+    {
+        ValidationResult validation = await _healthValidator.ValidateAsync(
+            request,
+            cancellationToken
+        );
+        if (!validation.IsValid)
+        {
+            return ValidationProblem(new ValidationProblemDetails(validation.ToDictionary()));
+        }
+
+        FlagHealthAnalysisResponse result = await _service.AnalyzeFlagsAsync(
+            request,
+            cancellationToken
+        );
+        return Ok(result);
     }
 }

@@ -76,79 +76,26 @@ Every phase of this roadmap builds toward that demo.
 * [x] `FeatureEvaluator` — registry dispatch pattern
 * [x] `PercentageStrategy`, `RoleStrategy`, `NoneStrategy`
 * [x] EF Core + Postgres repository
-* [x] Controllers wired, Swagger configured
+* [x] Controllers wired, Scalar UI configured
 * [x] Service interface boundary — `IBanderasService` speaks entirely in DTOs
 
 ---
 
 ## 🎯 Phase 1 — MVP Completion ✅ Complete
 
-### Validation & Sanitization ✅ Complete (PR #30)
-
-* [x] `FluentValidation` v12 on `CreateFlagRequest`, `UpdateFlagRequest`,
-      `EvaluationRequest` — closes KI-003
+* [x] `FluentValidation` v12 on all request DTOs
 * [x] `InputSanitizer` — shared sanitization at HTTP boundary
-* [x] Manual `ValidateAsync` in controllers
-
-### Code Style Foundation ✅ Complete (PR #33)
-
-* [x] `.editorconfig`, `.csharpierignore`, CSharpier 1.x configured
-
-### CI/CD Foundation ✅ Complete (PR #34)
-
-* [x] `lint-format` and `build-test` parallel jobs
-* [x] `TreatWarningsAsErrors=true`
-
-### CI/CD AI Reviewer ✅ Complete (PR #35)
-
-* [x] `ai-review` job — Claude API reviewer, activated by `ai-review` label,
-      fail-open, shell injection fixed via `jq -n --arg`
-
-### Error Handling ✅ Complete (PR #36)
-
-* [x] `GlobalExceptionMiddleware` — RFC 9457 `ProblemDetails`
-* [x] `application/problem+json` on all error responses
-* [x] Domain exception hierarchy (`FlagNotFoundException`,
-      `DuplicateFlagNameException`, `BanderasValidationException`)
-* [x] All controllers cleaned — zero try/catch blocks
-
-### Input Validation Hardening ✅ Complete (PR #37)
-
-* [x] `StrategyConfigRules` extracted — shared validation logic
-* [x] `RouteParameterGuard` — compiled regex allowlist for `{name}` route params
-* [x] `ExistsAsync` + TOCTOU-safe `DbUpdateException` catch for 409 Conflict
-* [x] Closes KI-008 and KI-NEW-001
-
-### Unit Tests ✅ Complete (PR #38)
-
-* [x] 81 unit tests — strategies, evaluator, validators
-* [x] 2 silent production bugs caught and fixed
-* [x] `AssemblyInfo.cs` — `InternalsVisibleTo("Banderas.Tests")`
-
-### Integration Tests ✅ Complete (PR #39)
-
-* [x] 32 integration tests — all 6 endpoints via Testcontainers Postgres
-* [x] 2 additional production bugs caught and fixed
-* [x] 113/113 tests passing
-
-### Evaluation Decision Logging ✅ Complete (PR #48)
-
-* [x] `EvaluationReason` enum — machine-readable log dimension on every entry
-* [x] `HashUserId` — SHA256 surrogate, 8 hex chars; raw `UserId` never logged
-* [x] `LogResult` — structured log output, consistent prefix
-* [x] `IsEnabled(LogLevel.Information)` guard — CA1873 compliance on hot path
-* [x] NuGet locked restore — `RestorePackagesWithLockFile=true`, `--locked-mode` in CI
-
-### Seed Data for Local Development ✅ Complete (PR #49)
-
-* [x] `IsSeeded` bool column — provenance marker, default `false`
-* [x] `DatabaseSeeder` — six seed records, all three strategies, Dev and Staging envs
-* [x] `MigrateAsync()` extension — schema migration before seeding in Development
-* [x] `SEED_RESET` env var controls full reset mode
-
-### Developer Experience ✅ Complete
-
-* [x] `requests/smoke-test.http` — all 6 endpoints covered
+* [x] Global exception middleware — RFC 9457 ProblemDetails
+* [x] `RouteParameterGuard` — route parameter hardening
+* [x] `DuplicateFlagNameException` with 409 Conflict handling
+* [x] CI/CD pipeline — `lint-format`, `build-test`, `integration-test` parallel jobs
+* [x] AI PR reviewer in CI (`ai-review` job, Claude API)
+* [x] Unit tests — strategies, evaluator, validators (81)
+* [x] Integration tests — all 6 endpoints via Testcontainers Postgres (32)
+* [x] Evaluation decision logging
+* [x] NuGet locked restore
+* [x] `DatabaseSeeder` — six seed flags, all three strategies
+* [x] `requests/smoke-test.http` — all endpoints covered
 
 **Phase 1 DoD: ✅ COMPLETE — 113/113 tests passing**
 
@@ -159,71 +106,80 @@ Every phase of this roadmap builds toward that demo.
 ### Azure Infrastructure ✅ Provisioned
 
 * [x] `rg-banderas-dev` — Azure Resource Group
-* [x] `kv-banderas-dev` — Azure Key Vault; `ConnectionStrings--DefaultConnection` secret enabled
+* [x] `kv-banderas-dev` — Azure Key Vault
 * [x] `appi-banderas-dev` — Azure Application Insights, West US
 * [x] `aoai-banderas-dev` — Azure OpenAI resource, East US, Standard S0
-* [x] `gpt-5-mini` model deployment — Standard tier, inside `aoai-banderas-dev`
+* [x] `gpt-5-mini` model deployment — Standard tier
 
 ### Azure Key Vault Integration ✅ Complete (PR #50)
 
 * [x] `AddAzureKeyVault()` wired in `Program.cs` before all service registrations
 * [x] `DefaultAzureCredential` — `az login` locally, Managed Identity in production
 * [x] Graceful fallback when `Azure:KeyVaultUri` is absent — local dev unaffected
-* [x] `BanderasApiFactory.cs` updated — `UseEnvironment("Testing")` isolates
-      integration tests from Azure credential chain
-* [x] 113/113 tests passing after factory fix
+* [x] Integration test factory uses `UseEnvironment("Testing")` — isolates from
+      Azure credential chain
 
-### Application Insights Integration 🔲 Not Started (PR #51)
+### Application Insights Integration ✅ Complete (PR #51)
 
-* [ ] `Microsoft.ApplicationInsights.AspNetCore` wired as telemetry sink
-* [ ] Evaluation custom events — `EvaluationReason` fed into App Insights dimensions
-* [ ] Structured logging via Application Insights custom dimensions
-* [ ] App Insights connection string sourced from `appi-banderas-dev`
+* [x] `Microsoft.ApplicationInsights.AspNetCore` wired as telemetry sink
+* [x] `flag.evaluated` custom event per evaluation
+* [x] Connection string sourced from Key Vault (`ApplicationInsights--ConnectionString`)
 
-### AI Flag Health Analysis Endpoint 🔲 Not Started (PR #52)
+### AI Flag Health Analysis Endpoint ✅ Complete (PR #52)
 
-* [ ] `IAiFlagAnalyzer` — natural language summary of flag status
-* [ ] `IPromptSanitizer` — newline injection, instruction override, role confusion defense
-* [ ] Azure OpenAI + Semantic Kernel integration
-* [ ] `/api/flags/health` — AI-generated flag health summary endpoint
-* [ ] Closes DEFERRED-004 (`IPromptSanitizer`)
+* [x] `POST /api/flags/health` — structured AI health analysis across all environments
+* [x] `IPromptSanitizer` / `PromptSanitizer` — newline normalization, phrase redaction,
+      role confusion defense, 500-char length cap; `GeneratedRegex` for compile-time regex
+* [x] `IAiFlagAnalyzer` — Application interface; decoupled from Semantic Kernel
+* [x] `AiFlagAnalyzer` — Infrastructure implementation via Semantic Kernel + Azure OpenAI
+* [x] `FlagHealthConstants` — named constants, no magic numbers
+* [x] `AiAnalysisUnavailableException` — graceful degradation to 503
+* [x] `IBanderasRepository.GetAllAsync` — nullable `EnvironmentType?` param;
+      null = cross-environment query (Option C `FlagQuery` deferred to Phase 4)
+* [x] `FlagResponse.StrategyConfig` — corrected to `string?`
+* [x] `GlobalExceptionMiddleware` — dedicated 503 catch + RFC URI type param
+* [x] Semantic Kernel excluded from `Testing` environment; `StubAiFlagAnalyzer` in CI
+* [x] DEFERRED-004 closed (`IPromptSanitizer`)
+* [x] 31 new tests (21 unit sanitizer + 5 unit service + 5 integration)
+* [x] 144/144 tests passing
 
 ### Architecture Review 🔲 Not Started
 
 * [ ] Technical health audit document — `Docs/architecture-review-phase1.md`
 * [ ] Strong seams, accumulating complexity, conscious debt inventory
-* [ ] Published as blog post series (planned)
+* [ ] Required gate before Phase 2 begins
 
-**Phase 1.5 DoD: complete when all three PRs merged + architecture review committed**
+**Phase 1.5 DoD: complete when architecture review committed**
 
 ---
 
 ## 🧪 Phase 2 — Testing & Reliability
 
-* [ ] Unit tests for domain logic edge cases
-* [ ] Test environment-specific behavior
 * [ ] Contract tests for API responses
 * [ ] Handle invalid strategy configurations gracefully
-* [ ] Return structured error responses for all failure modes
+* [ ] Test environment-specific behavior edge cases
+* [ ] Mutation testing baseline
 
 ---
 
 ## 🔐 Phase 3 — Authentication, Authorization & Rate Limiting
 
-* [ ] Add authentication (JWT or OAuth)
-* [ ] Secure endpoints
+* [ ] JWT bearer token authentication on all flag management endpoints
 * [ ] Role-based access to create/update flags and environment-specific actions
-* [ ] Audit who changed what (basic tracking)
-* [ ] Rate limiting on evaluation endpoint
+* [ ] Rate limiting on `/api/evaluate` keyed on authenticated caller identity
+* [ ] Audit trail — who changed what
 
 ---
 
 ## 📊 Phase 4 — Observability & Debugging
 
 * [ ] Evaluation trace endpoint — "Why was this flag ON/OFF for user X?"
+* [ ] `FlagQuery` record — extensible query object for repository (upgrade from
+      nullable `EnvironmentType?` param; covers archived, strategy type, date range)
+* [ ] Agentic AI capabilities — AI-initiated flag disable/archive with guardrails
+      (requires Phase 3 auth + audit logging from Phase 4)
 * [ ] Track evaluation counts, strategy usage, success/failure rates
 * [ ] Anomaly detection — unusual evaluation pattern alerts
-* [ ] Dashboard integration (Azure Monitor or Grafana)
 
 ---
 
@@ -233,7 +189,6 @@ Every phase of this roadmap builds toward that demo.
 * [ ] Time-based activation (scheduled flags)
 * [ ] Gradual rollout (time + percentage combined)
 * [ ] Dynamic strategy registration (DI-driven)
-* [ ] Strategy config validation framework
 
 ---
 
@@ -242,7 +197,7 @@ Every phase of this roadmap builds toward that demo.
 * [ ] In-memory caching layer between service and repository
 * [ ] Redis cache option for distributed deployments
 * [ ] Horizontal scaling validation — stateless API design confirmed
-* [ ] Evaluation path latency baseline and regression tests
+* [ ] Cache analysis results for `POST /api/flags/health`
 
 ---
 
@@ -261,22 +216,19 @@ Every phase of this roadmap builds toward that demo.
 ## 🚀 Phase 8 — Production Readiness
 
 * [ ] CD pipeline to Azure Container Apps
-* [ ] Managed Identity assigned to Container App — grants Key Vault Secrets User role
-* [ ] AKS deployment option documented
-* [ ] SLA baseline established (p99 evaluation latency)
-* [ ] Backup and migration strategy (EF Core)
+* [ ] Managed Identity assigned to Container App
+* [ ] SLA baseline (p99 evaluation latency)
 * [ ] Full docker-compose devcontainer setup (resolves KI-007)
-* [ ] Network hardening — Key Vault and App Insights on Selected Networks / private endpoints
+* [ ] Network hardening — Key Vault and App Insights on Selected Networks
 
 ---
 
 ## 🌐 Phase 9 — Open Core Launch
 
-* [ ] Public repo prepared — `CONTRIBUTING.md`, issue templates, `good first issue` labels
+* [ ] Public repo prepared — `CONTRIBUTING.md`, issue templates
 * [ ] Self-hosted Docker image published to GitHub Container Registry
 * [ ] Managed hosting offering documented
 * [ ] Launch post and demo video
-* [ ] Blog post series — architecture journey, AI-assisted dev workflow, lessons learned
 
 ---
 
@@ -284,9 +236,9 @@ Every phase of this roadmap builds toward that demo.
 
 **Phase 1.5 — Azure Foundation + AI Integration**
 
-1. Application Insights integration (PR #51)
-2. AI flag health analysis endpoint (PR #52)
-3. Architecture Review Document before Phase 2
+1. Architecture Review Document (`Docs/architecture-review-phase1.md`)
+
+**Phase 1.5 DoD: complete when architecture review is committed**
 
 ---
 
@@ -294,23 +246,18 @@ Every phase of this roadmap builds toward that demo.
 
 * Architecture follows Clean Architecture: Controller → Service → Evaluator → Strategy → Repository
 * `IBanderasService` speaks entirely in DTOs — no `Flag` entity crosses the service boundary
-* Domain logic is intentionally strict (no public setters)
-* Strategy pattern is central to extensibility
-* Evaluation must remain deterministic and testable
+* `IBanderasRepository.GetAllAsync` accepts `EnvironmentType? environment = null`;
+  null means no environment filter (cross-environment health analysis)
+* `FlagResponse.StrategyConfig` is `string?` — null guard required before sanitizing
+* `AiAnalysisUnavailableException` extends `Exception` (not `BanderasException`) —
+  middleware catches it explicitly before the generic handler
+* Semantic Kernel and `DefaultAzureCredential` excluded from `Testing` environment
+* Integration test factory registers `StubAiFlagAnalyzer` — no live Azure calls in CI
 * Connection string uses `Host=postgres` — do not change to `localhost`
-* Both Infrastructure and Api projects require `Microsoft.EntityFrameworkCore.Design`
-  with `PrivateAssets=all`
-* Integration test factory uses `UseEnvironment("Testing")` — required to isolate
-  tests from Azure Key Vault credential chain; do not remove
 * Azure resources provisioned in `rg-banderas-dev`; OpenAI in East US, App Insights in West US
 * GPT model deployment name: `gpt-5-mini` inside `aoai-banderas-dev`
-
-When suggesting changes:
-
-* Do not break domain encapsulation
-* Prefer composability over conditionals
-* Keep evaluation logic isolated from persistence
-* Do not return `Flag` entities from `IBanderasService` — map to `FlagResponse` inside the service
+* `FlagQuery` record (extensible repository query object) — tracked as Phase 4 upgrade
+  from current nullable `EnvironmentType?` approach
 
 ---
 
@@ -318,6 +265,5 @@ When suggesting changes:
 
 * Turn Banderas into a full **Observability + Experimentation Platform**
 * A/B testing capabilities
-* Integrate with analytics pipelines
 * Real-time dashboards
 * Managed hosting offering — open core business model

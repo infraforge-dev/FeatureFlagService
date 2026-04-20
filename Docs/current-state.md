@@ -35,15 +35,13 @@
 
 **🎉 Phase 1 — MVP Completion: ✅ COMPLETE**
 
-113/113 tests passing (81 unit + 32 integration).
-
----
-
 **Phase 1.5 — Azure Key Vault Integration (PR #50): ✅ Complete**
 **Phase 1.5 — Application Insights Integration (PR #51): ✅ Complete**
-**Phase 1.5 — AI Flag Health Analysis Endpoint (PR #52): 🔲 Not started**
+**Phase 1.5 — AI Flag Health Analysis Endpoint (PR #52): ✅ Complete**
 
-**Phase 1.5 — Azure Foundation + AI Integration: 🔄 In Progress**
+**Phase 1.5 — Azure Foundation + AI Integration: 🔲 Architecture Review Remaining**
+
+144/144 tests passing (107 unit + 37 integration).
 
 ---
 
@@ -55,8 +53,7 @@
 - `Flag.Update()` — atomic method that sets enabled state, strategy, and `UpdatedAt`
 - `Flag.IsSeeded` — provenance marker (`bool`, default `false`); stamped `true` by
   `DatabaseSeeder` at insert time; never exposed on any DTO or API response
-- `Flag` constructor overload accepting `isSeeded` — used by seeder only; existing
-  constructor unchanged, defaults `isSeeded` to `false`
+- `Flag` constructor overload accepting `isSeeded` — used by seeder only
 - `FeatureEvaluationContext` value object — `IEquatable<T>`, guard clauses, immutable roles
 - `RolloutStrategy` enum (None, Percentage, RoleBased)
 - `EnvironmentType` enum (None = 0 sentinel, Development, Staging, Production)
@@ -72,75 +69,89 @@
 - `RoleStrategy` — config-driven, case-insensitive, fail-closed role matching
 - `FeatureEvaluator` — registry dispatch, `Dictionary<RolloutStrategy, IRolloutStrategy>`
 - `BanderasService` — async, orchestrates repository + evaluator + logging + telemetry
+  + prompt sanitization + AI analysis
 - `IBanderasService` — async signatures with `CancellationToken`, full CRUD + evaluation
-- `DependencyInjection.cs` — `AddApplication()` extension method
+  + `AnalyzeFlagsAsync`
 - DTOs: `CreateFlagRequest`, `UpdateFlagRequest`, `FlagResponse`, `EvaluationRequest`,
-  `EvaluationResponse`, `FlagMappings`
-- `InputSanitizer` — single source of sanitization at HTTP boundary
-- `EvaluationResult` discriminated union — `FlagDisabled`, `StrategyEvaluated`, `EvaluationReason`
-- `ITelemetryService` — telemetry abstraction; Application layer has no SDK reference
+  `FlagMappings`, `FlagHealthRequest`, `FlagAssessment`, `FlagHealthAnalysisResponse`
+- `FlagResponse.StrategyConfig` — `string?` (nullable); flags with `RolloutStrategy.None`
+  have no strategy config
+- `IPromptSanitizer` / `PromptSanitizer` — newline normalization, instruction override
+  phrase redaction, role confusion marker stripping, 500-char length cap;
+  `GeneratedRegex` for compile-time regex
+- `IAiFlagAnalyzer` — Application interface; contract decoupled from Semantic Kernel
+- `FlagHealthConstants` — `internal` named constants for default (30), min (1),
+  max (365) staleness threshold
+- `AiAnalysisUnavailableException` — signals AI service failure; caught by middleware → 503
+- `DependencyInjection.cs` — `AddApplication()` extension method
 
 ### Infrastructure Layer
 
-- `BanderasRepository` — EF Core async repository
-- `BanderasDbContext` — Postgres via EF Core
-- `DatabaseSeeder` — six seed flags; `IsSeeded` stamped `true`; idempotent
-- `DependencyInjection.cs` — `AddInfrastructure(IConfiguration, IHostEnvironment)` extension
-- `ApplicationInsightsTelemetryService` — `TelemetryClient`-backed; emits `flag.evaluated`
-  custom events with `FlagName`, `Result`, `Strategy`, `Environment` dimensions
-- `NullTelemetryService` — no-op; registered when environment is `"Testing"`
+- EF Core + Npgsql repository (`BanderasRepository`)
+- `IBanderasRepository.GetAllAsync(EnvironmentType? environment = null, ...)` —
+  nullable environment param; `null` = no filter, returns all non-archived flags
+  across all environments; passing an explicit value preserves scoped behavior
+- `AiFlagAnalyzer` — Semantic Kernel + Azure OpenAI implementation; all failures
+  wrapped as `AiAnalysisUnavailableException`
+- Semantic Kernel and `DefaultAzureCredential` fully excluded from `Testing`
+  environment — never instantiated during CI
 
-### Api Layer
+### API Layer
 
-- `BanderasController` — full CRUD (create, read, update, archive)
-- `EvaluationController` — `POST /api/evaluate`
-- RFC 9457 `ProblemDetails` global exception middleware
-- `RouteParameterGuard` — route `{name}` validation
-- FluentValidation v12 — manual `ValidateAsync()` in controllers
-- OpenAPI enrichment — Scalar UI, enum schema transformer, XML doc comments
-- `requests/smoke-test.http` — all 6 endpoints covered
+- `BanderasController` — full CRUD + evaluation + `POST /api/flags/health`
+- `EvaluationController` — evaluation endpoint
+- `GlobalExceptionMiddleware` — RFC 9457 ProblemDetails; `WriteProblemDetailsAsync`
+  extended with optional `type` param; dedicated `catch (AiAnalysisUnavailableException)`
+  block → 503 with RFC URI
+- `RouteParameterGuard` — route parameter hardening
+- OpenAPI enrichment with Scalar UI
+- `FluentValidation` v12 on all request DTOs including `FlagHealthRequestValidator`
 
-### Azure / Infrastructure
+### Azure Infrastructure (provisioned in `rg-banderas-dev`)
 
-- Key Vault integration — `DefaultAzureCredential`, configuration provider pattern,
-  `ConnectionStrings--DefaultConnection` sourced from `kv-banderas-dev`
-- Application Insights — `AddApplicationInsightsTelemetry()` auto-captures requests,
-  exceptions, and EF Core dependencies; `flag.evaluated` custom event per evaluation;
-  connection string sourced from Key Vault (`ApplicationInsights--ConnectionString`)
-- `appsettings.json` — `Azure:KeyVaultUri` and `ApplicationInsights:ConnectionString`
-  placeholders present; real values from Key Vault at runtime
+- `kv-banderas-dev` — Azure Key Vault; `ConnectionStrings--DefaultConnection` and
+  `ApplicationInsights--ConnectionString` secrets enabled
+- `appi-banderas-dev` — Azure Application Insights, West US
+- `aoai-banderas-dev` — Azure OpenAI resource, East US, Standard S0;
+  `gpt-5-mini` model deployment active
+- `appsettings.json` — `Azure:KeyVaultUri`, `ApplicationInsights:ConnectionString`,
+  `AzureOpenAI:Endpoint`, and `AzureOpenAI:DeploymentName` placeholders present;
+  real values from Key Vault at runtime
 
 ### CI/CD
 
 - `lint-format` job — CSharpier check, blocks on violations
 - `build-test` job — `dotnet build` with `-p:TreatWarningsAsErrors=true`,
   `dotnet test` for unit and integration suites
-- `integration-test` job — Testcontainers Postgres, 32 integration tests
+- `integration-test` job — Testcontainers Postgres, 37 integration tests
 - `ai-review` job — activated by `ai-review` label; Claude API code review
   posted as PR comment; depends on all three prior jobs
 - NuGet locked restore enforced via `--locked-mode`; `packages.lock.json` committed
 
 ### Tests
 
-- 81 unit tests — strategies, evaluator, validators, logging behavior
-- 32 integration tests — all 6 endpoints via Testcontainers Postgres
-- 113/113 passing
+- 107 unit tests — strategies, evaluator, validators, logging behavior,
+  prompt sanitization (21), service analysis (5)
+- 37 integration tests — all endpoints including `POST /api/flags/health` (5 new)
+- 144/144 passing
 - `AssemblyInfo.cs` — `InternalsVisibleTo("Banderas.Tests")`
-- `BanderasServiceLoggingTests` — local `NullTelemetryService` stub satisfies updated constructor
+- `BanderasServiceLoggingTests` — `NullPromptSanitizer` + `NullAiFlagAnalyzer`
+  hand-written stubs (consistent with existing `NullTelemetryService` pattern)
+- `BanderasApiFactory` — `StubAiFlagAnalyzer` registered for deterministic
+  integration test responses; no Azure calls in CI
 
 ### Developer Experience
 
-- `requests/smoke-test.http` — all 6 endpoints covered ✅
+- `requests/smoke-test.http` — all endpoints covered including `POST /api/flags/health`
+  (default threshold + `stalenessThresholdDays: 7` variants)
 - `DatabaseSeeder` — six seed flags available immediately on `docker compose up`
 
 ---
 
 ## 🚧 What Is Not Yet Built — Phase 1.5 Remaining
 
-- [ ] AI flag health analysis endpoint (PR #52) — natural language summary of
-  flag status via Azure OpenAI + Semantic Kernel; `IPromptSanitizer` introduced
-  alongside `IAiFlagAnalyzer`
-- [ ] Architecture Review Document — technical health audit before Phase 2
+- [ ] Architecture Review Document — technical health audit before Phase 2;
+  committed to `Docs/architecture-review-phase1.md`
 
 ---
 
@@ -153,6 +164,21 @@ not `localhost`. This is correct for the devcontainer environment. Do not change
 
 **Longer-term fix:** Full docker-compose devcontainer setup. Deferred to Phase 8.
 
+### KI-008 (Manual Step) — `AzureOpenAI--Endpoint` Key Vault secret not yet added
+
+`POST /api/flags/health` will throw `InvalidOperationException` at startup if
+`AzureOpenAI:Endpoint` is missing and the environment is not `Testing`.
+
+**Fix:** Add to Key Vault before deploying:
+```
+Secret name:  AzureOpenAI--Endpoint
+Value:        <endpoint URL from Azure Portal → Azure OpenAI → Keys and Endpoint>
+Key Vault:    kv-banderas-dev
+
+Secret name:  AzureOpenAI--DeploymentName   (optional — defaults to gpt-5-mini)
+Value:        <deployment name if overriding>
+```
+
 ---
 
 ## 🎯 Current Focus
@@ -161,8 +187,8 @@ not `localhost`. This is correct for the devcontainer environment. Do not change
 
 ### Immediate Next Tasks
 
-1. AI flag health analysis endpoint spec + implementation (PR #52)
-2. Architecture Review Document — technical health audit before Phase 2
+1. Architecture Review Document (`Docs/architecture-review-phase1.md`) — required
+   before Phase 2 begins
 
 ---
 
@@ -173,7 +199,7 @@ not `localhost`. This is correct for the devcontainer environment. Do not change
 - No advanced rollout strategies yet (Phase 5)
 - No UI work
 - Do not change `Host=postgres` back to `localhost` in connection string
-- Do not start Phase 2 until Phase 1.5 DoD is met and architecture review is complete
+- Do not start Phase 2 until Architecture Review is committed
 
 ---
 
@@ -199,8 +225,9 @@ not `localhost`. This is correct for the devcontainer environment. Do not change
 
 - [x] Azure Key Vault integration — connection string sourced from vault at startup
 - [x] Application Insights integration — structured telemetry, evaluation custom events
-- [ ] AI flag health analysis endpoint — natural language flag status via Azure OpenAI
-- [ ] `IPromptSanitizer` introduced alongside `IAiFlagAnalyzer`
+- [x] AI flag health analysis endpoint — `POST /api/flags/health`; natural language
+  flag status via Azure OpenAI + Semantic Kernel; `IPromptSanitizer` introduced;
+  DEFERRED-004 closed
 - [ ] Architecture Review Document committed to `Docs/`
 
 ---
@@ -217,28 +244,35 @@ not `localhost`. This is correct for the devcontainer environment. Do not change
 - Integration test factory must use `UseEnvironment("Testing")` to prevent
   `appsettings.Development.json` from loading Azure config during tests
 - `AddInfrastructure()` must accept `IHostEnvironment` to support conditional
-  service registration (e.g. `NullTelemetryService` vs `ApplicationInsightsTelemetryService`)
-- `TelemetryClient` must be registered as Singleton — it maintains an internal buffer
-  and is designed for application-lifetime use
-- Unit tests that construct `BanderasService` directly need a `NullTelemetryService`
-  stub — add as a private class in the test file; no new project reference required
+  service registration (e.g. Semantic Kernel, `DefaultAzureCredential`)
+- **Spec property name verification** — when writing code sketches in specs, verify
+  property names against the actual DTO/entity. PR #52: spec used `f.RolloutStrategy`
+  (the enum type name) instead of `f.StrategyType` (the property name) in
+  `AiFlagAnalyzer.BuildPrompt`. Fix: always cross-reference the DTO file before
+  publishing a spec with code samples.
+- **Validator field naming in multi-validator controllers** — when a controller
+  already has `_createValidator` / `_updateValidator`, new validators must be injected
+  with explicit, action-scoped names (e.g. `_healthValidator`). Bare `_validator`
+  is ambiguous and will not compile.
+- `GeneratedRegex` attribute — prefer over `new Regex(...)` for patterns used in
+  hot paths; compile-time generation avoids runtime allocation
 
 ---
 
 ## 🧩 Notes for AI Assistants
 
-- The system is not production-ready
-- Prioritize correctness over feature expansion
-- Follow Clean Architecture — dependencies point inward toward Domain
-- Work within the established layer boundaries (Api → Application → Domain ← Infrastructure)
-- `IBanderasService` speaks entirely in DTOs — never return `Flag` from the service
-- All evaluation logic must remain deterministic and isolated from persistence
-- `FeatureEvaluator` is a pure function — no side effects, no ILogger, no ITelemetryService
-- `BanderasService` is the imperative shell — owns all side effects (logging, telemetry)
-- `appsettings.Development.json` is intentionally committed — local Docker defaults only
+- Clean Architecture: Controller → Service → Evaluator → Strategy → Repository
+- `IBanderasService` speaks entirely in DTOs — no `Flag` entity crosses the service boundary
+- `IBanderasRepository.GetAllAsync` accepts `EnvironmentType? environment = null`;
+  null means no environment filter (cross-environment query for health analysis)
+- `FlagResponse.StrategyConfig` is `string?` — null guard required before sanitizing
+- `AiAnalysisUnavailableException` extends `Exception` (not `BanderasException`) —
+  middleware catches it explicitly before the generic handler
+- Semantic Kernel and `DefaultAzureCredential` are excluded from `Testing` environment
+- Integration test factory registers `StubAiFlagAnalyzer` — no live Azure calls in CI
 - Connection string uses `Host=postgres` — do not change to `localhost`
 - Both Infrastructure and Api projects require `Microsoft.EntityFrameworkCore.Design`
   with `PrivateAssets=all`
-- `ITelemetryService` lives in Application layer — no SDK reference there
-- `NullTelemetryService` is registered when `IHostEnvironment.IsEnvironment("Testing")`
-  is true — integration tests resolve it automatically via `UseEnvironment("Testing")`
+- Azure resources: Key Vault and App Insights in `rg-banderas-dev`;
+  OpenAI (`aoai-banderas-dev`) in East US; App Insights (`appi-banderas-dev`) in West US
+- GPT model deployment name: `gpt-5-mini` inside `aoai-banderas-dev`

@@ -28,4 +28,13 @@ public interface IBanderasService
         CancellationToken ct = default
     );
     Task ArchiveFlagAsync(string name, EnvironmentType environment, CancellationToken ct = default);
+
+    /// <summary>
+    /// Requests an AI-generated health analysis of all flags across all environments.
+    /// Read-only — no flag state is modified.
+    /// </summary>
+    Task<FlagHealthAnalysisResponse> AnalyzeFlagsAsync(
+        FlagHealthRequest request,
+        CancellationToken cancellationToken = default
+    );
 }
