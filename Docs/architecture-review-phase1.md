@@ -92,7 +92,7 @@ Optional but useful:
 
 ---
 
-## How the Audit Should Think
+## How the Auditor Should Think
 
 The reviewing model should behave like a **technical auditor**, not a cheerleader.
 

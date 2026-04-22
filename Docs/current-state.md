@@ -31,7 +31,7 @@
 **Phase 1 — Evaluation Decision Logging (PR #48): ✅ Complete**
 **Phase 1 — NuGet Locked Restore (rolled into PR #48): ✅ Complete**
 **Phase 1 — Seed Data for Local Development (PR #49): ✅ Complete**
-**Phase 1 — Smoke Test File (`requests/smoke-test.http`): ✅ Complete**
+**Phase 1 — Smoke Test File (`Requests/smoke-test.http`): ✅ Complete**
 
 **🎉 Phase 1 — MVP Completion: ✅ COMPLETE**
 
@@ -39,7 +39,11 @@
 **Phase 1.5 — Application Insights Integration (PR #51): ✅ Complete**
 **Phase 1.5 — AI Flag Health Analysis Endpoint (PR #52): ✅ Complete**
 
-**Phase 1.5 — Azure Foundation + AI Integration: 🔲 Architecture Review Remaining**
+**Phase 1.5 — Azure Foundation + AI Integration: ✅ Architecture Review Complete**
+
+**Gate Decision:** GO WITH CONDITIONS
+
+Audit report: `Docs/architecture-review-phase1-report.md`
 
 144/144 tests passing (107 unit + 37 integration).
 
@@ -71,7 +75,8 @@
 - `BanderasService` — async, orchestrates repository + evaluator + logging + telemetry
   + prompt sanitization + AI analysis
 - `IBanderasService` — async signatures with `CancellationToken`, full CRUD + evaluation
-  + `AnalyzeFlagsAsync`
+  + `AnalyzeFlagsAsync`; current evaluation path still accepts
+  `FeatureEvaluationContext` directly (tracked by the audit as boundary debt)
 - DTOs: `CreateFlagRequest`, `UpdateFlagRequest`, `FlagResponse`, `EvaluationRequest`,
   `FlagMappings`, `FlagHealthRequest`, `FlagAssessment`, `FlagHealthAnalysisResponse`
 - `FlagResponse.StrategyConfig` — `string?` (nullable); flags with `RolloutStrategy.None`
@@ -142,16 +147,17 @@
 
 ### Developer Experience
 
-- `requests/smoke-test.http` — all endpoints covered including `POST /api/flags/health`
+- `Requests/smoke-test.http` — all endpoints covered including `POST /api/flags/health`
   (default threshold + `stalenessThresholdDays: 7` variants)
 - `DatabaseSeeder` — six seed flags available immediately on `docker compose up`
 
 ---
 
-## 🚧 What Is Not Yet Built — Phase 1.5 Remaining
+## 🚧 What Is Not Yet Built — Follow-Up From The Audit
 
-- [ ] Architecture Review Document — technical health audit before Phase 2;
-  committed to `Docs/architecture-review-phase1.md`
+- [ ] Remove the Azure OpenAI startup dependency from the global app boot path
+- [ ] Resolve or explicitly ratify the `FeatureEvaluationContext` service-boundary exception
+- [ ] Add end-to-end coverage for AI-unavailable `503` behavior and tighten AI response validation
 
 ---
 
@@ -166,8 +172,9 @@ not `localhost`. This is correct for the devcontainer environment. Do not change
 
 ### KI-008 (Manual Step) — `AzureOpenAI--Endpoint` Key Vault secret not yet added
 
-`POST /api/flags/health` will throw `InvalidOperationException` at startup if
-`AzureOpenAI:Endpoint` is missing and the environment is not `Testing`.
+Application startup will throw `InvalidOperationException` if `AzureOpenAI:Endpoint`
+is missing and the environment is not `Testing`. This currently blocks all endpoints,
+not just `POST /api/flags/health`.
 
 **Fix:** Add to Key Vault before deploying:
 ```
@@ -179,16 +186,36 @@ Secret name:  AzureOpenAI--DeploymentName   (optional — defaults to gpt-5-mini
 Value:        <deployment name if overriding>
 ```
 
+### KI-009 — `FeatureEvaluationContext` still crosses the service boundary
+
+`IBanderasService.IsEnabledAsync` accepts the domain value object
+`FeatureEvaluationContext`, and `EvaluationController` constructs that value object
+directly. This preserves the entity boundary but does not preserve the documented
+DTO-only service boundary.
+
+**Audit status:** Identified in `Docs/architecture-review-phase1-report.md`.
+Resolve before or during early Phase 2.
+
+### KI-010 — AI response semantics are not validated after deserialization
+
+`AiFlagAnalyzer` deserializes model output into `FlagHealthAnalysisResponse` but does
+not verify that every flag is represented or that status values stay within the
+documented set.
+
+**Audit status:** Identified in `Docs/architecture-review-phase1-report.md`.
+Fix in early Phase 2.
+
 ---
 
 ## 🎯 Current Focus
 
-**Phase 1.5 — Azure Foundation + AI Integration**
+**Phase 2 Prep — Gate: GO WITH CONDITIONS**
 
 ### Immediate Next Tasks
 
-1. Architecture Review Document (`Docs/architecture-review-phase1.md`) — required
-   before Phase 2 begins
+1. Remove the Azure OpenAI startup blast radius so AI unavailability stays endpoint-scoped
+2. Resolve or explicitly document the evaluation boundary exception on `IBanderasService`
+3. Add AI unhappy-path and response-contract coverage before broadening Phase 2 work
 
 ---
 
@@ -199,7 +226,8 @@ Value:        <deployment name if overriding>
 - No advanced rollout strategies yet (Phase 5)
 - No UI work
 - Do not change `Host=postgres` back to `localhost` in connection string
-- Do not start Phase 2 until Architecture Review is committed
+- Do not start broad Phase 2 work until the gate-condition fixes are either completed
+  or consciously deferred in writing
 
 ---
 
@@ -228,8 +256,11 @@ Value:        <deployment name if overriding>
 - [x] AI flag health analysis endpoint — `POST /api/flags/health`; natural language
   flag status via Azure OpenAI + Semantic Kernel; `IPromptSanitizer` introduced;
   DEFERRED-004 closed
-- [ ] Architecture Review Document committed to `Docs/`
+- [x] Architecture Review completed — see `Docs/architecture-review-phase1-report.md`
 
+**Phase 1.5 DoD: ✅ COMPLETE**
+
+**Phase gate:** GO WITH CONDITIONS
 ---
 
 ## 📝 Spec Writing — Lessons Learned
@@ -262,7 +293,8 @@ Value:        <deployment name if overriding>
 ## 🧩 Notes for AI Assistants
 
 - Clean Architecture: Controller → Service → Evaluator → Strategy → Repository
-- `IBanderasService` speaks entirely in DTOs — no `Flag` entity crosses the service boundary
+- `Flag` does not cross the service boundary; current implementation still passes
+  `FeatureEvaluationContext` into `IBanderasService.IsEnabledAsync`
 - `IBanderasRepository.GetAllAsync` accepts `EnvironmentType? environment = null`;
   null means no environment filter (cross-environment query for health analysis)
 - `FlagResponse.StrategyConfig` is `string?` — null guard required before sanitizing
