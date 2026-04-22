@@ -77,10 +77,12 @@ The system follows a **layered architecture with strong separation of concerns**
   Domain and service never see bad data
      ↓
 [ Controllers (API Layer) ]
-  DTOs in, DTOs out — no domain knowledge
+  DTOs in, DTOs out for CRUD and AI flows
+  Current exception: evaluation controller constructs FeatureEvaluationContext
      ↓
 [ Application Layer (IBanderasService) ]
-  Speaks entirely in DTOs — Flag entity never crosses this boundary
+  Flag entity never crosses this boundary
+  Current exception: IsEnabledAsync accepts FeatureEvaluationContext
   Applies InputSanitizer to evaluation context before passing to evaluator
      ↓
 [ Evaluation Engine (FeatureEvaluator) ]
@@ -106,9 +108,11 @@ The system follows a **layered architecture with strong separation of concerns**
 
 **Key Characteristics:**
 
-* Thin controllers — no business logic, no domain knowledge
+* Thin controllers — no business logic, minimal domain knowledge
 * Delegates all work to application layer via `IBanderasService`
 * Receives and returns DTOs only — never touches domain entities
+* Current exception: `EvaluationController` constructs `FeatureEvaluationContext`
+  before calling the service
 * Calls `ValidateAsync()` manually on mutating actions (POST, PUT) — validation
   runs at the top of each action before any service code executes
 * Swagger/OpenAPI enabled at `/openapi/v1.json`
@@ -128,7 +132,7 @@ The system follows a **layered architecture with strong separation of concerns**
   registered as `Scoped` services via explicit `AddScoped<IValidator<T>, TValidator>()`
   calls in `DependencyInjection.cs`. Controllers inject `IValidator<T>` and call
   `ValidateAsync()` manually at the top of each mutating action.
-* All three request DTOs have dedicated `AbstractValidator<T>` implementations
+* All four request DTOs have dedicated `AbstractValidator<T>` implementations
   in `Banderas.Application/Validators/`
 * `InputSanitizer` is a shared static helper — trims whitespace, strips ASCII control
   characters below 0x20 (except tab) from all string inputs
@@ -147,6 +151,7 @@ The system follows a **layered architecture with strong separation of concerns**
 | `CreateFlagRequestValidator` | `CreateFlagRequest` | Name allowlist regex, env sentinel guard, StrategyConfig cross-field rules, 2000-char limit |
 | `UpdateFlagRequestValidator` | `UpdateFlagRequest` | StrategyConfig cross-field rules, 2000-char limit |
 | `EvaluationRequestValidator` | `EvaluationRequest` | UserId max 256, UserRoles max 50 entries × 100 chars each, env sentinel guard |
+| `FlagHealthRequestValidator` | `FlagHealthRequest` | Optional staleness threshold constrained to 1–365 days |
 
 **Input Limits (enforced at HTTP boundary):**
 
@@ -187,7 +192,8 @@ access. `InputSanitizer` is the single source of truth for both surfaces.
 
 **Key Characteristics:**
 
-* `IBanderasService` interface speaks entirely in DTOs
+* `IBanderasService` keeps `Flag` entities out of method signatures
+* Current exception: `IsEnabledAsync` accepts `FeatureEvaluationContext`
 * `Flag` entity is constructed and mapped inside `BanderasService` — never exposed
   to callers
 * `ToResponse()` mapping is called inside the service, not in controllers
@@ -199,6 +205,12 @@ access. `InputSanitizer` is the single source of truth for both surfaces.
 
 > `Flag` domain entity must never appear in any `IBanderasService` method signature.
 > The controller layer must never call `.ToResponse()` directly.
+
+**Current implementation note (audit 2026-04-22):**
+
+`FeatureEvaluationContext` still crosses the controller → service boundary on the
+evaluation path. Treat this as current boundary debt, not as evidence that the
+entity boundary has been removed.
 
 ---
 

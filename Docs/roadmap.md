@@ -58,7 +58,7 @@ Every phase of this roadmap builds toward that demo.
 |-------|------|--------|
 | 0 | Foundation | ✅ Complete |
 | 1 | MVP Completion | ✅ Complete |
-| 1.5 | Azure Foundation + AI Integration | 🔄 In Progress |
+| 1.5 | Azure Foundation + AI Integration | ✅ Complete — Gate: GO WITH CONDITIONS |
 | 2 | Testing & Reliability | Planned |
 | 3 | Auth, Authorization & Rate Limiting | Planned |
 | 4 | Observability & Debugging | Planned |
@@ -77,7 +77,7 @@ Every phase of this roadmap builds toward that demo.
 * [x] `PercentageStrategy`, `RoleStrategy`, `NoneStrategy`
 * [x] EF Core + Postgres repository
 * [x] Controllers wired, Scalar UI configured
-* [x] Service interface boundary — `IBanderasService` speaks entirely in DTOs
+* [x] Service interface boundary — `Flag` entity stays out of `IBanderasService` signatures
 
 ---
 
@@ -95,13 +95,13 @@ Every phase of this roadmap builds toward that demo.
 * [x] Evaluation decision logging
 * [x] NuGet locked restore
 * [x] `DatabaseSeeder` — six seed flags, all three strategies
-* [x] `requests/smoke-test.http` — all endpoints covered
+* [x] `Requests/smoke-test.http` — all endpoints covered
 
 **Phase 1 DoD: ✅ COMPLETE — 113/113 tests passing**
 
 ---
 
-## 🌩️ Phase 1.5 — Azure Foundation + AI Integration 🔄 In Progress
+## 🌩️ Phase 1.5 — Azure Foundation + AI Integration ✅ Complete
 
 ### Azure Infrastructure ✅ Provisioned
 
@@ -143,18 +143,27 @@ Every phase of this roadmap builds toward that demo.
 * [x] 31 new tests (21 unit sanitizer + 5 unit service + 5 integration)
 * [x] 144/144 tests passing
 
-### Architecture Review 🔲 Not Started
+### Architecture Review ✅ Complete
 
-* [ ] Technical health audit document — `Docs/architecture-review-phase1.md`
-* [ ] Strong seams, accumulating complexity, conscious debt inventory
-* [ ] Required gate before Phase 2 begins
+* [x] Technical health audit report — `Docs/architecture-review-phase1-report.md`
+* [x] Strong seams, accumulating complexity, and debt inventory recorded
+* [x] Gate decision recorded: GO WITH CONDITIONS
 
-**Phase 1.5 DoD: complete when architecture review committed**
+**Phase 1.5 DoD: ✅ COMPLETE**
+
+**Carry-forward conditions before broad Phase 2 work:**
+
+* [ ] Remove Azure OpenAI as a hard startup dependency for non-AI endpoints
+* [ ] Resolve or explicitly document the `FeatureEvaluationContext` service-boundary exception
+* [ ] Add AI unhappy-path and output-contract verification
 
 ---
 
 ## 🧪 Phase 2 — Testing & Reliability
 
+* [ ] Add integration coverage for AI-unavailable `503` behavior
+* [ ] Enforce AI response semantics after deserialization
+* [ ] Decide whether evaluation returns to a DTO-only service boundary or formally keeps the value-object exception
 * [ ] Contract tests for API responses
 * [ ] Handle invalid strategy configurations gracefully
 * [ ] Test environment-specific behavior edge cases
@@ -234,18 +243,21 @@ Every phase of this roadmap builds toward that demo.
 
 ## 🎯 Current Focus
 
-**Phase 1.5 — Azure Foundation + AI Integration**
+**Phase 2 Prep — Gate: GO WITH CONDITIONS**
 
-1. Architecture Review Document (`Docs/architecture-review-phase1.md`)
+1. Remove the Azure OpenAI startup blast radius
+2. Close the AI unhappy-path and response-contract gaps
+3. Resolve or explicitly document the evaluation boundary exception
 
-**Phase 1.5 DoD: complete when architecture review is committed**
+**Phase 1.5 closed with GO WITH CONDITIONS**
 
 ---
 
 ## 🧩 Notes for AI Assistants (Claude Context)
 
 * Architecture follows Clean Architecture: Controller → Service → Evaluator → Strategy → Repository
-* `IBanderasService` speaks entirely in DTOs — no `Flag` entity crosses the service boundary
+* `Flag` does not cross the service boundary; current implementation still passes
+  `FeatureEvaluationContext` into `IBanderasService.IsEnabledAsync`
 * `IBanderasRepository.GetAllAsync` accepts `EnvironmentType? environment = null`;
   null means no environment filter (cross-environment health analysis)
 * `FlagResponse.StrategyConfig` is `string?` — null guard required before sanitizing
