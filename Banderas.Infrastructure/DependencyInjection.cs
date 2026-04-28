@@ -37,11 +37,21 @@ public static class DependencyInjection
         {
             services.AddSingleton<ITelemetryService, ApplicationInsightsTelemetryService>();
 
-            string endpoint =
-                configuration["AzureOpenAI:Endpoint"]
-                ?? throw new InvalidOperationException("AzureOpenAI:Endpoint is required.");
+            string? endpoint = configuration["AzureOpenAI:Endpoint"];
 
-            string deploymentName = configuration["AzureOpenAI:DeploymentName"] ?? "gpt-5-mini";
+            if (string.IsNullOrWhiteSpace(endpoint))
+            {
+                services.AddScoped<IAiFlagAnalyzer>(_ =>
+                    new UnavailableAiFlagAnalyzer("Azure OpenAI endpoint is not configured.")
+                );
+
+                return services;
+            }
+
+            string? configuredDeploymentName = configuration["AzureOpenAI:DeploymentName"];
+            string deploymentName = string.IsNullOrWhiteSpace(configuredDeploymentName)
+                ? "gpt-5-mini"
+                : configuredDeploymentName;
 
             IKernelBuilder kernelBuilder = Kernel.CreateBuilder();
             kernelBuilder.AddAzureOpenAIChatCompletion(
