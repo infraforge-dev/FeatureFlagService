@@ -90,14 +90,14 @@ Every phase of this roadmap builds toward that demo.
 * [x] `DuplicateFlagNameException` with 409 Conflict handling
 * [x] CI/CD pipeline — `lint-format`, `build-test`, `integration-test` parallel jobs
 * [x] AI PR reviewer in CI (`ai-review` job, Claude API)
-* [x] Unit tests — strategies, evaluator, validators (81)
-* [x] Integration tests — all 6 endpoints via Testcontainers Postgres (32)
+* [x] Unit tests — strategies, evaluator, validators
+* [x] Integration tests — all endpoints via Testcontainers Postgres
 * [x] Evaluation decision logging
 * [x] NuGet locked restore
 * [x] `DatabaseSeeder` — six seed flags, all three strategies
 * [x] `Requests/smoke-test.http` — all endpoints covered
 
-**Phase 1 DoD: ✅ COMPLETE — 113/113 tests passing**
+**Phase 1 DoD: ✅ COMPLETE**
 
 ---
 
@@ -139,9 +139,10 @@ Every phase of this roadmap builds toward that demo.
 * [x] `FlagResponse.StrategyConfig` — corrected to `string?`
 * [x] `GlobalExceptionMiddleware` — dedicated 503 catch + RFC URI type param
 * [x] Semantic Kernel excluded from `Testing` environment; `StubAiFlagAnalyzer` in CI
+* [x] `UnavailableAiFlagAnalyzer` — missing `AzureOpenAI:Endpoint` no longer blocks
+      application startup; non-AI endpoints remain available
 * [x] DEFERRED-004 closed (`IPromptSanitizer`)
-* [x] 31 new tests (21 unit sanitizer + 5 unit service + 5 integration)
-* [x] 144/144 tests passing
+* [x] 146/146 tests passing (107 unit + 39 integration)
 
 ### Architecture Review ✅ Complete
 
@@ -153,17 +154,20 @@ Every phase of this roadmap builds toward that demo.
 
 **Carry-forward conditions before broad Phase 2 work:**
 
-* [ ] Remove Azure OpenAI as a hard startup dependency for non-AI endpoints
-* [ ] Resolve or explicitly document the `FeatureEvaluationContext` service-boundary exception
-* [ ] Add AI unhappy-path and output-contract verification
+* [x] Remove Azure OpenAI as a hard startup dependency for non-AI endpoints
+* [x] Explicitly document the `FeatureEvaluationContext` service-boundary exception
+      as an intentional value-object boundary input
+* [x] Add AI-unavailable 503 integration coverage
+* [ ] Add AI output-contract verification
 
 ---
 
 ## 🧪 Phase 2 — Testing & Reliability
 
-* [ ] Add integration coverage for AI-unavailable `503` behavior
 * [ ] Enforce AI response semantics after deserialization
-* [ ] Decide whether evaluation returns to a DTO-only service boundary or formally keeps the value-object exception
+* [x] Formally keep `FeatureEvaluationContext` as the evaluation value-object
+      exception to the DTO-only service-boundary convention
+* [ ] Strengthen `Flag` invariants and direct domain tests before adding new input surfaces
 * [ ] Contract tests for API responses
 * [ ] Handle invalid strategy configurations gracefully
 * [ ] Test environment-specific behavior edge cases
@@ -245,9 +249,10 @@ Every phase of this roadmap builds toward that demo.
 
 **Phase 2 Prep — Gate: GO WITH CONDITIONS**
 
-1. Remove the Azure OpenAI startup blast radius
-2. Close the AI unhappy-path and response-contract gaps
-3. Resolve or explicitly document the evaluation boundary exception
+1. Add AI output-contract validation after deserialization
+2. Strengthen direct domain invariants and tests
+3. Decide whether GET query environment validation should move earlier or remain
+   explicitly documented as service-level validation
 
 **Phase 1.5 closed with GO WITH CONDITIONS**
 
@@ -256,14 +261,16 @@ Every phase of this roadmap builds toward that demo.
 ## 🧩 Notes for AI Assistants (Claude Context)
 
 * Architecture follows Clean Architecture: Controller → Service → Evaluator → Strategy → Repository
-* `Flag` does not cross the service boundary; current implementation still passes
-  `FeatureEvaluationContext` into `IBanderasService.IsEnabledAsync`
+* `Flag` does not cross the service boundary; evaluation intentionally passes
+  immutable `FeatureEvaluationContext` into `IBanderasService.IsEnabledAsync`
 * `IBanderasRepository.GetAllAsync` accepts `EnvironmentType? environment = null`;
   null means no environment filter (cross-environment health analysis)
 * `FlagResponse.StrategyConfig` is `string?` — null guard required before sanitizing
 * `AiAnalysisUnavailableException` extends `Exception` (not `BanderasException`) —
   middleware catches it explicitly before the generic handler
 * Semantic Kernel and `DefaultAzureCredential` excluded from `Testing` environment
+* Missing Azure OpenAI endpoint registers `UnavailableAiFlagAnalyzer`; app startup
+  stays healthy and AI health analysis returns 503
 * Integration test factory registers `StubAiFlagAnalyzer` — no live Azure calls in CI
 * Connection string uses `Host=postgres` — do not change to `localhost`
 * Azure resources provisioned in `rg-banderas-dev`; OpenAI in East US, App Insights in West US

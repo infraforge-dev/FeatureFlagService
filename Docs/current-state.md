@@ -45,7 +45,7 @@
 
 Audit report: `Docs/architecture-review-phase1-report.md`
 
-144/144 tests passing (107 unit + 37 integration).
+146/146 tests passing (107 unit + 39 integration).
 
 ---
 
@@ -76,7 +76,8 @@ Audit report: `Docs/architecture-review-phase1-report.md`
   + prompt sanitization + AI analysis
 - `IBanderasService` — async signatures with `CancellationToken`, full CRUD + evaluation
   + `AnalyzeFlagsAsync`; current evaluation path still accepts
-  `FeatureEvaluationContext` directly (tracked by the audit as boundary debt)
+  `FeatureEvaluationContext` directly as an intentional immutable value-object
+  boundary input
 - DTOs: `CreateFlagRequest`, `UpdateFlagRequest`, `FlagResponse`, `EvaluationRequest`,
   `FlagMappings`, `FlagHealthRequest`, `FlagAssessment`, `FlagHealthAnalysisResponse`
 - `FlagResponse.StrategyConfig` — `string?` (nullable); flags with `RolloutStrategy.None`
@@ -98,8 +99,12 @@ Audit report: `Docs/architecture-review-phase1-report.md`
   across all environments; passing an explicit value preserves scoped behavior
 - `AiFlagAnalyzer` — Semantic Kernel + Azure OpenAI implementation; all failures
   wrapped as `AiAnalysisUnavailableException`
+- `UnavailableAiFlagAnalyzer` — endpoint-scoped unavailable implementation used when
+  `AzureOpenAI:Endpoint` is missing or blank
 - Semantic Kernel and `DefaultAzureCredential` fully excluded from `Testing`
   environment — never instantiated during CI
+- Missing `AzureOpenAI:Endpoint` no longer blocks app startup; non-AI endpoints stay
+  available and AI analysis fails through the documented 503 path
 
 ### API Layer
 
@@ -128,7 +133,7 @@ Audit report: `Docs/architecture-review-phase1-report.md`
 - `lint-format` job — CSharpier check, blocks on violations
 - `build-test` job — `dotnet build` with `-p:TreatWarningsAsErrors=true`,
   `dotnet test` for unit and integration suites
-- `integration-test` job — Testcontainers Postgres, 37 integration tests
+- `integration-test` job — Testcontainers Postgres, 39 integration tests
 - `ai-review` job — activated by `ai-review` label; Claude API code review
   posted as PR comment; depends on all three prior jobs
 - NuGet locked restore enforced via `--locked-mode`; `packages.lock.json` committed
@@ -137,8 +142,9 @@ Audit report: `Docs/architecture-review-phase1-report.md`
 
 - 107 unit tests — strategies, evaluator, validators, logging behavior,
   prompt sanitization (21), service analysis (5)
-- 37 integration tests — all endpoints including `POST /api/flags/health` (5 new)
-- 144/144 passing
+- 39 integration tests — all endpoints including `POST /api/flags/health` and
+  missing-Azure-OpenAI startup resilience
+- 146/146 passing
 - `AssemblyInfo.cs` — `InternalsVisibleTo("Banderas.Tests")`
 - `BanderasServiceLoggingTests` — `NullPromptSanitizer` + `NullAiFlagAnalyzer`
   hand-written stubs (consistent with existing `NullTelemetryService` pattern)
@@ -155,9 +161,10 @@ Audit report: `Docs/architecture-review-phase1-report.md`
 
 ## 🚧 What Is Not Yet Built — Follow-Up From The Audit
 
-- [ ] Remove the Azure OpenAI startup dependency from the global app boot path
-- [ ] Resolve or explicitly ratify the `FeatureEvaluationContext` service-boundary exception
-- [ ] Add end-to-end coverage for AI-unavailable `503` behavior and tighten AI response validation
+- [x] Remove the Azure OpenAI startup dependency from the global app boot path
+- [x] Explicitly ratify the `FeatureEvaluationContext` service-boundary exception
+- [x] Add end-to-end coverage for AI-unavailable `503` behavior
+- [ ] Tighten AI response validation after model output is deserialized
 
 ---
 
@@ -170,33 +177,7 @@ not `localhost`. This is correct for the devcontainer environment. Do not change
 
 **Longer-term fix:** Full docker-compose devcontainer setup. Deferred to Phase 8.
 
-### KI-008 (Manual Step) — `AzureOpenAI--Endpoint` Key Vault secret not yet added
-
-Application startup will throw `InvalidOperationException` if `AzureOpenAI:Endpoint`
-is missing and the environment is not `Testing`. This currently blocks all endpoints,
-not just `POST /api/flags/health`.
-
-**Fix:** Add to Key Vault before deploying:
-```
-Secret name:  AzureOpenAI--Endpoint
-Value:        <endpoint URL from Azure Portal → Azure OpenAI → Keys and Endpoint>
-Key Vault:    kv-banderas-dev
-
-Secret name:  AzureOpenAI--DeploymentName   (optional — defaults to gpt-5-mini)
-Value:        <deployment name if overriding>
-```
-
-### KI-009 — `FeatureEvaluationContext` still crosses the service boundary
-
-`IBanderasService.IsEnabledAsync` accepts the domain value object
-`FeatureEvaluationContext`, and `EvaluationController` constructs that value object
-directly. This preserves the entity boundary but does not preserve the documented
-DTO-only service boundary.
-
-**Audit status:** Identified in `Docs/architecture-review-phase1-report.md`.
-Resolve before or during early Phase 2.
-
-### KI-010 — AI response semantics are not validated after deserialization
+### KI-008 — AI response semantics are not validated after deserialization
 
 `AiFlagAnalyzer` deserializes model output into `FlagHealthAnalysisResponse` but does
 not verify that every flag is represented or that status values stay within the
@@ -209,13 +190,14 @@ Fix in early Phase 2.
 
 ## 🎯 Current Focus
 
-**Phase 2 Prep — Gate: GO WITH CONDITIONS**
+**Phase 2 Prep — Remaining Gate Conditions**
 
 ### Immediate Next Tasks
 
-1. Remove the Azure OpenAI startup blast radius so AI unavailability stays endpoint-scoped
-2. Resolve or explicitly document the evaluation boundary exception on `IBanderasService`
-3. Add AI unhappy-path and response-contract coverage before broadening Phase 2 work
+1. Add semantic validation for AI model responses before returning 200
+2. Strengthen `Flag` invariants and direct domain tests before adding new input surfaces
+3. Decide whether GET query environment validation should move to the HTTP boundary
+   or remain documented as service-level validation
 
 ---
 
@@ -226,8 +208,8 @@ Fix in early Phase 2.
 - No advanced rollout strategies yet (Phase 5)
 - No UI work
 - Do not change `Host=postgres` back to `localhost` in connection string
-- Do not start broad Phase 2 work until the gate-condition fixes are either completed
-  or consciously deferred in writing
+- Do not start broad Phase 2 work until the remaining gate-condition fixes are either
+  completed or consciously deferred in writing
 
 ---
 
@@ -293,8 +275,8 @@ Fix in early Phase 2.
 ## 🧩 Notes for AI Assistants
 
 - Clean Architecture: Controller → Service → Evaluator → Strategy → Repository
-- `Flag` does not cross the service boundary; current implementation still passes
-  `FeatureEvaluationContext` into `IBanderasService.IsEnabledAsync`
+- `Flag` does not cross the service boundary; evaluation intentionally passes
+  immutable `FeatureEvaluationContext` into `IBanderasService.IsEnabledAsync`
 - `IBanderasRepository.GetAllAsync` accepts `EnvironmentType? environment = null`;
   null means no environment filter (cross-environment query for health analysis)
 - `FlagResponse.StrategyConfig` is `string?` — null guard required before sanitizing
@@ -302,6 +284,8 @@ Fix in early Phase 2.
   middleware catches it explicitly before the generic handler
 - Semantic Kernel and `DefaultAzureCredential` are excluded from `Testing` environment
 - Integration test factory registers `StubAiFlagAnalyzer` — no live Azure calls in CI
+- `UnavailableAiFlagAnalyzer` handles missing Azure OpenAI endpoint outside Testing;
+  non-AI endpoints still start, AI health analysis returns 503 ProblemDetails
 - Connection string uses `Host=postgres` — do not change to `localhost`
 - Both Infrastructure and Api projects require `Microsoft.EntityFrameworkCore.Design`
   with `PrivateAssets=all`
