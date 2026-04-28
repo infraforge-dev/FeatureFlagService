@@ -59,7 +59,7 @@ public sealed class AiStartupResilienceTests
         body.Should().NotBeNull();
         body!.Status.Should().Be((int)HttpStatusCode.ServiceUnavailable);
         body.Type.Should().Be("https://tools.ietf.org/html/rfc9110#section-15.6.4");
-        body.Title.Should().Be("AI analysis is currently unavailable.");
+        body.Title.Should().Be("Flag health analysis is currently unavailable.");
     }
 
     public sealed class MissingAzureOpenAiEndpointFactory

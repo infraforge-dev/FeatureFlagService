@@ -1,9 +1,11 @@
 using Banderas.Application.AI;
 using Banderas.Application.DTOs;
+using Banderas.Application.Exceptions;
 using Banderas.Infrastructure.Persistence;
 using Banderas.Infrastructure.Seeding;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -21,6 +23,16 @@ public sealed class BanderasApiFactory : WebApplicationFactory<Program>, IAsyncL
         BaseAddress = new Uri("https://localhost"),
         AllowAutoRedirect = false,
     };
+
+    public HttpClient CreateClientWithThrowingAiFlagAnalyzer() =>
+        WithWebHostBuilder(builder =>
+                builder.ConfigureTestServices(services =>
+                {
+                    services.RemoveAll<IAiFlagAnalyzer>();
+                    services.AddScoped<IAiFlagAnalyzer, ThrowingAiFlagAnalyzer>();
+                })
+            )
+            .CreateClient(FactoryClientOptions);
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -74,6 +86,15 @@ public sealed class BanderasApiFactory : WebApplicationFactory<Program>, IAsyncL
                 }
             );
         }
+    }
+
+    private sealed class ThrowingAiFlagAnalyzer : IAiFlagAnalyzer
+    {
+        public Task<FlagHealthAnalysisResponse> AnalyzeAsync(
+            IReadOnlyList<FlagResponse> flags,
+            int stalenessThresholdDays,
+            CancellationToken cancellationToken = default
+        ) => throw new AiAnalysisUnavailableException("Stub: AI analysis unavailable.");
     }
 
     public async Task InitializeAsync()
