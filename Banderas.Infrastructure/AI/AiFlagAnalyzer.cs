@@ -19,8 +19,18 @@ public sealed class AiFlagAnalyzer : IAiFlagAnalyzer
         PropertyNameCaseInsensitive = true,
     };
 
+    private static readonly HashSet<string> ValidStatusValues = new(
+        StringComparer.OrdinalIgnoreCase
+    )
+    {
+        "Healthy",
+        "Stale",
+        "Misconfigured",
+        "NeedsReview",
+    };
+
     private const string SystemPrompt = """
-        You are a feature flag health analyzer for the Banderas feature flag service.
+        You are a feature flag health analyzer for the  Banderas feature flag service.
 
         Your job is to analyze the provided list of feature flags and return a structured
         JSON health assessment. You must respond with valid JSON only — no markdown fences,
@@ -93,10 +103,15 @@ public sealed class AiFlagAnalyzer : IAiFlagAnalyzer
                     "Azure OpenAI returned an empty response."
                 );
 
-            return JsonSerializer.Deserialize<FlagHealthAnalysisResponse>(json, JsonOptions)
+            FlagHealthAnalysisResponse response =
+                JsonSerializer.Deserialize<FlagHealthAnalysisResponse>(json, JsonOptions)
                 ?? throw new AiAnalysisUnavailableException(
                     "Failed to deserialize Azure OpenAI response."
                 );
+
+            ValidateResponse(response, flags);
+
+            return response;
         }
         catch (AiAnalysisUnavailableException)
         {
@@ -135,5 +150,63 @@ public sealed class AiFlagAnalyzer : IAiFlagAnalyzer
             Flags:
             {flagData}
             """;
+    }
+
+    private static void ValidateResponse(
+        FlagHealthAnalysisResponse response,
+        IReadOnlyList<FlagResponse> flags
+    )
+    {
+        if (string.IsNullOrWhiteSpace(response.Summary))
+        {
+            throw new AiAnalysisUnavailableException(
+                "AI response validation failed: summary is missing or empty."
+            );
+        }
+
+        if (response.Flags is null || response.Flags.Count == 0)
+        {
+            throw new AiAnalysisUnavailableException(
+                "AI response validation failed: flags list is missing or empty."
+            );
+        }
+
+        HashSet<string> returnedFlagNames = response
+            .Flags.Select(f => f.Name)
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        List<string> missingFlagNames = flags
+            .Select(f => f.Name)
+            .Where(name => !returnedFlagNames.Contains(name))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (missingFlagNames.Count > 0)
+        {
+            throw new AiAnalysisUnavailableException(
+                "AI response validation failed: missing assessments for flags: "
+                    + string.Join(", ", missingFlagNames)
+                    + "."
+            );
+        }
+
+        List<string> invalidStatusValues = response
+            .Flags.Select(f => f.Status)
+            .Where(status =>
+                string.IsNullOrWhiteSpace(status) || !ValidStatusValues.Contains(status)
+            )
+            .Select(status => string.IsNullOrWhiteSpace(status) ? "<empty>" : status)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (invalidStatusValues.Count > 0)
+        {
+            throw new AiAnalysisUnavailableException(
+                "AI response validation failed: invalid status values: "
+                    + string.Join(", ", invalidStatusValues)
+                    + "."
+            );
+        }
     }
 }

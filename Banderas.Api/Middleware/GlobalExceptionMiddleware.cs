@@ -45,12 +45,18 @@ public sealed class GlobalExceptionMiddleware
                 detail: ex.Message
             );
         }
-        catch (AiAnalysisUnavailableException)
+        catch (AiAnalysisUnavailableException ex)
         {
+            _logger.LogWarning(
+                ex,
+                "Flag health analysis is currently unavailable. Reason={Reason}",
+                ex.Message
+            );
+
             await WriteProblemDetailsAsync(
                 context,
                 statusCode: StatusCodes.Status503ServiceUnavailable,
-                title: "AI analysis is currently unavailable.",
+                title: "Flag health analysis is currently unavailable.",
                 detail: "The flag health analysis service could not be reached. "
                     + "Please try again later.",
                 type: "https://tools.ietf.org/html/rfc9110#section-15.6.4"
