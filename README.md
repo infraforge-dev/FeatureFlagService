@@ -7,11 +7,9 @@ designed from the ground up as an open-source alternative to LaunchDarkly and Un
 with AI-assisted flag analysis and a first-class .NET SDK as core product features.
 
 [![.NET](https://img.shields.io/badge/.NET-10.0-512BD4?logo=dotnet)](https://dotnet.microsoft.com)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![CI](https://img.shields.io/github/actions/workflow/status/amodelandme/Banderas/ci.yml?label=CI&logo=github)](https://github.com/amodelandme/Banderas/actions)
-[![Tests](https://img.shields.io/badge/Tests-144%20passing-brightgreen?logo=github)](#testing)
-[![Phase](https://img.shields.io/badge/Phase-1%20MVP%20%E2%80%94%20Final%20Stretch-blue)](#️-roadmap)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
+[![Tests](https://img.shields.io/badge/Tests-146%20passing-brightgreen?logo=github)](#testing)
+[![Phase](https://img.shields.io/badge/Phase-1.5%20Complete%20%E2%80%94%20GO%20WITH%20CONDITIONS-blue)](#️-roadmap)
 
 ---
 
@@ -27,7 +25,7 @@ with AI-assisted flag analysis and a first-class .NET SDK as core product featur
 - [Error Handling](#️-error-handling)
 - [Testing](#-testing)
 - [AI-Assisted Development Workflow](#-ai-assisted-development-workflow)
-- [Planned AI Features](#-planned-ai-features)
+- [AI Features](#-ai-features)
 - [Tech Stack](#️-tech-stack)
 - [Roadmap](#️-roadmap)
 - [Contributing](#-contributing)
@@ -44,9 +42,9 @@ Mid-market engineering teams running .NET on Azure are underserved by the featur
 | **Unleash** | Open source, but limited .NET SDK support and no Azure-native integration story. |
 | **Azure App Configuration** | Feature flags are a secondary concern — no rollout strategies, targeting rules, or evaluation analytics. |
 
-**Banderas is built to fill that gap.** Self-hostable, MIT-licensed, and designed specifically for .NET teams on Azure — with AI-assisted flag analysis built in from the start, not bolted on later.
+**Banderas is built to fill that gap.** Self-hostable, open-core in direction, and designed specifically for .NET teams on Azure — with AI-assisted flag analysis built in from the start, not bolted on later.
 
-> **The target demo:** clone the repo, run `docker compose up`, have a working flag service with a .NET SDK, and ask *"which of my flags need attention?"* — all in under 15 minutes.
+> **The target demo:** clone the repo, run the local quickstart, have a working flag service with a .NET SDK, and ask *"which of my flags need attention?"* — all in under 15 minutes.
 
 ---
 
@@ -61,11 +59,11 @@ A production-quality NuGet SDK ships alongside the service. ASP.NET Core teams g
 **🤖 AI-assisted flag management**
 Natural language flag health analysis, stale flag detection, rollout risk reasoning, and evaluation debugging are core product features — powered by Azure OpenAI and Semantic Kernel.
 
-**🔓 Open Source**
-Self-hostable under MIT. No vendor lock-in. Managed hosting and enterprise features are the business model — not the open source license.
+**🔓 Open core direction**
+Self-hostable by design. Managed hosting and enterprise features are the intended business model — not infrastructure lock-in.
 
 **🧪 Production-quality engineering**
-75 unit tests covering all evaluation strategies, the registry dispatch engine, and every validator. CI runs format gating, zero-warnings builds, and full test suites on every push. An AI reviewer (Claude API) reviews every PR for Clean Architecture compliance.
+146 tests cover strategies, the registry dispatch engine, validators, service behavior, prompt sanitization, and HTTP integration paths. CI runs format gating, zero-warnings builds, unit tests, integration tests, and an optional AI reviewer for Clean Architecture compliance.
 
 ---
 
@@ -80,23 +78,24 @@ Banderas follows Clean Architecture with strict unidirectional dependencies. Eve
                                │ HTTP
 ┌──────────────────────────────▼──────────────────────────────┐
 │                    API LAYER (Controllers)                   │
-│  • Validates input via FluentValidation v12                  │
-│  • Returns DTOs only — zero domain knowledge                 │
+│  • Validates body DTOs via FluentValidation v12              │
+│  • Returns DTOs; never exposes Flag entities                 │
 │  • GlobalExceptionMiddleware wraps entire pipeline           │
-│  • RouteParameterGuard — allowlist enforcement on all routes │
+│  • RouteParameterGuard — allowlist enforcement for names     │
 └──────────────────────────────┬──────────────────────────────┘
-                               │ DTOs only — Flag entity never crosses this line
+                               │ DTOs + approved evaluation value object
 ┌──────────────────────────────▼──────────────────────────────┐
-│           APPLICATION LAYER (IBanderasService)      │
+│             APPLICATION LAYER (IBanderasService)             │
 │  • Orchestrates use cases                                    │
 │  • Owns DTO ↔ domain entity mapping                          │
-│  • InputSanitizer — two-point sanitization at HTTP boundary  │
+│  • InputSanitizer — validation + service-layer cleanup       │
 │  • Name uniqueness enforced before DB write                  │
+│  • IAiFlagAnalyzer boundary for AI health analysis           │
 └──────────────┬───────────────────────────────┬──────────────┘
                │                               │
 ┌──────────────▼──────────┐     ┌──────────────▼──────────────┐
 │   EVALUATION ENGINE      │     │   DATA ACCESS LAYER          │
-│   (FeatureEvaluator)     │     │   (IBanderasRepository)   │
+│   (FeatureEvaluator)     │     │   (IBanderasRepository)      │
 │                          │     │                              │
 │  Registry dispatch →     │     │  EF Core + Npgsql            │
 │  IRolloutStrategy        │     │  jsonb for StrategyConfig    │
@@ -120,21 +119,23 @@ Banderas/
 ├── Banderas.Domain/          # Entities, enums, value objects, interfaces
 │   └── Exceptions/              # Domain exception hierarchy (FlagNotFoundException, DuplicateFlagNameException, etc.)
 ├── Banderas.Application/     # Use cases, strategies, evaluator, DTOs, validators
+│   ├── AI/                      # IAiFlagAnalyzer, IPromptSanitizer, health constants
 │   ├── Evaluation/              # FeatureEvaluator + IRolloutStrategy implementations
-│   ├── Validators/              # FluentValidation v12 — CreateFlagRequest, UpdateFlagRequest, EvaluationRequest
+│   ├── Validators/              # FluentValidation v12 request validators
 │   └── Services/                # IBanderasService implementation
-├── Banderas.Infrastructure/  # EF Core, Postgres, repository implementation
+├── Banderas.Infrastructure/  # EF Core, Postgres, telemetry, Azure OpenAI implementation
 ├── Banderas.Api/             # Controllers, middleware, DI composition root
 │   └── Middleware/              # GlobalExceptionMiddleware, RouteParameterGuard
-└── Banderas.Tests/           # 75 unit tests — xUnit + FluentAssertions v7
+├── Banderas.Tests/           # Unit tests — xUnit + FluentAssertions
+└── Banderas.Tests.Integration/ # HTTP integration tests with Testcontainers Postgres
 ```
 
 ---
 
 ## 🔑 Key Design Decisions
 
-### Clean Architecture with DTO Boundary Enforcement
-The `Flag` domain entity never crosses the service layer boundary. Controllers work exclusively with DTOs (`FlagResponse`, `CreateFlagRequest`, etc.). This enforces a clean separation that prevents API contracts from becoming coupled to internal domain evolution.
+### Clean Architecture with Entity Boundary Enforcement
+The `Flag` domain entity never crosses the service layer boundary. CRUD and AI flows use DTOs (`FlagResponse`, `CreateFlagRequest`, `FlagHealthRequest`, etc.). Evaluation intentionally passes `FeatureEvaluationContext`, an immutable value object, into `IBanderasService` because it is the natural input to the pure evaluation core.
 
 ### Strategy Pattern with Registry Dispatch
 Rollout strategies (`NoneStrategy`, `PercentageStrategy`, `RoleStrategy`) are registered in a dictionary keyed by `RolloutStrategy` enum. `FeatureEvaluator` dispatches to the correct strategy at runtime — adding a new strategy requires zero changes to existing code.
@@ -143,10 +144,10 @@ Rollout strategies (`NoneStrategy`, `PercentageStrategy`, `RoleStrategy`) are re
 `FluentValidation.AspNetCore` is deprecated. All validators call `ValidateAsync()` explicitly in controllers before any service code runs. A shared `InputSanitizer` handles HTTP boundary sanitization. A shared `StrategyConfigRules` class keeps config validation logic DRY across create and update validators.
 
 ### RFC 9457 Problem Details (Error Responses)
-Every error returns an `application/problem+json` response conforming to RFC 9457. A domain exception hierarchy (`BanderasException` → `FlagNotFoundException`, `DuplicateFlagNameException`, `BanderasValidationException`) maps cleanly to HTTP status codes via `GlobalExceptionMiddleware`.
+Every error returns an `application/problem+json` response conforming to RFC 9457. A domain exception hierarchy (`BanderasException` → `FlagNotFoundException`, `DuplicateFlagNameException`, `BanderasValidationException`) maps cleanly to HTTP status codes via `GlobalExceptionMiddleware`. AI availability failures use `AiAnalysisUnavailableException` and return `503`.
 
 ### Route Parameter Hardening
-`RouteParameterGuard` enforces an allowlist on all route parameters — flag names, environments, and strategy types. Requests with characters outside the allowlist are rejected at the middleware boundary before reaching controllers.
+`RouteParameterGuard` enforces an allowlist on flag-name route parameters. Requests with characters outside the allowlist are rejected before service logic runs.
 
 ### Name Uniqueness with TOCTOU Race Protection
 `ExistsAsync()` checks before insert catch the common case. For concurrent requests that slip through, `SaveChangesAsync` intercepts Postgres error code `23505` (unique constraint violation) and converts it to `DuplicateFlagNameException`. The DB catch lives in Infrastructure to avoid leaking EF Core dependencies upward.
@@ -157,11 +158,14 @@ Flags are never hard-deleted. `IsArchived = true` removes them from active queri
 ### Deterministic Percentage Evaluation
 `PercentageStrategy` uses SHA-256 to hash `userId + flagName` into a 0–99 bucket. The same user always gets the same result across servers and restarts — no sticky sessions or shared state required.
 
+### Endpoint-Scoped AI Availability
+Azure OpenAI integration is behind `IAiFlagAnalyzer`. Missing `AzureOpenAI:Endpoint` registers `UnavailableAiFlagAnalyzer`, so non-AI endpoints still start and only `POST /api/flags/health` returns the documented `503`.
+
 ---
 
 ## 🚀 Features
 
-### ✅ Available Now (Phase 1)
+### ✅ Available Now
 
 | Feature | Details |
 |---------|---------|
@@ -169,24 +173,27 @@ Flags are never hard-deleted. `IsArchived = true` removes them from active queri
 | **Role-based targeting** | Enable features for specific user roles with case-insensitive matching |
 | **Environment isolation** | Flags scoped independently to Development, Staging, and Production |
 | **Input validation** | FluentValidation v12 with two-point sanitization (`InputSanitizer` + validators) on all write paths |
-| **Route parameter hardening** | `RouteParameterGuard` enforces character allowlists on all route parameters |
+| **Route parameter hardening** | `RouteParameterGuard` enforces character allowlists on flag-name route parameters |
 | **Name uniqueness** | TOCTOU-safe via `ExistsAsync` check + Postgres constraint intercept in Infrastructure |
 | **Standardized error responses** | RFC 9457 `ProblemDetails` shape on every error (`application/problem+json`) |
 | **Domain exception hierarchy** | `FlagNotFoundException` (404), `DuplicateFlagNameException` (409), `BanderasValidationException` (400) |
 | **Self-documenting API** | Enriched OpenAPI spec with Scalar UI at `/scalar/v1` |
+| **Seed data** | Six local-development flags are available after development startup |
+| **Evaluation telemetry** | Structured logs and Application Insights custom events for evaluation decisions |
+| **Azure Key Vault integration** | Runtime secret loading via `Azure:KeyVaultUri` and `DefaultAzureCredential` |
+| **Application Insights integration** | Azure-native telemetry sink with evaluation custom events |
+| **AI flag health analysis** | `POST /api/flags/health` uses Azure OpenAI + Semantic Kernel behind `IAiFlagAnalyzer` |
+| **Endpoint-scoped AI failure** | Missing Azure OpenAI endpoint leaves non-AI endpoints available and returns `503` only for AI analysis |
 | **AI PR Reviewer** | Claude-powered code review on every PR — checks Clean Architecture, FluentValidation v12 patterns, and project conventions |
-| **CI pipeline** | GitHub Actions — format gate (CSharpier), zero-warnings build, 75 unit tests on every push |
+| **CI pipeline** | GitHub Actions — format gate (CSharpier), zero-warnings build, unit tests, integration tests, optional AI review |
 
 ### 🔜 Coming Soon
 
 | Phase | Feature |
 |-------|---------|
-| **1** | Integration tests — all 6 endpoints |
-| **1** | `.http` smoke test file |
-| **1** | Seed data + evaluation logging |
-| **1.5** | Azure Key Vault for secrets management |
-| **1.5** | Azure Application Insights — evaluation telemetry |
-| **1.5** | AI flag health analysis endpoint (Azure OpenAI + Semantic Kernel) |
+| **2** | AI response semantic validation after deserialization |
+| **2** | Stronger direct `Flag` invariants and domain tests |
+| **2** | Contract tests for API responses |
 | **3** | JWT authentication and RBAC |
 | **5** | User targeting, time-based activation, gradual rollout |
 | **6** | Redis caching layer |
@@ -202,18 +209,21 @@ Flags are never hard-deleted. `IsArchived = true` removes them from active queri
 - [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)
 - [VS Code](https://code.visualstudio.com/) + [Dev Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers) *(recommended)*
 
-### One-Command Quickstart
+### Local Quickstart
 
 ```bash
 git clone https://github.com/amodelandme/Banderas.git
 cd Banderas
 docker compose up -d
+Azure__KeyVaultUri="" dotnet run --project Banderas.Api --launch-profile http
 ```
 
-The API starts at `http://localhost:5000`.
-Interactive docs at `http://localhost:5000/scalar/v1`.
+The API starts at `http://localhost:5227`.
+Interactive docs are available at `http://localhost:5227/scalar/v1`.
 
-> PostgreSQL starts alongside the API — no separate database setup required.
+> `docker compose up -d` starts PostgreSQL. `dotnet run` starts the API. The
+> `Azure__KeyVaultUri=""` override disables the development Key Vault setting for
+> local runs that are not authenticated to Azure.
 
 ### Dev Container (Recommended)
 
@@ -222,7 +232,8 @@ The repo ships with a fully configured devcontainer including .NET 10, Claude Co
 1. Open the repo in VS Code
 2. Click **Reopen in Container** when prompted
 3. Run `docker compose up -d` from the integrated terminal
-4. The devcontainer auto-joins the Postgres Docker network on start — `Host=postgres` resolves without any manual configuration
+4. Run `Azure__KeyVaultUri="" dotnet run --project Banderas.Api --launch-profile http`
+5. The devcontainer auto-joins the Postgres Docker network on start — `Host=postgres` resolves without any manual configuration
 
 > **Note:** Start `docker compose up -d` before or immediately after opening the devcontainer.
 
@@ -264,10 +275,20 @@ POST /api/evaluate
 
 ```json
 {
-  "flagName": "dark-mode",
-  "isEnabled": true,
-  "environment": "Production",
-  "strategy": "RoleBased"
+  "isEnabled": true
+}
+```
+
+### AI Flag Health
+
+| Method | Route | Description |
+|--------|-------|-------------|
+| `POST` | `/api/flags/health` | Analyze all active flags across environments |
+
+```json
+POST /api/flags/health
+{
+  "stalenessThresholdDays": 7
 }
 ```
 
@@ -280,7 +301,7 @@ POST /api/evaluate
   "environment": "Production",
   "isEnabled": true,
   "strategyType": "Percentage",
-  "strategyConfig": { "Percentage": 30 }
+  "strategyConfig": "{\"percentage\": 30}"
 }
 ```
 
@@ -291,7 +312,7 @@ POST /api/evaluate
   "environment": "Production",
   "isEnabled": true,
   "strategyType": "RoleBased",
-  "strategyConfig": { "Roles": ["admin", "superuser"] }
+  "strategyConfig": "{\"roles\": [\"admin\", \"superuser\"]}"
 }
 ```
 
@@ -307,6 +328,7 @@ All errors return RFC 9457 `ProblemDetails` with `Content-Type: application/prob
 | Duplicate flag name | `409` | `DuplicateFlagNameException` |
 | Validation failure | `400` | `BanderasValidationException` |
 | Invalid route parameter | `400` | `RouteParameterGuard` rejection |
+| AI analysis unavailable | `503` | `AiAnalysisUnavailableException` |
 | Unexpected server error | `500` | Generic ProblemDetails |
 
 **Example error response:**
@@ -326,20 +348,17 @@ The exception hierarchy follows the **Open/Closed Principle** — new exception 
 
 ## 🧪 Testing
 
-### Unit Tests — 75/75 Passing
+### Test Suite — 146/146 Passing
 
-Tests live in `Banderas.Tests/` and cover all pure logic — strategies, the evaluator, and all validators. Integration tests covering the full HTTP stack are in progress.
+Unit tests live in `Banderas.Tests/` and cover pure logic: strategies, evaluator behavior, validators, domain value objects, service orchestration, logging, prompt sanitization, and AI analysis orchestration.
 
-| Test Class | Count | What It Covers |
-|------------|-------|----------------|
-| `NoneStrategyTests` | 4 | Passthrough always returns `true` |
-| `PercentageStrategyTests` | 9 | SHA-256 bucketing, boundary values, invalid config |
-| `RoleStrategyTests` | 9 | Role matching, case insensitivity, fail-closed behavior |
-| `FeatureEvaluatorTests` | 4 | Registry dispatch, missing strategy fallback |
-| `CreateFlagRequestValidatorTests` | 17 | All create path validation rules |
-| `UpdateFlagRequestValidatorTests` | 9 | All update path validation rules |
-| `EvaluationRequestValidatorTests` | 10 | Evaluation request validation rules |
-| **Total** | **75** | |
+Integration tests live in `Banderas.Tests.Integration/` and run the HTTP stack against Testcontainers PostgreSQL. They cover CRUD, evaluation, seed-data startup, AI health analysis, and the missing-Azure-OpenAI startup resilience path.
+
+| Suite | Count | Coverage |
+|-------|------:|----------|
+| Unit | 107 | Domain, strategies, evaluator, validators, services, logging, prompt sanitization |
+| Integration | 39 | API endpoints, ProblemDetails responses, seed data, AI health, startup resilience |
+| **Total** | **146** | |
 
 ### A Bug Story Worth Telling
 
@@ -405,15 +424,17 @@ Specs are written *before* implementation and committed to `Docs/Decisions/` as 
 
 ---
 
-## 🔮 Planned AI Features
+## 🔮 AI Features
 
-These are roadmapped features, not marketing claims. They will be implemented as the product matures:
+AI is split between capabilities available now and features planned for later phases:
 
 | Feature | Phase | Description |
 |---------|-------|-------------|
-| **Flag health analysis** | 1.5 | Natural language analysis of flag state, age, and evaluation patterns |
-| **Stale flag detection** | 1.5 | Identify flags that haven't been evaluated recently or are at 0% / 100% |
-| **Rollout risk reasoning** | 1.5 | "Is it safe to roll this flag out to 100%?" — answered in plain English |
+| **Flag health analysis** | 1.5 ✅ | Natural language analysis of flag state, age, and strategy configuration |
+| **Stale flag detection** | 1.5 ✅ | Uses `UpdatedAt` and caller-supplied staleness threshold to flag stale candidates |
+| **AI unavailable fallback** | 1.5 ✅ | Missing Azure OpenAI endpoint returns `503` only on the AI health endpoint |
+| **AI response contract validation** | 2 | Enforce allowed statuses and one assessment per analyzed flag before returning `200` |
+| **Rollout risk reasoning** | Future | "Is it safe to roll this flag out to 100%?" — answered in plain English |
 | **Natural language flag creation** | Future | Describe a flag in English; get a fully configured flag back |
 | **Anomaly detection** | Future | Alert when evaluation patterns change unexpectedly |
 | **Evaluation debugging** | Future | "Why was this flag OFF for user X?" answered in plain English |
@@ -430,12 +451,12 @@ All AI features will use **Azure OpenAI** and **Semantic Kernel** — consistent
 | **ORM** | EF Core 10 + Npgsql |
 | **Database** | PostgreSQL 16 (Docker locally; Azure Database for PostgreSQL Flexible Server in production) |
 | **Validation** | FluentValidation v12 |
-| **Testing** | xUnit + FluentAssertions v7 |
+| **Testing** | xUnit + FluentAssertions v8 |
 | **API Docs** | Scalar UI (replaces Swagger) |
 | **Code Style** | CSharpier 1.x + `.editorconfig` |
 | **CI/CD** | GitHub Actions |
 | **AI (Dev Workflow)** | Claude API (Anthropic) — PR reviewer |
-| **AI (Product, Planned)** | Azure OpenAI + Semantic Kernel |
+| **AI (Product)** | Azure OpenAI + Semantic Kernel |
 | **Containerization** | Docker + Docker Compose |
 | **Dev Environment** | VS Code Dev Containers |
 
@@ -447,9 +468,9 @@ All AI features will use **Azure OpenAI** and **Semantic Kernel** — consistent
 
 ```
 Phase 0  ✅  Foundation — domain, strategies, persistence, API
-Phase 1  ✅  MVP Completion — validation, CI, error handling, unit tests ← (final stretch)
-Phase 1.5    Azure Foundation + AI — Key Vault, App Insights, AI analysis endpoint
-Phase 2      Testing & Reliability — integration tests, contract tests
+Phase 1  ✅  MVP Completion — validation, CI, error handling, tests, telemetry
+Phase 1.5 ✅  Azure Foundation + AI — Key Vault, App Insights, AI analysis endpoint
+Phase 2      Testing & Reliability — AI contracts, domain invariants, API contracts
 Phase 3      Auth & Security — JWT, RBAC, rate limiting, audit trail
 Phase 4      Observability — evaluation telemetry, debugging endpoint, dashboards
 Phase 5      Advanced Strategies — user targeting, time-based, gradual rollout
@@ -465,13 +486,23 @@ Phase 9      Open Core Launch — public Docker image, hosted offering
 - [x] Global exception middleware — RFC 9457 ProblemDetails
 - [x] Input sanitization + route parameter hardening
 - [x] Name uniqueness with TOCTOU protection
-- [x] Unit tests for all strategies and evaluator (75/75 passing)
+- [x] Unit tests for strategies, evaluator, validators, services, and AI helpers
 - [x] CI pipeline — format gate + zero-warnings build
 - [x] AI PR reviewer in CI
-- [x] Integration tests for all 6 endpoints
+- [x] Integration tests for all current endpoints
 - [x] `.http` smoke test file
 - [x] Seed data for local development
-- [ ] Evaluation decision logging
+- [x] Evaluation decision logging
+
+### Phase 1.5 Definition of Done
+
+- [x] Azure Key Vault integration
+- [x] Application Insights integration
+- [x] AI flag health analysis endpoint
+- [x] Prompt sanitization before AI calls
+- [x] AI unavailability maps to `503 ProblemDetails`
+- [x] Missing Azure OpenAI endpoint does not block non-AI app startup
+- [x] Architecture review completed — gate: GO WITH CONDITIONS
 
 ---
 
@@ -479,7 +510,7 @@ Phase 9      Open Core Launch — public Docker image, hosted offering
 
 This project is in active development. Contributions, feedback, and questions are welcome.
 
-For contribution guidelines, see [CONTRIBUTING.md](CONTRIBUTING.md) *(coming in Phase 9)*.
+Contribution guidelines are planned for Phase 9.
 
 For questions or architectural discussions, open an issue.
 
