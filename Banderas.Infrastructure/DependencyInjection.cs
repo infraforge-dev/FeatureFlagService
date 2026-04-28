@@ -41,9 +41,9 @@ public static class DependencyInjection
 
             if (string.IsNullOrWhiteSpace(endpoint))
             {
-                services.AddScoped<IAiFlagAnalyzer>(_ =>
-                    new UnavailableAiFlagAnalyzer("Azure OpenAI endpoint is not configured.")
-                );
+                services.AddScoped<IAiFlagAnalyzer>(_ => new UnavailableAiFlagAnalyzer(
+                    "Azure OpenAI endpoint is not configured."
+                ));
 
                 return services;
             }

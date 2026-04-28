@@ -35,14 +35,13 @@ public sealed class AiStartupResilienceTests
     [Trait("Category", "Integration")]
     public async Task GetFlags_NoAzureOpenAiEndpoint_ReturnsNonAiResponseAsync()
     {
-        HttpResponseMessage response = await _client.GetAsync(
-            "/api/flags?environment=Development"
-        );
+        HttpResponseMessage response = await _client.GetAsync("/api/flags?environment=Development");
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
 
-        IReadOnlyList<FlagResponse>? body =
-            await response.Content.ReadFromJsonAsync<IReadOnlyList<FlagResponse>>();
+        IReadOnlyList<FlagResponse>? body = await response.Content.ReadFromJsonAsync<
+            IReadOnlyList<FlagResponse>
+        >();
         body.Should().NotBeNull();
     }
 
@@ -50,10 +49,7 @@ public sealed class AiStartupResilienceTests
     [Trait("Category", "Integration")]
     public async Task PostHealth_NoAzureOpenAiEndpoint_Returns503ProblemDetailsAsync()
     {
-        HttpResponseMessage response = await _client.PostAsJsonAsync(
-            "/api/flags/health",
-            new { }
-        );
+        HttpResponseMessage response = await _client.PostAsJsonAsync("/api/flags/health", new { });
 
         response.StatusCode.Should().Be(HttpStatusCode.ServiceUnavailable);
         response.Content.Headers.ContentType.Should().NotBeNull();
@@ -70,8 +66,9 @@ public sealed class AiStartupResilienceTests
         : WebApplicationFactory<Program>,
             IAsyncLifetime
     {
-        private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder("postgres:16")
-            .Build();
+        private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder(
+            "postgres:16"
+        ).Build();
 
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
