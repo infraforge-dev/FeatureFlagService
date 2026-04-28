@@ -158,13 +158,13 @@ Every phase of this roadmap builds toward that demo.
 * [x] Explicitly document the `FeatureEvaluationContext` service-boundary exception
       as an intentional value-object boundary input
 * [x] Add AI-unavailable 503 integration coverage
-* [ ] Add AI output-contract verification
+* [x] Add AI output-contract verification
 
 ---
 
 ## 🧪 Phase 2 — Testing & Reliability
 
-* [ ] Enforce AI response semantics after deserialization
+* [x] Enforce AI response semantics after deserialization
 * [x] Formally keep `FeatureEvaluationContext` as the evaluation value-object
       exception to the DTO-only service-boundary convention
 * [ ] Strengthen `Flag` invariants and direct domain tests before adding new input surfaces
@@ -249,12 +249,11 @@ Every phase of this roadmap builds toward that demo.
 
 **Phase 2 Prep — Gate: GO WITH CONDITIONS**
 
-1. Add AI output-contract validation after deserialization
-2. Strengthen direct domain invariants and tests
-3. Decide whether GET query environment validation should move earlier or remain
+1. Strengthen direct domain invariants and tests
+2. Decide whether GET query environment validation should move earlier or remain
    explicitly documented as service-level validation
 
-**Phase 1.5 closed with GO WITH CONDITIONS**
+**Phase 1.5 closed with GO WITH CONDITIONS; AI output-contract condition is closed.**
 
 ---
 
@@ -268,6 +267,8 @@ Every phase of this roadmap builds toward that demo.
 * `FlagResponse.StrategyConfig` is `string?` — null guard required before sanitizing
 * `AiAnalysisUnavailableException` extends `Exception` (not `BanderasException`) —
   middleware catches it explicitly before the generic handler
+* `AiFlagAnalyzer` validates deserialized model output before returning: non-empty
+  summary, non-empty assessments, full input-flag coverage, and documented status values
 * Semantic Kernel and `DefaultAzureCredential` excluded from `Testing` environment
 * Missing Azure OpenAI endpoint registers `UnavailableAiFlagAnalyzer`; app startup
   stays healthy and AI health analysis returns 503

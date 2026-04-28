@@ -574,9 +574,15 @@ application-layer rules.
 * `AiFlagAnalyzer` — Semantic Kernel + Azure OpenAI implementation
 * `UnavailableAiFlagAnalyzer` — endpoint-scoped unavailable implementation used
   when `AzureOpenAI:Endpoint` is missing or blank
+* `AiFlagAnalyzer` validates deserialized model output before it crosses the
+  infrastructure boundary: summary must be present, assessments must be non-empty,
+  every input flag must be covered by name using case-insensitive matching, and
+  statuses must stay within `Healthy`, `Stale`, `Misconfigured`, or `NeedsReview`
 * `IPromptSanitizer` — interface for sanitizing string values before embedding in
   AI prompts; specifically targets newline injection, instruction override patterns,
   and role confusion attacks
+* Failed AI output validation throws `AiAnalysisUnavailableException`; middleware logs
+  the diagnostic reason and returns the stable `503 application/problem+json` surface
 * `InputSanitizer` (HTTP boundary) is a complementary first layer, not a substitute
 * See `Docs/Security/adr-input-security-model-v1.1.md` for the original prompt
   injection threat model

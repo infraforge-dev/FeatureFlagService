@@ -12,6 +12,7 @@
 - [What Not To Do Right Now](#-what-not-to-do-right-now)
 - [Definition of Done — Phase 1](#-definition-of-done--phase-1)
 - [Definition of Done — Phase 1.5](#-definition-of-done--phase-15)
+- [Definition of Done — Phase 2 Prep](#-definition-of-done--phase-2-prep)
 - [Spec Writing — Lessons Learned](#-spec-writing--lessons-learned)
 - [Notes for AI Assistants](#-notes-for-ai-assistants)
 
@@ -38,14 +39,15 @@
 **Phase 1.5 — Azure Key Vault Integration (PR #50): ✅ Complete**
 **Phase 1.5 — Application Insights Integration (PR #51): ✅ Complete**
 **Phase 1.5 — AI Flag Health Analysis Endpoint (PR #52): ✅ Complete**
+**Phase 2 Prep — AI Response Semantic Validation (PR TBD): ✅ Complete**
 
 **Phase 1.5 — Azure Foundation + AI Integration: ✅ Architecture Review Complete**
 
-**Gate Decision:** GO WITH CONDITIONS
+**Gate Decision:** GO WITH CONDITIONS — AI response validation condition closed
 
 Audit report: `Docs/architecture-review-phase1-report.md`
 
-146/146 tests passing (107 unit + 39 integration).
+155/155 tests passing (107 unit + 48 integration).
 
 ---
 
@@ -98,7 +100,8 @@ Audit report: `Docs/architecture-review-phase1-report.md`
   nullable environment param; `null` = no filter, returns all non-archived flags
   across all environments; passing an explicit value preserves scoped behavior
 - `AiFlagAnalyzer` — Semantic Kernel + Azure OpenAI implementation; all failures
-  wrapped as `AiAnalysisUnavailableException`
+  wrapped as `AiAnalysisUnavailableException`; validates deserialized model output
+  for summary, non-empty assessments, input-flag coverage, and documented status values
 - `UnavailableAiFlagAnalyzer` — endpoint-scoped unavailable implementation used when
   `AzureOpenAI:Endpoint` is missing or blank
 - Semantic Kernel and `DefaultAzureCredential` fully excluded from `Testing`
@@ -112,7 +115,7 @@ Audit report: `Docs/architecture-review-phase1-report.md`
 - `EvaluationController` — evaluation endpoint
 - `GlobalExceptionMiddleware` — RFC 9457 ProblemDetails; `WriteProblemDetailsAsync`
   extended with optional `type` param; dedicated `catch (AiAnalysisUnavailableException)`
-  block → 503 with RFC URI
+  block logs the diagnostic reason and returns a safe 503 with RFC URI
 - `RouteParameterGuard` — route parameter hardening
 - OpenAPI enrichment with Scalar UI
 - `FluentValidation` v12 on all request DTOs including `FlagHealthRequestValidator`
@@ -133,7 +136,7 @@ Audit report: `Docs/architecture-review-phase1-report.md`
 - `lint-format` job — CSharpier check, blocks on violations
 - `build-test` job — `dotnet build` with `-p:TreatWarningsAsErrors=true`,
   `dotnet test` for unit and integration suites
-- `integration-test` job — Testcontainers Postgres, 39 integration tests
+- `integration-test` job — Testcontainers Postgres, 48 integration tests
 - `ai-review` job — activated by `ai-review` label; Claude API code review
   posted as PR comment; depends on all three prior jobs
 - NuGet locked restore enforced via `--locked-mode`; `packages.lock.json` committed
@@ -142,14 +145,18 @@ Audit report: `Docs/architecture-review-phase1-report.md`
 
 - 107 unit tests — strategies, evaluator, validators, logging behavior,
   prompt sanitization (21), service analysis (5)
-- 39 integration tests — all endpoints including `POST /api/flags/health` and
-  missing-Azure-OpenAI startup resilience
-- 146/146 passing
+- 48 integration tests — all endpoints including `POST /api/flags/health`,
+  missing-Azure-OpenAI startup resilience, AI-unavailable 503 behavior, and
+  semantic AI response validation
+- 155/155 passing
 - `AssemblyInfo.cs` — `InternalsVisibleTo("Banderas.Tests")`
 - `BanderasServiceLoggingTests` — `NullPromptSanitizer` + `NullAiFlagAnalyzer`
   hand-written stubs (consistent with existing `NullTelemetryService` pattern)
+- `AiFlagAnalyzerValidationTests` — Semantic Kernel stub coverage for summary,
+  empty-list, missing-flag, invalid-status, and valid-pass-through paths
 - `BanderasApiFactory` — `StubAiFlagAnalyzer` registered for deterministic
-  integration test responses; no Azure calls in CI
+  integration test responses; `ThrowingAiFlagAnalyzer` factory path verifies
+  endpoint-scoped 503 behavior; no Azure calls in CI
 
 ### Developer Experience
 
@@ -164,7 +171,7 @@ Audit report: `Docs/architecture-review-phase1-report.md`
 - [x] Remove the Azure OpenAI startup dependency from the global app boot path
 - [x] Explicitly ratify the `FeatureEvaluationContext` service-boundary exception
 - [x] Add end-to-end coverage for AI-unavailable `503` behavior
-- [ ] Tighten AI response validation after model output is deserialized
+- [x] Tighten AI response validation after model output is deserialized
 
 ---
 
@@ -184,7 +191,9 @@ not verify that every flag is represented or that status values stay within the
 documented set.
 
 **Audit status:** Identified in `Docs/architecture-review-phase1-report.md`.
-Fix in early Phase 2.
+**Status:** Closed — PR TBD. `AiFlagAnalyzer.ValidateResponse(...)` now rejects
+missing/empty summaries, missing/empty assessment lists, partial flag coverage, and
+undocumented status values before any `200 OK` response can leave the AI boundary.
 
 ---
 
@@ -194,9 +203,8 @@ Fix in early Phase 2.
 
 ### Immediate Next Tasks
 
-1. Add semantic validation for AI model responses before returning 200
-2. Strengthen `Flag` invariants and direct domain tests before adding new input surfaces
-3. Decide whether GET query environment validation should move to the HTTP boundary
+1. Strengthen `Flag` invariants and direct domain tests before adding new input surfaces
+2. Decide whether GET query environment validation should move to the HTTP boundary
    or remain documented as service-level validation
 
 ---
@@ -243,6 +251,18 @@ Fix in early Phase 2.
 **Phase 1.5 DoD: ✅ COMPLETE**
 
 **Phase gate:** GO WITH CONDITIONS
+
+---
+
+## 📌 Definition of Done — Phase 2 Prep
+
+- [x] Remove Azure OpenAI as a hard startup dependency for non-AI endpoints
+- [x] Explicitly document the `FeatureEvaluationContext` service-boundary exception
+- [x] Add end-to-end coverage for AI-unavailable `503` behavior
+- [x] Enforce AI response semantics after deserialization
+
+**Phase 2 Prep Gate Conditions: ✅ COMPLETE**
+
 ---
 
 ## 📝 Spec Writing — Lessons Learned
@@ -269,6 +289,15 @@ Fix in early Phase 2.
   is ambiguous and will not compile.
 - `GeneratedRegex` attribute — prefer over `new Regex(...)` for patterns used in
   hot paths; compile-time generation avoids runtime allocation
+- `[2026-04-28] — AI boundary validation needs direct analyzer coverage`
+
+  Semantic validation inside `AiFlagAnalyzer` is intentionally private because no other
+  component should share the AI output-contract rules. The implementation still needed
+  direct coverage through a stubbed Semantic Kernel `IChatCompletionService`, not only
+  endpoint-level 503 tests, so the validation contract can fail loudly when a single
+  malformed model field slips through. The rule going forward: when a spec adds a
+  private boundary guard, include tests that exercise the real public boundary around
+  that private method, plus one HTTP test for the translated error surface.
 
 ---
 
