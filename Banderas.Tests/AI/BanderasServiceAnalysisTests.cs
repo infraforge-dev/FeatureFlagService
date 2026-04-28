@@ -175,6 +175,7 @@ public sealed class BanderasServiceAnalysisTests
             bool result,
             RolloutStrategy strategy,
             EnvironmentType environment
-        ) { }
+        )
+        { }
     }
 }
