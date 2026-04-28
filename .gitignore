@@ -485,5 +485,6 @@ $RECYCLE.BIN/
 .claude/settings.local.json
 
 # skills folder
-/skills
-/.agents
+/.skills
+
+claude.md

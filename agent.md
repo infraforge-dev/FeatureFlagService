@@ -1,4 +1,4 @@
-# claude.md - AI Context
+# AI Context
 **Last updated:** 2026-04-28
 
 > This file defines how this agent thinks, codes, and communicates on any project.
