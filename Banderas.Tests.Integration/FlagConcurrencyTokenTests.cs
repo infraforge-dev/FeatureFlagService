@@ -31,7 +31,8 @@ public sealed class FlagConcurrencyTokenTests : IntegrationTestBase
         Guid flagId;
         using (IServiceScope seedScope = _factory.Services.CreateScope())
         {
-            BanderasDbContext db = seedScope.ServiceProvider.GetRequiredService<BanderasDbContext>();
+            BanderasDbContext db =
+                seedScope.ServiceProvider.GetRequiredService<BanderasDbContext>();
             Flag seed = new Flag(
                 "concurrency-token-test",
                 EnvironmentType.Development,
@@ -50,7 +51,8 @@ public sealed class FlagConcurrencyTokenTests : IntegrationTestBase
 
         BanderasDbContext dbA = scopeA.ServiceProvider.GetRequiredService<BanderasDbContext>();
         BanderasDbContext dbB = scopeB.ServiceProvider.GetRequiredService<BanderasDbContext>();
-        IBanderasRepository repoB = scopeB.ServiceProvider.GetRequiredService<IBanderasRepository>();
+        IBanderasRepository repoB =
+            scopeB.ServiceProvider.GetRequiredService<IBanderasRepository>();
 
         Flag flagA = (await dbA.Flags.FindAsync(flagId))!;
         Flag flagB = (await dbB.Flags.FindAsync(flagId))!;
