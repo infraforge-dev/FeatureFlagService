@@ -168,6 +168,11 @@ Every phase of this roadmap builds toward that demo.
 * [x] Formally keep `FeatureEvaluationContext` as the evaluation value-object
       exception to the DTO-only service-boundary convention
 * [ ] Strengthen `Flag` invariants and direct domain tests before adding new input surfaces
+  * [x] Enforce archived state as terminal — `FlagDomainException` guard on all
+        five `Flag` mutation methods (PR #59)
+  * [ ] Remove `IsSeeded` from the `Flag` domain entity
+  * [ ] Convert `StrategyConfig` from raw `string` to typed Value Objects
+  * [ ] Enforce config/strategy type consistency inside `Flag`
 * [ ] Contract tests for API responses
 * [ ] Handle invalid strategy configurations gracefully
 * [ ] Test environment-specific behavior edge cases
@@ -247,13 +252,16 @@ Every phase of this roadmap builds toward that demo.
 
 ## 🎯 Current Focus
 
-**Phase 2 Prep — Gate: GO WITH CONDITIONS**
+**Phase 2 — Testing & Reliability**
 
-1. Strengthen direct domain invariants and tests
-2. Decide whether GET query environment validation should move earlier or remain
+1. Continue strengthening `Flag` domain invariants — next backlog items:
+   remove `IsSeeded` from the domain entity, then typed `StrategyConfig` Value Objects
+2. API-level integration coverage for archived-flag `409` mapping (deferred from PR #59)
+3. Decide whether GET query environment validation should move earlier or remain
    explicitly documented as service-level validation
 
-**Phase 1.5 closed with GO WITH CONDITIONS; AI output-contract condition is closed.**
+**Phase 1.5 closed with GO WITH CONDITIONS; AI output-contract condition is closed.
+Phase 2 first invariant landed in PR #59 (archived state is terminal).**
 
 ---
 

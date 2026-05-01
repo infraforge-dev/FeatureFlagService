@@ -43,11 +43,13 @@
 
 **Phase 1.5 — Azure Foundation + AI Integration: ✅ Architecture Review Complete**
 
+**Phase 2 — Enforce Archived State as Terminal (PR #59): ✅ Complete**
+
 **Gate Decision:** GO WITH CONDITIONS — AI response validation condition closed
 
 Audit report: `Docs/architecture-review-phase1-report.md`
 
-155/155 tests passing (107 unit + 48 integration).
+165/165 tests passing (117 unit + 48 integration).
 
 ---
 
@@ -66,7 +68,11 @@ Audit report: `Docs/architecture-review-phase1-report.md`
 - `IRolloutStrategy` interface — includes `StrategyType` for registry dispatch
 - `IBanderasRepository` interface — async signatures with `CancellationToken`
 - Domain exceptions: `FlagNotFoundException`, `DuplicateFlagNameException`,
-  `BanderasValidationException`
+  `BanderasValidationException`, `FlagDomainException` (409 Conflict — generic
+  domain invariant violation type)
+- `Flag` archived state is terminal — guard clause as the first statement of
+  `SetEnabled`, `UpdateStrategy`, `UpdateName`, `Update`, and `Archive`; throws
+  `FlagDomainException` if `IsArchived` is `true`
 
 ### Application Layer
 
@@ -143,12 +149,13 @@ Audit report: `Docs/architecture-review-phase1-report.md`
 
 ### Tests
 
-- 107 unit tests — strategies, evaluator, validators, logging behavior,
-  prompt sanitization (21), service analysis (5)
+- 117 unit tests — strategies, evaluator, validators, logging behavior,
+  prompt sanitization (21), service analysis (5), `Flag` archived-terminal
+  invariants (10)
 - 48 integration tests — all endpoints including `POST /api/flags/health`,
   missing-Azure-OpenAI startup resilience, AI-unavailable 503 behavior, and
   semantic AI response validation
-- 155/155 passing
+- 165/165 passing
 - `AssemblyInfo.cs` — `InternalsVisibleTo("Banderas.Tests")`
 - `BanderasServiceLoggingTests` — `NullPromptSanitizer` + `NullAiFlagAnalyzer`
   hand-written stubs (consistent with existing `NullTelemetryService` pattern)
@@ -199,13 +206,17 @@ undocumented status values before any `200 OK` response can leave the AI boundar
 
 ## 🎯 Current Focus
 
-**Phase 2 Prep — Remaining Gate Conditions**
+**Phase 2 — Testing & Reliability**
 
 ### Immediate Next Tasks
 
-1. Strengthen `Flag` invariants and direct domain tests before adding new input surfaces
-2. Decide whether GET query environment validation should move to the HTTP boundary
+1. Decide whether GET query environment validation should move to the HTTP boundary
    or remain documented as service-level validation
+2. API-level integration coverage for the archived-flag `409` mapping (deferred from
+   PR #59 — `FlagDomainException` → `409 Conflict` is verified by inspection only)
+3. Continue working through the `Flag` DDD analysis backlog
+   (`Docs/Decisions/flag-ddd-analysis-backlog.md`) — next item: remove `IsSeeded`
+   from the domain entity
 
 ---
 

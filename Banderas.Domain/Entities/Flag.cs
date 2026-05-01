@@ -1,4 +1,5 @@
 using Banderas.Domain.Enums;
+using Banderas.Domain.Exceptions;
 
 namespace Banderas.Domain.Entities;
 
@@ -57,12 +58,22 @@ public class Flag
 
     public void SetEnabled(bool enabled)
     {
+        if (IsArchived)
+        {
+            throw new FlagDomainException($"Flag '{Name}' is archived and cannot be modified.");
+        }
+
         IsEnabled = enabled;
         UpdatedAt = DateTime.UtcNow;
     }
 
     public void UpdateStrategy(RolloutStrategy strategyType, string? strategyConfig)
     {
+        if (IsArchived)
+        {
+            throw new FlagDomainException($"Flag '{Name}' is archived and cannot be modified.");
+        }
+
         StrategyType = strategyType;
         StrategyConfig = strategyConfig ?? "{}";
         UpdatedAt = DateTime.UtcNow;
@@ -70,6 +81,11 @@ public class Flag
 
     public void UpdateName(string name)
     {
+        if (IsArchived)
+        {
+            throw new FlagDomainException($"Flag '{Name}' is archived and cannot be modified.");
+        }
+
         if (string.IsNullOrWhiteSpace(name))
         {
             throw new ArgumentException("Name cannot be empty.", nameof(name));
@@ -85,6 +101,11 @@ public class Flag
     /// </summary>
     public void Update(bool isEnabled, RolloutStrategy strategyType, string? strategyConfig)
     {
+        if (IsArchived)
+        {
+            throw new FlagDomainException($"Flag '{Name}' is archived and cannot be modified.");
+        }
+
         IsEnabled = isEnabled;
         StrategyType = strategyType;
         StrategyConfig = strategyConfig ?? "{}";
@@ -93,6 +114,11 @@ public class Flag
 
     public void Archive()
     {
+        if (IsArchived)
+        {
+            throw new FlagDomainException($"Flag '{Name}' is archived and cannot be modified.");
+        }
+
         IsArchived = true;
         ArchivedAt = DateTime.UtcNow;
         UpdatedAt = DateTime.UtcNow;
