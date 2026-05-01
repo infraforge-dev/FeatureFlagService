@@ -74,8 +74,8 @@ public class FlagEnvironmentConfig
 > Not yet scoped, specced, or assigned to a PR.  
 > Sequence is approximate — some items have dependencies.
 
-- [ ] **Introduce `FlagDomainException`** — dedicated domain exception type; thrown by domain invariant violations; lives in `Banderas.Domain`
-- [ ] **Enforce archived state as terminal** — guard clause at top of `Archive()`, `SetEnabled()`, `UpdateStrategy()`, `Update()`, and `UpdateName()`; throw `FlagDomainException` if already archived
+- [X] **Introduce `FlagDomainException`** — dedicated domain exception type; thrown by domain invariant violations; lives in `Banderas.Domain`
+- [X] **Enforce archived state as terminal** — guard clause at top of `Archive()`, `SetEnabled()`, `UpdateStrategy()`, `Update()`, and `UpdateName()`; throw `FlagDomainException` if already archived (PR #59)
 - [ ] **Remove `IsSeeded` from `Flag`** — move to infrastructure seeding concern; its presence on the domain entity is a boundary violation
 - [ ] **Consolidate `SetEnabled()` + `UpdateStrategy()` + `Update()`** — separate by concern not field; name changes (`UpdateName()`) are a distinct operation; rollout config changes are one operation
 - [ ] **Convert `StrategyConfig` from raw `string` to typed Value Objects** — one Value Object per strategy type (e.g. `PercentageConfig`, `RoleBasedConfig`); invalid config caught at construction
