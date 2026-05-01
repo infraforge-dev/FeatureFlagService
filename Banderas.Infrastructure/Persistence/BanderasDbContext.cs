@@ -13,5 +13,7 @@ public sealed class BanderasDbContext : DbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(BanderasDbContext).Assembly);
+
+        modelBuilder.Entity<Flag>().Property(p => p.Version).IsRowVersion();
     }
 }

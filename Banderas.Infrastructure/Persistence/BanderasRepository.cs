@@ -71,6 +71,15 @@ public sealed class BanderasRepository : IBanderasRepository
         {
             await _context.SaveChangesAsync(ct);
         }
+        catch (DbUpdateConcurrencyException ex)
+        {
+            Flag? conflicted = ex.Entries.Select(e => e.Entity).OfType<Flag>().FirstOrDefault();
+            if (conflicted is not null)
+            {
+                throw new FlagConcurrencyException(conflicted.Name, conflicted.Environment);
+            }
+            throw new FlagConcurrencyException();
+        }
         catch (DbUpdateException ex)
             when (ex.InnerException is PostgresException { SqlState: "23505" }
                 && pendingAdds.Count == 1

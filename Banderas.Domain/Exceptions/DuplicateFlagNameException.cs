@@ -13,6 +13,5 @@ public sealed class DuplicateFlagNameException : BanderasException
         : base(
             $"A feature flag named '{flagName}' already exists in {environment}.",
             StatusCodes.Status409Conflict
-        )
-    { }
+        ) { }
 }
