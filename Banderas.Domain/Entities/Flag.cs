@@ -5,6 +5,7 @@ namespace Banderas.Domain.Entities;
 public class Flag
 {
     public Guid Id { get; private set; } = Guid.NewGuid();
+    public uint Version { get; private set; }
     public string Name { get; private set; }
     public EnvironmentType Environment { get; private set; }
     public bool IsEnabled { get; private set; }
