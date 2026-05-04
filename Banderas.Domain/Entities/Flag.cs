@@ -11,7 +11,6 @@ public class Flag
     public EnvironmentType Environment { get; private set; }
     public bool IsEnabled { get; private set; }
     public bool IsArchived { get; private set; }
-    public bool IsSeeded { get; private set; }
     public RolloutStrategy StrategyType { get; private set; }
     public string StrategyConfig { get; private set; }
     public DateTime CreatedAt { get; private set; } = DateTime.UtcNow;
@@ -25,16 +24,6 @@ public class Flag
         RolloutStrategy strategyType,
         string? strategyConfig
     )
-        : this(name, environment, isEnabled, strategyType, strategyConfig, isSeeded: false) { }
-
-    public Flag(
-        string name,
-        EnvironmentType environment,
-        bool isEnabled,
-        RolloutStrategy strategyType,
-        string? strategyConfig,
-        bool isSeeded
-    )
     {
         if (string.IsNullOrWhiteSpace(name))
         {
@@ -46,7 +35,6 @@ public class Flag
         IsEnabled = isEnabled;
         StrategyType = strategyType;
         StrategyConfig = strategyConfig ?? "{}";
-        IsSeeded = isSeeded;
     }
 
     // Required by EF Core
