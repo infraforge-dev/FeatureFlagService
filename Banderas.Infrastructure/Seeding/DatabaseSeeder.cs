@@ -2,6 +2,7 @@ using Banderas.Domain.Entities;
 using Banderas.Domain.Enums;
 using Banderas.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.Extensions.Logging;
 
 namespace Banderas.Infrastructure.Seeding;
@@ -72,7 +73,8 @@ public sealed class DatabaseSeeder(BanderasDbContext db, ILogger<DatabaseSeeder>
                 continue;
             }
 
-            await db.Flags.AddAsync(record.ToFlag(), ct);
+            EntityEntry<Flag> entry = await db.Flags.AddAsync(record.ToFlag(), ct);
+            entry.Property("IsSeeded").CurrentValue = true;
             insertedCount++;
         }
 
@@ -93,7 +95,7 @@ public sealed class DatabaseSeeder(BanderasDbContext db, ILogger<DatabaseSeeder>
     {
         logger.LogWarning("SEED_RESET=true - deleting all seeded records before re-seeding.");
 
-        await db.Flags.Where(f => f.IsSeeded).ExecuteDeleteAsync(ct);
+        await db.Flags.Where(f => EF.Property<bool>(f, "IsSeeded")).ExecuteDeleteAsync(ct);
 
         int insertedCount = 0;
 
@@ -104,7 +106,7 @@ public sealed class DatabaseSeeder(BanderasDbContext db, ILogger<DatabaseSeeder>
                     f.Name == record.Name
                     && f.Environment == record.Environment
                     && !f.IsArchived
-                    && !f.IsSeeded,
+                    && !EF.Property<bool>(f, "IsSeeded"),
                 ct
             );
 
@@ -118,7 +120,8 @@ public sealed class DatabaseSeeder(BanderasDbContext db, ILogger<DatabaseSeeder>
                 continue;
             }
 
-            await db.Flags.AddAsync(record.ToFlag(), ct);
+            EntityEntry<Flag> entry = await db.Flags.AddAsync(record.ToFlag(), ct);
+            entry.Property("IsSeeded").CurrentValue = true;
             insertedCount++;
         }
 
@@ -137,7 +140,6 @@ public sealed class DatabaseSeeder(BanderasDbContext db, ILogger<DatabaseSeeder>
         string StrategyConfig
     )
     {
-        public Flag ToFlag() =>
-            new(Name, Environment, IsEnabled, StrategyType, StrategyConfig, isSeeded: true);
+        public Flag ToFlag() => new(Name, Environment, IsEnabled, StrategyType, StrategyConfig);
     }
 }
