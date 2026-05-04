@@ -1,4 +1,7 @@
+using Banderas.Domain.Entities;
+using Banderas.Domain.Enums;
 using Banderas.Infrastructure.Persistence;
+using Banderas.Infrastructure.Seeding;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -21,24 +24,75 @@ public sealed class SeedDataStartupTests
             BanderasDbContext dbContext =
                 scope.ServiceProvider.GetRequiredService<BanderasDbContext>();
 
-            List<Banderas.Domain.Entities.Flag> seededFlags = await dbContext
-                .Flags.OrderBy(f => f.Environment)
+            List<Flag> seededFlags = await dbContext
+                .Flags.Where(f => EF.Property<bool>(f, "IsSeeded"))
+                .OrderBy(f => f.Environment)
                 .ThenBy(f => f.Name)
                 .ToListAsync();
 
             seededFlags.Should().HaveCount(6);
-            seededFlags.Should().OnlyContain(flag => flag.IsSeeded);
             seededFlags
                 .Select(flag => (flag.Name, flag.Environment))
                 .Should()
                 .BeEquivalentTo([
-                    ("beta-features", Domain.Enums.EnvironmentType.Development),
-                    ("dark-mode", Domain.Enums.EnvironmentType.Development),
-                    ("maintenance-mode", Domain.Enums.EnvironmentType.Development),
-                    ("new-dashboard", Domain.Enums.EnvironmentType.Development),
-                    ("dark-mode", Domain.Enums.EnvironmentType.Staging),
-                    ("new-dashboard", Domain.Enums.EnvironmentType.Staging),
+                    ("beta-features", EnvironmentType.Development),
+                    ("dark-mode", EnvironmentType.Development),
+                    ("maintenance-mode", EnvironmentType.Development),
+                    ("new-dashboard", EnvironmentType.Development),
+                    ("dark-mode", EnvironmentType.Staging),
+                    ("new-dashboard", EnvironmentType.Staging),
                 ]);
+        }
+        finally
+        {
+            await factory.DisposeAsync();
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "Integration")]
+    public async Task SeedReset_DoesNotDeleteManuallyCreatedFlagsAsync()
+    {
+        var factory = new Fixtures.BanderasApiFactory();
+        await factory.InitializeAsync();
+
+        try
+        {
+            using IServiceScope scope = factory.Services.CreateScope();
+            BanderasDbContext dbContext =
+                scope.ServiceProvider.GetRequiredService<BanderasDbContext>();
+
+            // Insert a manual flag in a slot not occupied by the seed manifest.
+            var manualFlag = new Flag(
+                "manual-only",
+                EnvironmentType.Production,
+                isEnabled: true,
+                RolloutStrategy.None,
+                strategyConfig: null
+            );
+            await dbContext.Flags.AddAsync(manualFlag);
+            await dbContext.SaveChangesAsync();
+
+            DatabaseSeeder seeder = scope.ServiceProvider.GetRequiredService<DatabaseSeeder>();
+            await seeder.SeedAsync(reset: true);
+
+            Flag? survivor = await dbContext
+                .Flags.AsNoTracking()
+                .SingleOrDefaultAsync(f =>
+                    f.Name == "manual-only" && f.Environment == EnvironmentType.Production
+                );
+
+            survivor.Should().NotBeNull();
+
+            int seededCount = await dbContext
+                .Flags.Where(f => EF.Property<bool>(f, "IsSeeded"))
+                .CountAsync();
+            seededCount.Should().Be(6);
+
+            int manualCount = await dbContext
+                .Flags.Where(f => !EF.Property<bool>(f, "IsSeeded"))
+                .CountAsync();
+            manualCount.Should().Be(1);
         }
         finally
         {

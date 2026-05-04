@@ -44,6 +44,7 @@
 **Phase 1.5 — Azure Foundation + AI Integration: ✅ Architecture Review Complete**
 
 **Phase 2 — Enforce Archived State as Terminal (PR #59): ✅ Complete**
+**Phase 2 — Remove `IsSeeded` from `Flag` Domain Entity (PR TBD): ✅ Complete**
 
 **Gate Decision:** GO WITH CONDITIONS — AI response validation condition closed
 
@@ -59,9 +60,10 @@ Audit report: `Docs/architecture-review-phase1-report.md`
 
 - `Flag` entity with controlled mutation (private setters, explicit mutation methods)
 - `Flag.Update()` — atomic method that sets enabled state, strategy, and `UpdatedAt`
-- `Flag.IsSeeded` — provenance marker (`bool`, default `false`); stamped `true` by
-  `DatabaseSeeder` at insert time; never exposed on any DTO or API response
-- `Flag` constructor overload accepting `isSeeded` — used by seeder only
+- Provenance bookkeeping for seeded rows lives at the persistence layer only —
+  `IsSeeded` is an EF Core shadow property on the `flags` table, stamped `true`
+  by `DatabaseSeeder` after insert and queried via `EF.Property<bool>(f, "IsSeeded")`;
+  no longer exposed on the `Flag` domain entity
 - `FeatureEvaluationContext` value object — `IEquatable<T>`, guard clauses, immutable roles
 - `RolloutStrategy` enum (None, Percentage, RoleBased)
 - `EnvironmentType` enum (None = 0 sentinel, Development, Staging, Production)
@@ -215,8 +217,8 @@ undocumented status values before any `200 OK` response can leave the AI boundar
 2. API-level integration coverage for the archived-flag `409` mapping (deferred from
    PR #59 — `FlagDomainException` → `409 Conflict` is verified by inspection only)
 3. Continue working through the `Flag` DDD analysis backlog
-   (`Docs/Decisions/flag-ddd-analysis-backlog.md`) — next item: remove `IsSeeded`
-   from the domain entity
+   (`Docs/Decisions/flag-ddd-analysis-backlog.md`) — next item: consolidate
+   `SetEnabled` / `UpdateStrategy` / `Update` by concern
 
 ---
 

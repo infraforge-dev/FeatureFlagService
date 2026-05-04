@@ -24,7 +24,7 @@ public sealed class FlagConfiguration : IEntityTypeConfiguration<Flag>
 
         builder.Property(f => f.IsArchived).IsRequired();
 
-        builder.Property(f => f.IsSeeded).IsRequired().HasDefaultValue(false);
+        builder.Property<bool>("IsSeeded").IsRequired().HasDefaultValue(false);
 
         builder.Property(f => f.CreatedAt).IsRequired();
 
