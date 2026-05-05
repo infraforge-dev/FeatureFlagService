@@ -59,7 +59,7 @@ Every phase of this roadmap builds toward that demo.
 | 0 | Foundation | ✅ Complete |
 | 1 | MVP Completion | ✅ Complete |
 | 1.5 | Azure Foundation + AI Integration | ✅ Complete — Gate: GO WITH CONDITIONS |
-| 2 | Testing & Reliability | Planned |
+| 2 | Testing & Reliability | In Progress |
 | 3 | Auth, Authorization & Rate Limiting | Planned |
 | 4 | Observability & Debugging | Planned |
 | 5 | Advanced Rollout Strategies | Planned |
@@ -170,7 +170,9 @@ Every phase of this roadmap builds toward that demo.
 * [ ] Strengthen `Flag` invariants and direct domain tests before adding new input surfaces
   * [x] Enforce archived state as terminal — `FlagDomainException` guard on all
         five `Flag` mutation methods (PR #59)
-  * [ ] Remove `IsSeeded` from the `Flag` domain entity
+  * [x] Remove `IsSeeded` from the `Flag` domain entity
+  * [x] Archived-flag integration test coverage — PUT/DELETE/evaluate → 404,
+        `FlagDomainException` → 409 middleware contract (PR TBD)
   * [ ] Convert `StrategyConfig` from raw `string` to typed Value Objects
   * [ ] Enforce config/strategy type consistency inside `Flag`
 * [ ] Contract tests for API responses
@@ -254,14 +256,14 @@ Every phase of this roadmap builds toward that demo.
 
 **Phase 2 — Testing & Reliability**
 
-1. Continue strengthening `Flag` domain invariants — next backlog items:
-   remove `IsSeeded` from the domain entity, then typed `StrategyConfig` Value Objects
-2. API-level integration coverage for archived-flag `409` mapping (deferred from PR #59)
-3. Decide whether GET query environment validation should move earlier or remain
+1. Continue strengthening `Flag` domain invariants — next backlog item:
+   typed `StrategyConfig` Value Objects, then config/strategy type consistency
+2. Decide whether GET query environment validation should move earlier or remain
    explicitly documented as service-level validation
+3. Continue working through the `Flag` DDD analysis backlog
 
-**Phase 1.5 closed with GO WITH CONDITIONS; AI output-contract condition is closed.
-Phase 2 first invariant landed in PR #59 (archived state is terminal).**
+**Phase 2 progress: archived state terminal (PR #59), `IsSeeded` removed from domain,
+archived-flag integration test coverage complete. Next: typed `StrategyConfig` Value Objects.**
 
 ---
 

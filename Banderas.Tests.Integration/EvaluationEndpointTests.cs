@@ -209,6 +209,37 @@ public sealed class EvaluationEndpointTests : IntegrationTestBase
 
     [Fact]
     [Trait("Category", "Integration")]
+    public async Task Evaluate_ArchivedFlag_Returns404Async()
+    {
+        // Arrange
+        await CreateFlagAsync(name: "archived-eval-flag");
+        HttpResponseMessage archiveResponse = await Client.DeleteAsync(
+            "/api/flags/archived-eval-flag?environment=Development"
+        );
+        archiveResponse.StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        var request = new EvaluationRequest(
+            "archived-eval-flag",
+            "user-1",
+            [],
+            EnvironmentType.Development
+        );
+
+        // Act
+        HttpResponseMessage response = await Client.PostAsJsonAsync(
+            "/api/evaluate",
+            request,
+            JsonOptions
+        );
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        ProblemDetails body = await ReadProblemDetailsAsync(response, HttpStatusCode.NotFound);
+        body.Detail.Should().Contain("archived-eval-flag");
+    }
+
+    [Fact]
+    [Trait("Category", "Integration")]
     public async Task Evaluate_MissingUserId_Returns400Async()
     {
         // Arrange
