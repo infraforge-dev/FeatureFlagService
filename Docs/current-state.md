@@ -45,12 +45,13 @@
 
 **Phase 2 — Enforce Archived State as Terminal (PR #59): ✅ Complete**
 **Phase 2 — Remove `IsSeeded` from `Flag` Domain Entity (PR TBD): ✅ Complete**
+**Phase 2 — Archived-Flag Integration Test Coverage (PR TBD): ✅ Complete**
 
 **Gate Decision:** GO WITH CONDITIONS — AI response validation condition closed
 
 Audit report: `Docs/architecture-review-phase1-report.md`
 
-165/165 tests passing (117 unit + 48 integration).
+169/169 tests passing (115 unit + 54 integration).
 
 ---
 
@@ -151,13 +152,14 @@ Audit report: `Docs/architecture-review-phase1-report.md`
 
 ### Tests
 
-- 117 unit tests — strategies, evaluator, validators, logging behavior,
+- 115 unit tests — strategies, evaluator, validators, logging behavior,
   prompt sanitization (21), service analysis (5), `Flag` archived-terminal
   invariants (10)
-- 48 integration tests — all endpoints including `POST /api/flags/health`,
-  missing-Azure-OpenAI startup resilience, AI-unavailable 503 behavior, and
-  semantic AI response validation
-- 165/165 passing
+- 54 integration tests — all endpoints including `POST /api/flags/health`,
+  missing-Azure-OpenAI startup resilience, AI-unavailable 503 behavior,
+  semantic AI response validation, archived-flag mutation coverage (PUT/DELETE/evaluate
+  → 404), and `FlagDomainException` → 409 ProblemDetails middleware contract
+- 169/169 passing
 - `AssemblyInfo.cs` — `InternalsVisibleTo("Banderas.Tests")`
 - `BanderasServiceLoggingTests` — `NullPromptSanitizer` + `NullAiFlagAnalyzer`
   hand-written stubs (consistent with existing `NullTelemetryService` pattern)
@@ -165,7 +167,9 @@ Audit report: `Docs/architecture-review-phase1-report.md`
   empty-list, missing-flag, invalid-status, and valid-pass-through paths
 - `BanderasApiFactory` — `StubAiFlagAnalyzer` registered for deterministic
   integration test responses; `ThrowingAiFlagAnalyzer` factory path verifies
-  endpoint-scoped 503 behavior; no Azure calls in CI
+  endpoint-scoped 503 behavior; `TestDomainExceptionEndpointFilter` (`IStartupFilter`)
+  registers `GET /test/throw-domain-exception` for synthetic 409 middleware testing;
+  no Azure calls in CI
 
 ### Developer Experience
 
@@ -214,11 +218,10 @@ undocumented status values before any `200 OK` response can leave the AI boundar
 
 1. Decide whether GET query environment validation should move to the HTTP boundary
    or remain documented as service-level validation
-2. API-level integration coverage for the archived-flag `409` mapping (deferred from
-   PR #59 — `FlagDomainException` → `409 Conflict` is verified by inspection only)
-3. Continue working through the `Flag` DDD analysis backlog
+2. Continue working through the `Flag` DDD analysis backlog
    (`Docs/Decisions/flag-ddd-analysis-backlog.md`) — next item: consolidate
    `SetEnabled` / `UpdateStrategy` / `Update` by concern
+3. Convert `StrategyConfig` from raw `string` to typed Value Objects
 
 ---
 
@@ -302,6 +305,18 @@ undocumented status values before any `200 OK` response can leave the AI boundar
   is ambiguous and will not compile.
 - `GeneratedRegex` attribute — prefer over `new Regex(...)` for patterns used in
   hot paths; compile-time generation avoids runtime allocation
+- `[2026-05-05] — Defense-in-depth testing: test what clients see, not what guards throw`
+
+  When two layers guard the same invariant (repository `!f.IsArchived` filter + domain
+  `FlagDomainException` guard), the HTTP API's observable behavior is determined by the
+  outermost layer (404 from repo filter), not the inner guard (409 from domain). Integration
+  tests must assert the actual client-visible response (404), not the domain-level contract
+  (409). To cover the inner guard's middleware mapping, use a synthetic test-only endpoint
+  via `IStartupFilter` that throws the domain exception directly. The rule going forward:
+  when spec'ing integration coverage for a defense-in-depth invariant, identify which layer
+  the HTTP request reaches first and assert that layer's response, then add one synthetic
+  test for the inner guard's middleware contract.
+
 - `[2026-04-28] — AI boundary validation needs direct analyzer coverage`
 
   Semantic validation inside `AiFlagAnalyzer` is intentionally private because no other
