@@ -1,8 +1,10 @@
 using Banderas.Application.AI;
 using Banderas.Application.DTOs;
 using Banderas.Application.Exceptions;
+using Banderas.Domain.Exceptions;
 using Banderas.Infrastructure.Persistence;
 using Banderas.Infrastructure.Seeding;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
@@ -57,6 +59,10 @@ public sealed class BanderasApiFactory : WebApplicationFactory<Program>, IAsyncL
             // Semantic Kernel and Azure OpenAI are not registered in Testing.
             // Provide a deterministic stub so integration tests don't hit Azure.
             services.AddScoped<IAiFlagAnalyzer, StubAiFlagAnalyzer>();
+
+            // Test-only endpoint: throws FlagDomainException so integration tests
+            // can verify the GlobalExceptionMiddleware 409 ProblemDetails shape.
+            services.AddSingleton<IStartupFilter, TestDomainExceptionEndpointFilter>();
         });
     }
 
@@ -95,6 +101,26 @@ public sealed class BanderasApiFactory : WebApplicationFactory<Program>, IAsyncL
             int stalenessThresholdDays,
             CancellationToken cancellationToken = default
         ) => throw new AiAnalysisUnavailableException("Stub: AI analysis unavailable.");
+    }
+
+    private sealed class TestDomainExceptionEndpointFilter : IStartupFilter
+    {
+        public Action<IApplicationBuilder> Configure(Action<IApplicationBuilder> next)
+        {
+            return app =>
+            {
+                next(app);
+                app.Map(
+                    "/test/throw-domain-exception",
+                    branch =>
+                        branch.Run(_ =>
+                            throw new FlagDomainException(
+                                "Test flag 'test-flag' is archived and cannot be modified."
+                            )
+                        )
+                );
+            };
+        }
     }
 
     public async Task InitializeAsync()

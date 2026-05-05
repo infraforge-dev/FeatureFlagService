@@ -518,6 +518,59 @@ public sealed class FlagEndpointTests : IntegrationTestBase
 
     [Fact]
     [Trait("Category", "Integration")]
+    public async Task UpdateFlag_ArchivedFlag_Returns404ProblemDetailsAsync()
+    {
+        // Arrange
+        await CreateFlagAsync(name: "archived-update-flag");
+        HttpResponseMessage archiveResponse = await Client.DeleteAsync(
+            "/api/flags/archived-update-flag?environment=Development"
+        );
+        archiveResponse.StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        var payload = new
+        {
+            IsEnabled = false,
+            StrategyType = RolloutStrategy.None,
+            StrategyConfig = (string?)null,
+        };
+
+        // Act
+        HttpResponseMessage response = await Client.PutAsJsonAsync(
+            "/api/flags/archived-update-flag?environment=Development",
+            payload,
+            JsonOptions
+        );
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        ProblemDetails body = await ReadProblemDetailsAsync(response, HttpStatusCode.NotFound);
+        body.Detail.Should().Contain("archived-update-flag");
+    }
+
+    [Fact]
+    [Trait("Category", "Integration")]
+    public async Task ArchiveFlag_AlreadyArchived_Returns404ProblemDetailsAsync()
+    {
+        // Arrange
+        await CreateFlagAsync(name: "double-archive-flag");
+        HttpResponseMessage archiveResponse = await Client.DeleteAsync(
+            "/api/flags/double-archive-flag?environment=Development"
+        );
+        archiveResponse.StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        // Act
+        HttpResponseMessage response = await Client.DeleteAsync(
+            "/api/flags/double-archive-flag?environment=Development"
+        );
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        ProblemDetails body = await ReadProblemDetailsAsync(response, HttpStatusCode.NotFound);
+        body.Detail.Should().Contain("double-archive-flag");
+    }
+
+    [Fact]
+    [Trait("Category", "Integration")]
     public async Task ArchiveFlag_NotFound_Returns404ProblemDetailsAsync()
     {
         // Arrange
