@@ -9,6 +9,44 @@
 
 ---
 
+## Guardrails
+
+This project uses the safe-exec command safety system.
+The tier list lives in `DANGEROUS_COMMANDS.md` at the project root.
+Read it. Follow it. Do not route around it.
+
+### The four tiers
+
+| Tier | Behavior |
+|---|---|
+| 0 — Hard Block | Refuse entirely. No override. No workaround. |
+| 1 — Locked | Show command + risk. Wait for typed unlock phrase. |
+| 2 — Warn | Show command. Wait for "yes". |
+| 3 — Safe | Proceed without interruption. |
+
+### Before running any command
+
+Ask: does this command touch git history, a database, EF Core migrations,
+or delete files? If yes — route through safe-exec before executing.
+
+### Never run autonomously (Tier 0 summary)
+
+- `git push --force` / `git push -f`
+- `git push origin --delete`
+- `dotnet ef database drop`
+- `dotnet ef database update 0`
+- `DROP DATABASE` / `DROP TABLE` / `TRUNCATE TABLE`
+- `DELETE FROM` (without WHERE clause)
+- `rm -rf /` or any parent/home directory variant
+
+For the full list, read `DANGEROUS_COMMANDS.md`.
+
+### Confirm the guardrails are loaded
+
+At the start of each session, if asked "what are your guardrails?",
+recite the Tier 0 list and confirm you have read DANGEROUS_COMMANDS.md.
+If the file is missing, stop and tell the user before doing anything else.
+
 ## Developer Profile
 
 **Primary stack:** .NET 10, C#, EF Core 10, PostgreSQL, React / Next.js  

@@ -1,71 +1,119 @@
 ---
 name: git-guardrails-claude-code
-description: Prevent an AI agent from running destructive git or EF Core migration commands without explicit confirmation. Paste the guardrails block into your project's CLAUDE.md. Use when setting up a new project for AI-assisted development, or when an agent has shell/terminal access to a .NET codebase.
+description: >
+  Install the CLAUDE.md guardrails block and wire safe-exec as the command enforcement
+  layer for a project. Prevents an AI agent from running destructive git, EF Core, or
+  filesystem commands without explicit tiered confirmation. Use when setting up a new
+  project for AI-assisted development, or when an agent has shell/terminal access to
+  a .NET codebase.
 ---
 
 # Git Guardrails for Claude Code
 
-This skill generates a guardrails block for your `CLAUDE.md`. It tells the agent what it must never run autonomously and what requires your explicit sign-off first.
+This skill installs two things into your project:
 
-## How to install
+1. A `## Guardrails` block in `CLAUDE.md` — tells the agent its safety boundaries
+   at session start, before any code is read.
+2. A reference to `safe-exec` — the runtime enforcement layer that classifies every
+   shell command against `DANGEROUS_COMMANDS.md` before it runs.
 
-Run this skill and paste the output block into the top of your project's `CLAUDE.md` under a `## Guardrails` heading. The agent reads `CLAUDE.md` at the start of every session.
+These two layers work together:
+- `CLAUDE.md` sets expectations at session start (declarative)
+- `safe-exec` enforces those expectations at runtime (programmatic)
 
 ---
 
-## The guardrails block
+## Step 1 — Install the CLAUDE.md block
 
-Copy this into `CLAUDE.md`:
+Paste this into the **top** of your project's `CLAUDE.md` under a `## Guardrails` heading.
+The agent reads `CLAUDE.md` at the start of every Claude Code session.
 
 ```md
 ## Guardrails
 
-### Never run without explicit confirmation
+This project uses the safe-exec command safety system.
+The tier list lives in `DANGEROUS_COMMANDS.md` at the project root.
+Read it. Follow it. Do not route around it.
 
-**Git — destructive history operations:**
-- `git push --force` or `git push -f` — rewrites remote history, breaks teammates
-- `git reset --hard` — permanently discards uncommitted changes
-- `git clean -fd` — deletes all untracked files (unrecoverable)
-- `git rebase` on any branch that has been pushed to remote
-- `git commit --amend` on any commit that has already been pushed
+### The four tiers
 
-**EF Core — database operations:**
-- `dotnet ef database update` — always confirm which connection string is active first
-- `dotnet ef database update 0` — rolls back ALL migrations, drops all tables
-- `dotnet ef database drop` — destroys the database
-- `dotnet ef migrations remove` — deletes the last migration (catastrophic if already applied to any environment)
+| Tier | Behavior |
+|---|---|
+| 0 — Hard Block | Refuse entirely. No override. No workaround. |
+| 1 — Locked | Show command + risk. Wait for typed unlock phrase. |
+| 2 — Warn | Show command. Wait for "yes". |
+| 3 — Safe | Proceed without interruption. |
 
-### Always pause and show before running
+### Before running any command
 
-- `dotnet ef migrations add <Name>` — generate the migration, show me the `.cs` file, wait for review before applying anything
-- Any command targeting a non-Development environment (staging, production connection strings)
-- Any `git push` to `main` or `master`
+Ask: does this command touch git history, a database, EF Core migrations,
+or delete files? If yes — route through safe-exec before executing.
 
-### Safe to run autonomously
+### Never run autonomously (Tier 0 summary)
 
-- `dotnet build`, `dotnet test`, `dotnet run`
-- `dotnet ef migrations list`, `dotnet ef dbcontext info`
-- `git status`, `git log`, `git diff`, `git stash list`
-- `git checkout -b <branch>`, `git add`, `git commit` (new commits only)
-- `git push origin <feature-branch>` (non-protected branches only)
+- `git push --force` / `git push -f`
+- `git push origin --delete`
+- `dotnet ef database drop`
+- `dotnet ef database update 0`
+- `DROP DATABASE` / `DROP TABLE` / `TRUNCATE TABLE`
+- `DELETE FROM` (without WHERE clause)
+- `rm -rf /` or any parent/home directory variant
+
+For the full list, read `DANGEROUS_COMMANDS.md`.
+
+### Confirm the guardrails are loaded
+
+At the start of each session, if asked "what are your guardrails?",
+recite the Tier 0 list and confirm you have read DANGEROUS_COMMANDS.md.
+If the file is missing, stop and tell the user before doing anything else.
 ```
 
 ---
 
-## Why each category exists
+## Step 2 — Place DANGEROUS_COMMANDS.md at the project root
 
-**`dotnet ef migrations remove`** is the sneakiest one. It looks harmless — just undoing the last migration. But if that migration has already been applied to your dev database (or worse, staging), you now have a schema that no longer matches your migration history. The only way out is manual SQL surgery.
+Copy `DANGEROUS_COMMANDS.md` from the skills directory into the root of your project.
+This is the editable tier list — adjust it to match your environment and risk tolerance.
 
-**`dotnet ef database update` without checking the connection string** is how you accidentally run a migration against production while thinking you're on localhost. Always run `dotnet ef dbcontext info` first to see which connection string is active.
+```sh
+cp ~/.claude/skills/safe-exec/../DANGEROUS_COMMANDS.md ./DANGEROUS_COMMANDS.md
+```
 
-**`git reset --hard`** with an agent at the wheel is particularly dangerous because the agent may not distinguish between "throw away this one bad change" and "throw away the last three hours of work."
+The file is yours to edit. Add patterns, move tiers, adjust unlock phrases.
+Changes take effect on the next Claude Code session (or when the agent re-reads the file mid-session).
 
 ---
 
-## Confirm the install worked
+## Step 3 — Verify the install
 
-After adding to `CLAUDE.md`, start a new Claude Code session and ask:
+Start a new Claude Code session and run:
 
 > "What are your guardrails for this project?"
 
-The agent should recite the blocked commands back to you. If it can't, the block isn't being read.
+Expected response: the agent reads `CLAUDE.md`, then `DANGEROUS_COMMANDS.md`,
+and recites the Tier 0 blocked commands plus confirms it will route through safe-exec
+before executing anything destructive.
+
+If the agent cannot find `DANGEROUS_COMMANDS.md`, it should say so immediately
+rather than proceeding with unknown safety boundaries.
+
+---
+
+## How safe-exec and CLAUDE.md work together
+
+```
+Session start
+    └── Agent reads CLAUDE.md
+            └── Learns the tier model and Tier 0 summary
+            └── Knows to route through safe-exec at runtime
+
+Runtime (any shell command)
+    └── Calling skill invokes safe-exec
+            └── safe-exec reads DANGEROUS_COMMANDS.md
+            └── Classifies the command
+            └── Returns: PROCEED / WARN / LOCKED / BLOCKED
+            └── Calling skill respects the outcome
+```
+
+CLAUDE.md is the orientation. safe-exec is the enforcement.
+Neither works without the other in place.
