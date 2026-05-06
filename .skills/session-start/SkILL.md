@@ -17,11 +17,11 @@ anything else — no spec, no code, no suggestions until this is complete.
 
 Read all three in this order. They are the single source of truth for the project state.
 
-1. `docs/architecture.md` — understand the system shape, tech stack, layer boundaries,
+1. `Docs/architecture.md` — understand the system shape, tech stack, layer boundaries,
    and any patterns or guardrails that must be respected
-2. `docs/current-state.md` — find the current phase, what's completed, what's not yet
+2. `Docs/current-state.md` — find the current phase, what's completed, what's not yet
    built, and any open known issues
-3. `docs/roadmap.md` — confirm the phase sequence and what the current phase's success
+3. `Docs/roadmap.md` — confirm the phase sequence and what the current phase's success
    metric is
 
 If any of these files is missing, tell the user which one is absent and ask them to

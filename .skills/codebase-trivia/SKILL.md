@@ -15,8 +15,8 @@ See [FORMATS.md](FORMATS.md) for question types, difficulty levels, and Mermaid 
 ### 1a. Read project docs first
 Look for these files and read whichever exist:
 - `CLAUDE.md` — architecture summary, conventions, known issues
-- `docs/architecture.md` — layer design, key decisions
-- `docs/roadmap.md` — what's planned vs built
+- `Docs/architecture.md` — layer design, key decisions
+- `Docs/roadmap.md` — what's planned vs built
 - `README.md` — project overview
 - `UBIQUITOUS_LANGUAGE.md` — domain glossary
 

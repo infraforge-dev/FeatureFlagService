@@ -45,8 +45,8 @@ a short slug naming the slice. The folder already encodes the feature via the br
 name, so the slug describes the slice, not the feature.
 
 Confirm the branch name and PR number if known. Use the format:
-`docs/decisions/<feature-branch-name>/spec.md` for a single spec, or
-`docs/decisions/<feature-branch-name>/spec-NN-<slug>.md` for phased specs.
+`Docs/decisions/<feature-branch-name>/spec.md` for a single spec, or
+`Docs/decisions/<feature-branch-name>/spec-NN-<slug>.md` for phased specs.
 
 ## Step 2 — Conduct the interview (grill-me style)
 
@@ -125,4 +125,4 @@ When splitting into multiple files:
 - Each spec file is independently approvable and implementable
 - `spec-02-toggle-flag.md` must list `spec-01-create-flag.md` in its **Depends on** field
 - Each has its own DoD — do not mix checklist items across files
-- Both files live in the same `docs/decisions/<feature-branch-name>/` folder
+- Both files live in the same `Docs/decisions/<feature-branch-name>/` folder

@@ -20,7 +20,7 @@ confirm. This skill runs after the HITL gate, never before.
 
 ## Step 1 — Read the approved spec
 
-Read `docs/decisions/<feature-branch-name>/spec.md` (and spec-2.md etc. if split).
+Read `Docs/decisions/<feature-branch-name>/spec.md` (and spec-2.md etc. if split).
 This is the contract. Everything you write in this step must reconcile with it.
 
 ## Step 2 — Update current-state.md
@@ -63,7 +63,7 @@ If none of these apply, write "No architecture changes — skipping" and move on
 
 ## Step 5 — Produce implementation-notes.md
 
-Write this file to: `docs/decisions/<feature-branch-name>/implementation-notes.md`
+Write this file to: `Docs/decisions/<feature-branch-name>/implementation-notes.md`
 
 Use this structure exactly:
 

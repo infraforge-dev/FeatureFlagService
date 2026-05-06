@@ -33,8 +33,8 @@ which phase we are implementing. Implement one phase at a time.
 
 Read all of these before writing a single line of code:
 
-1. `docs/decisions/<feature-branch-name>/spec.md` — the contract
-2. `docs/architecture.md` — layer boundaries and guardrails to respect
+1. `Docs/decisions/<feature-branch-name>/spec.md` — the contract
+2. `Docs/architecture.md` — layer boundaries and guardrails to respect
 3. `reference.md` — naming conventions, test patterns, tooling
 4. Existing test files in the relevant test project — match established conventions
 

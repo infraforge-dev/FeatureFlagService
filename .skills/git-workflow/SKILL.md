@@ -22,8 +22,8 @@ confirmed. This is the final step — foundation docs must already reflect the n
 
 Read these to produce accurate commit messages and PR content:
 
-- `docs/decisions/<feature-branch-name>/spec.md` — scope, phase, feature name
-- `docs/decisions/<feature-branch-name>/implementation-notes.md` — what was built,
+- `Docs/decisions/<feature-branch-name>/spec.md` — scope, phase, feature name
+- `Docs/decisions/<feature-branch-name>/implementation-notes.md` — what was built,
   deviations, key decisions, file-by-file changes
 
 ## Step 2 — Create or switch to the feature branch first
@@ -40,7 +40,7 @@ Before staging or committing, generate a branch setup command.
   - `feature/` for net-new behavior
   - `fix/` for bug fixes or hardening
   - `refactor/` for structural changes
-  - `docs/` for documentation-only work
+  - `Docs/` for documentation-only work
 - If already on a non-base feature branch, keep that branch and include a comment
   confirming it.
 - Never emit `git push origin dev`, `git push origin main`, or
@@ -157,11 +157,11 @@ gh pr create \
 
 ## Spec
 
-`docs/decisions/<feature-branch-name>/spec.md`
+`Docs/decisions/<feature-branch-name>/spec.md`
 
 ## Implementation Notes
 
-`docs/decisions/<feature-branch-name>/implementation-notes.md`
+`Docs/decisions/<feature-branch-name>/implementation-notes.md`
 
 ## Definition of Done
 

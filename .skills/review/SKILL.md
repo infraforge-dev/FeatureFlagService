@@ -23,7 +23,7 @@ For a feature target:
 - `features/<slug>/changelog.md` — the synthesis from `wrap-up`. If missing, stop and tell the user to run `/wrap-up` first.
 - `features/<slug>/issues/done/*.md` — to confirm coverage.
 - Diff vs `main`: `git diff main...HEAD` (or the configured base branch).
-- `docs/architecture.md`, `docs/conventions.md` — for drift detection.
+- `Docs/architecture.md`, `Docs/conventions.md` — for drift detection.
 
 For a chore target:
 
@@ -59,7 +59,7 @@ Walk the diff. Any change that does not trace to a criterion (or chore AC) goes 
 Run terminology and convention checks:
 
 - Invoke the `ubiquitous-language` skill's drift-detection logic against the diff. Surface any new domain term that contradicts existing language, or any old term that has shifted in meaning.
-- Compare changes against `docs/conventions.md` (formatting, pinned versions, DVR rules) and `docs/architecture.md` (layer rules, allowed dependencies).
+- Compare changes against `Docs/conventions.md` (formatting, pinned versions, DVR rules) and `Docs/architecture.md` (layer rules, allowed dependencies).
 - If a change is *intentional* and the foundation doc is now wrong, propose the doc edit inline in the report — do not silently apply it.
 
 If neither doc exists yet, note it and skip without failing.
@@ -134,5 +134,5 @@ If anything in this step fails, stop and surface the failure. Do not retry destr
 ## What this skill does NOT do
 
 - It does not bypass red feedback loops. There is no override flag.
-- It does not silently edit `docs/architecture.md` or `docs/conventions.md`. Drift edits are proposed inline; the user applies them.
+- It does not silently edit `Docs/architecture.md` or `Docs/conventions.md`. Drift edits are proposed inline; the user applies them.
 - It does not invoke ralph or write issues. By the time `/review` runs, the work is supposed to be done.
