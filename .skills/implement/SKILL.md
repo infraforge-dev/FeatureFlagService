@@ -29,6 +29,32 @@ which phase we are implementing. Implement one phase at a time.
 
 ---
 
+## Step 0 — Create an isolated worktree
+
+All implementation work happens in a **git worktree** — an isolated copy of the repo on
+its own branch. The user's main working tree stays untouched until the work is approved.
+
+1. Read the `Branch:` field from the spec frontmatter. If absent, ask the user for a
+   branch name before continuing.
+2. Derive a worktree slug from the branch name (replace `/` with `-`), e.g.,
+   `refactor/typed-strategy-config` → `refactor-typed-strategy-config`.
+3. Create the worktree:
+
+```bash
+git worktree add /tmp/worktrees/<slug> -b <branch-name>
+```
+
+   If the branch already exists locally, use `git worktree add /tmp/worktrees/<slug> <branch-name>`
+   (without `-b`).
+
+4. **All subsequent commands** — file writes, `dotnet build`, `dotnet test`, CSharpier —
+   must run inside the worktree path (`/tmp/worktrees/<slug>`), not the main working tree.
+5. Confirm the worktree path and branch to the user before proceeding.
+
+**Never implement directly on `main` or `dev`.** The worktree enforces this by construction.
+
+---
+
 ## Step 1 — Read the inputs
 
 Read all of these before writing a single line of code:
@@ -239,7 +265,7 @@ Present the complete implementation report to the user:
 ## Implementation Complete — Review Required
 
 **Branch:** [branch name from spec]
-**Spec:** docs/decisions/<feature-branch-name>/spec.md
+**Spec:** Docs/decisions/<feature-branch-name>/spec.md
 **Cycles completed:** X of X
 **Build:** ✅ Passing
 **Tests:** X/X passing
@@ -264,3 +290,23 @@ End with:
 
 Do not invoke `/post-work`. Do not update any foundation documents. Wait for explicit
 approval.
+
+### Worktree cleanup
+
+After the user responds:
+
+- **Approved** — The worktree stays until `/post-work` and `/git-workflow` are complete.
+  Those skills will push the branch from the worktree. After push, clean up:
+
+```bash
+git worktree remove /tmp/worktrees/<slug>
+```
+
+- **Rejected** — If the user wants to discard the work entirely:
+
+```bash
+git worktree remove /tmp/worktrees/<slug>
+git branch -D <branch-name>
+```
+
+  Always confirm with the user before running the branch delete.

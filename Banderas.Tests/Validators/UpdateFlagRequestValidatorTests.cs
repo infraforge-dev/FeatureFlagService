@@ -9,16 +9,27 @@ namespace Banderas.Tests.Validators;
 [Trait("Category", "Unit")]
 public sealed class UpdateFlagRequestValidatorTests
 {
+    private readonly UpdateFlagRequestValidator _validator;
+
+    public UpdateFlagRequestValidatorTests()
+    {
+        var factory = new StrategyConfigFactory([
+            new NoneConfigValidator(),
+            new PercentageConfigValidator(),
+            new RoleBasedConfigValidator(),
+        ]);
+        _validator = new UpdateFlagRequestValidator(factory);
+    }
+
     [Fact]
     [Trait("Category", "Unit")]
     public async Task Validate_WhenStrategyIsNoneButConfigIsProvided_ReturnsInvalidAsync()
     {
         // Arrange
-        var validator = new UpdateFlagRequestValidator();
         var request = new UpdateFlagRequest(true, RolloutStrategy.None, """{"percentage": 50}""");
 
         // Act
-        ValidationResult result = await validator.ValidateAsync(request);
+        ValidationResult result = await _validator.ValidateAsync(request);
 
         // Assert
         result.IsValid.Should().BeFalse();
@@ -30,11 +41,10 @@ public sealed class UpdateFlagRequestValidatorTests
     public async Task Validate_WhenStrategyIsNoneAndConfigIsNull_ReturnsValidAsync()
     {
         // Arrange
-        var validator = new UpdateFlagRequestValidator();
         var request = new UpdateFlagRequest(true, RolloutStrategy.None, null!);
 
         // Act
-        ValidationResult result = await validator.ValidateAsync(request);
+        ValidationResult result = await _validator.ValidateAsync(request);
 
         // Assert
         result.IsValid.Should().BeTrue();
@@ -45,7 +55,6 @@ public sealed class UpdateFlagRequestValidatorTests
     public async Task Validate_WhenStrategyIsPercentageWithValidConfig_ReturnsValidAsync()
     {
         // Arrange
-        var validator = new UpdateFlagRequestValidator();
         var request = new UpdateFlagRequest(
             true,
             RolloutStrategy.Percentage,
@@ -53,7 +62,7 @@ public sealed class UpdateFlagRequestValidatorTests
         );
 
         // Act
-        ValidationResult result = await validator.ValidateAsync(request);
+        ValidationResult result = await _validator.ValidateAsync(request);
 
         // Assert
         result.IsValid.Should().BeTrue();
@@ -64,11 +73,10 @@ public sealed class UpdateFlagRequestValidatorTests
     public async Task Validate_WhenStrategyIsPercentageWithNullConfig_ReturnsInvalidAsync()
     {
         // Arrange
-        var validator = new UpdateFlagRequestValidator();
         var request = new UpdateFlagRequest(true, RolloutStrategy.Percentage, null!);
 
         // Act
-        ValidationResult result = await validator.ValidateAsync(request);
+        ValidationResult result = await _validator.ValidateAsync(request);
 
         // Assert
         result.IsValid.Should().BeFalse();
@@ -80,7 +88,6 @@ public sealed class UpdateFlagRequestValidatorTests
     public async Task Validate_WhenStrategyIsPercentageWithInvalidConfig_ReturnsInvalidAsync()
     {
         // Arrange
-        var validator = new UpdateFlagRequestValidator();
         var request = new UpdateFlagRequest(
             true,
             RolloutStrategy.Percentage,
@@ -88,7 +95,7 @@ public sealed class UpdateFlagRequestValidatorTests
         );
 
         // Act
-        ValidationResult result = await validator.ValidateAsync(request);
+        ValidationResult result = await _validator.ValidateAsync(request);
 
         // Assert
         result.IsValid.Should().BeFalse();
@@ -100,7 +107,6 @@ public sealed class UpdateFlagRequestValidatorTests
     public async Task Validate_WhenStrategyIsRoleBasedWithValidConfig_ReturnsValidAsync()
     {
         // Arrange
-        var validator = new UpdateFlagRequestValidator();
         var request = new UpdateFlagRequest(
             true,
             RolloutStrategy.RoleBased,
@@ -108,7 +114,7 @@ public sealed class UpdateFlagRequestValidatorTests
         );
 
         // Act
-        ValidationResult result = await validator.ValidateAsync(request);
+        ValidationResult result = await _validator.ValidateAsync(request);
 
         // Assert
         result.IsValid.Should().BeTrue();
@@ -119,11 +125,10 @@ public sealed class UpdateFlagRequestValidatorTests
     public async Task Validate_WhenStrategyIsRoleBasedWithNullConfig_ReturnsInvalidAsync()
     {
         // Arrange
-        var validator = new UpdateFlagRequestValidator();
         var request = new UpdateFlagRequest(true, RolloutStrategy.RoleBased, null!);
 
         // Act
-        ValidationResult result = await validator.ValidateAsync(request);
+        ValidationResult result = await _validator.ValidateAsync(request);
 
         // Assert
         result.IsValid.Should().BeFalse();
@@ -135,7 +140,6 @@ public sealed class UpdateFlagRequestValidatorTests
     public async Task Validate_WhenStrategyIsRoleBasedWithInvalidConfig_ReturnsInvalidAsync()
     {
         // Arrange
-        var validator = new UpdateFlagRequestValidator();
         var request = new UpdateFlagRequest(
             true,
             RolloutStrategy.RoleBased,
@@ -143,7 +147,7 @@ public sealed class UpdateFlagRequestValidatorTests
         );
 
         // Act
-        ValidationResult result = await validator.ValidateAsync(request);
+        ValidationResult result = await _validator.ValidateAsync(request);
 
         // Assert
         result.IsValid.Should().BeFalse();
@@ -155,7 +159,6 @@ public sealed class UpdateFlagRequestValidatorTests
     public async Task Validate_WhenStrategyConfigExceedsMaxLength_ReturnsInvalidAsync()
     {
         // Arrange
-        var validator = new UpdateFlagRequestValidator();
         var request = new UpdateFlagRequest(
             true,
             RolloutStrategy.Percentage,
@@ -163,7 +166,7 @@ public sealed class UpdateFlagRequestValidatorTests
         );
 
         // Act
-        ValidationResult result = await validator.ValidateAsync(request);
+        ValidationResult result = await _validator.ValidateAsync(request);
 
         // Assert
         result.IsValid.Should().BeFalse();

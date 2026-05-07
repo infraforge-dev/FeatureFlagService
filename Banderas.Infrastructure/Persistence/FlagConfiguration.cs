@@ -18,7 +18,12 @@ public sealed class FlagConfiguration : IEntityTypeConfiguration<Flag>
 
         builder.Property(f => f.StrategyType).IsRequired().HasConversion<string>();
 
-        builder.Property(f => f.StrategyConfig).IsRequired().HasColumnType("jsonb");
+        builder
+            .Property(f => f.StrategyConfig)
+            .HasField("_strategyConfig")
+            .IsRequired()
+            .HasColumnType("jsonb")
+            .HasConversion(new StrategyConfigConverter());
 
         builder.Property(f => f.IsEnabled).IsRequired();
 

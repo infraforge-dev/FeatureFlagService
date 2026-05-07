@@ -77,13 +77,10 @@ The system follows a **layered architecture with strong separation of concerns**
   Domain and service never see bad data
      ↓
 [ Controllers (API Layer) ]
-  DTOs in, DTOs out for CRUD and AI flows
-  Evaluation constructs immutable FeatureEvaluationContext as an intentional
-  value-object boundary input
+  DTOs in, DTOs out — no domain knowledge
      ↓
 [ Application Layer (IBanderasService) ]
-  Flag entity never crosses this boundary
-  IsEnabledAsync accepts FeatureEvaluationContext by design
+  Speaks entirely in DTOs — Flag entity never crosses this boundary
   Applies InputSanitizer to evaluation context before passing to evaluator
      ↓
 [ Evaluation Engine (FeatureEvaluator) ]
@@ -109,11 +106,9 @@ The system follows a **layered architecture with strong separation of concerns**
 
 **Key Characteristics:**
 
-* Thin controllers — no business logic, minimal domain knowledge
+* Thin controllers — no business logic, no domain knowledge
 * Delegates all work to application layer via `IBanderasService`
-* Receives and returns DTOs for CRUD and AI flows — never touches domain entities
-* Evaluation path constructs immutable `FeatureEvaluationContext` before calling
-  the service. This is an intentional value-object boundary input, not an entity leak.
+* Receives and returns DTOs only — never touches domain entities
 * Calls `ValidateAsync()` manually on mutating actions (POST, PUT) — validation
   runs at the top of each action before any service code executes
 * Swagger/OpenAPI enabled at `/openapi/v1.json`
@@ -124,7 +119,7 @@ The system follows a **layered architecture with strong separation of concerns**
 
 **Responsibility:**
 
-* Reject malformed, out-of-range, or structurally invalid body DTOs at the HTTP boundary
+* Reject malformed, out-of-range, or structurally invalid requests at the HTTP boundary
 * Sanitize string inputs before they reach application logic
 
 **Key Characteristics:**
@@ -133,7 +128,7 @@ The system follows a **layered architecture with strong separation of concerns**
   registered as `Scoped` services via explicit `AddScoped<IValidator<T>, TValidator>()`
   calls in `DependencyInjection.cs`. Controllers inject `IValidator<T>` and call
   `ValidateAsync()` manually at the top of each mutating action.
-* All four request DTOs have dedicated `AbstractValidator<T>` implementations
+* All three request DTOs have dedicated `AbstractValidator<T>` implementations
   in `Banderas.Application/Validators/`
 * `InputSanitizer` is a shared static helper — trims whitespace, strips ASCII control
   characters below 0x20 (except tab) from all string inputs
@@ -143,10 +138,7 @@ The system follows a **layered architecture with strong separation of concerns**
   oversized string fails these checks regardless of sanitization.
 * `BanderasService` calls `InputSanitizer` directly before evaluation — ensuring
   consistent hashing and `HashSet` lookups regardless of caller whitespace behavior
-* All validator-produced `400` responses use `ValidationProblemDetails` (RFC 9110
-  compliant). GET query `EnvironmentType` validation currently happens in
-  `BanderasService` via `EnvironmentRules.RequireValid()` and returns ProblemDetails
-  through the global middleware.
+* All `400` responses use `ValidationProblemDetails` (RFC 9110 compliant)
 
 **Validators:**
 
@@ -155,7 +147,6 @@ The system follows a **layered architecture with strong separation of concerns**
 | `CreateFlagRequestValidator` | `CreateFlagRequest` | Name allowlist regex, env sentinel guard, StrategyConfig cross-field rules, 2000-char limit |
 | `UpdateFlagRequestValidator` | `UpdateFlagRequest` | StrategyConfig cross-field rules, 2000-char limit |
 | `EvaluationRequestValidator` | `EvaluationRequest` | UserId max 256, UserRoles max 50 entries × 100 chars each, env sentinel guard |
-| `FlagHealthRequestValidator` | `FlagHealthRequest` | Optional staleness threshold constrained to 1–365 days |
 
 **Input Limits (enforced at HTTP boundary):**
 
@@ -177,8 +168,7 @@ access. `InputSanitizer` is the single source of truth for both surfaces.
 
 **Sanitization scope:**
 
-`InputSanitizer` covers standard request/evaluation input cleanup. It is not a
-substitute for:
+`InputSanitizer` covers the HTTP boundary only. It is not a substitute for:
 - Prompt injection defense (Phase 1.5: `IPromptSanitizer`)
 - Structured logging conventions (Phase 4)
 - CLI or seed data sanitization (any future non-HTTP input surface must call
@@ -197,10 +187,7 @@ substitute for:
 
 **Key Characteristics:**
 
-* `IBanderasService` keeps `Flag` entities out of method signatures
-* CRUD and AI use DTO request/response contracts
-* Evaluation intentionally accepts `FeatureEvaluationContext`, an immutable domain
-  value object that preserves the functional-core shape of flag evaluation
+* `IBanderasService` interface speaks entirely in DTOs
 * `Flag` entity is constructed and mapped inside `BanderasService` — never exposed
   to callers
 * `ToResponse()` mapping is called inside the service, not in controllers
@@ -211,15 +198,7 @@ substitute for:
 **Boundary Rule:**
 
 > `Flag` domain entity must never appear in any `IBanderasService` method signature.
-> The controller layer must never call `.ToResponse()` directly. Immutable value
-> objects may cross the service boundary when they are the natural input to a pure
-> core operation.
-
-**Current implementation note (confirmed 2026-04-28):**
-
-`FeatureEvaluationContext` crosses the controller → service boundary on the
-evaluation path by design. Treat this as the approved value-object exception to the
-DTO-only convention, not as boundary drift.
+> The controller layer must never call `.ToResponse()` directly.
 
 ---
 
@@ -279,6 +258,10 @@ DTO-only convention, not as boundary drift.
 
 **Value Objects:**
 
+* `StrategyConfig` — sealed record with `ValidatedFor` (RolloutStrategy) and `RawJson`
+  (string); `internal` trusted constructor for EF Core materialization and seed data;
+  `Flag` enforces `config.ValidatedFor == strategyType` at construction and mutation —
+  mismatches throw `FlagDomainException`
 * `FeatureEvaluationContext` — immutable, `IEquatable<T>`, guard clauses on
   construction
 
@@ -290,6 +273,8 @@ DTO-only convention, not as boundary drift.
 **Interfaces:**
 
 * `IRolloutStrategy` — strategy contract
+* `IStrategyConfigValidator` — config validation contract; one implementation per
+  `RolloutStrategy`; registered in DI and dispatched via `StrategyConfigFactory`
 * `IBanderasRepository` — persistence contract
 
 **Responsibility:**
@@ -299,10 +284,7 @@ DTO-only convention, not as boundary drift.
 
 **Key Principle:**
 
-> The domain protects mutation through private setters and explicit methods. Today,
-> the strongest invariant enforcement still lives at the application/HTTP boundary:
-> `Flag` guards name emptiness, while environment and strategy-config rules are
-> enforced by validators and application rules.
+> The domain should never be in an invalid state.
 
 ---
 
@@ -329,7 +311,7 @@ DTO-only convention, not as boundary drift.
 
 ## 🔐 Security Model
 
-The security model is documented in full in `Docs/Security/adr-input-security-model-v1.1.md`.
+The security model is documented in full in `docs/decisions/adr-input-security-model.md`.
 This section summarizes the key decisions.
 
 ### Threat Actors (ranked by likelihood)
@@ -349,7 +331,7 @@ This section summarizes the key decisions.
 | Mass assignment | `sealed record` DTOs — deserializer only maps declared properties |
 | Oversized payloads | Length/count limits on all string and collection inputs |
 | StrategyConfig injection | JSON structure validation via `Must()` + 2000-char limit |
-| EnvironmentType sentinel bypass | DTO validators guard request-body env fields; service-level `EnvironmentRules.RequireValid()` guards query/env parameters before repository use |
+| EnvironmentType sentinel bypass | `NotEqual(EnvironmentType.None)` on all env fields |
 | Verbose error leakage | `ValidationProblemDetails` shape — no stack traces in responses |
 
 ### Consciously Deferred (Phase-Gated)
@@ -359,6 +341,8 @@ This section summarizes the key decisions.
 | Authentication + Authorization | Phase 3 | Depends on deployment target decided in Phase 1.5 |
 | Rate limiting | Phase 3 | Meaningful rate limits require caller identity |
 | Audit logging | Phase 4 | Requires identity from Phase 3 |
+| Prompt injection defense (`IPromptSanitizer`) | Phase 1.5 | Only relevant when flag data is embedded in AI prompts |
+| Route parameter allowlist on GET/PUT | Phase 1 (KI-008) | Minor gap — EF Core prevents SQL injection; tracked for fix |
 
 ---
 
@@ -369,15 +353,15 @@ This section summarizes the key decisions.
    checks all fields; invalid request returns `400` before any service code runs
 3. `EvaluationController` constructs `FeatureEvaluationContext` from the (still
    unsanitized) DTO and calls `IBanderasService.IsEnabledAsync`
-4. **`BanderasService` applies `InputSanitizer`** to `UserId` and `UserRoles` in
+5. **`BanderasService` applies `InputSanitizer`** to `UserId` and `UserRoles` in
    the context — ensures consistent hashing and HashSet lookups
-5. Service retrieves `Flag` entity from repository
-6. Service checks `Flag.IsEnabled` — returns false immediately if disabled
-7. Service passes sanitized `Flag` + context to `FeatureEvaluator.Evaluate`
-8. Evaluator looks up strategy by `Flag.StrategyType` in registry
-9. Strategy evaluates and returns bool result
-10. Service returns bool to controller
-11. Controller returns `{ "isEnabled": true/false }` to client
+6. Service retrieves `Flag` entity from repository
+7. Service checks `Flag.IsEnabled` — returns false immediately if disabled
+8. Service passes sanitized `Flag` + context to `FeatureEvaluator.Evaluate`
+9. Evaluator looks up strategy by `Flag.StrategyType` in registry
+10. Strategy evaluates and returns bool result
+11. Service returns bool to controller
+12. Controller returns `{ "isEnabled": true/false }` to client
 
 ---
 
@@ -404,25 +388,21 @@ Each layer has a single responsibility and minimal knowledge of others.
 
 ---
 
-### Entity Boundary and Value-Object Exception
+### DTO Boundary at the Service Interface
 
 `IBanderasService` is the hard boundary between the API world and the domain world.
-CRUD and AI flows cross this boundary with DTOs. Domain entities never cross the
-boundary outward. The evaluation flow intentionally accepts
-`FeatureEvaluationContext` because it is an immutable value object and the natural
-input to the pure evaluation core. This keeps controllers away from domain entities
-while preserving functional-core evaluation semantics.
+DTOs cross the boundary inward. Domain entities never cross the boundary outward.
+This keeps controllers stable when the domain evolves, and keeps domain logic
+independent of serialization concerns.
 
 ---
 
 ### Validation at the Boundary, Sanitization at Two Points
 
-Invalid body DTOs are rejected at the HTTP boundary before application code runs.
-GET query environment parameters are currently validated in the application service
-before repository access. Sanitization runs at two points: once in validators (for
-validation consistency) and once in the service layer (to ensure evaluation logic
-receives clean values). The shared `InputSanitizer` helper enforces this as a single
-source of truth.
+Invalid requests are rejected at the HTTP boundary — before any application code runs.
+Sanitization runs at two points: once in validators (for validation consistency) and
+once in the service layer (to ensure evaluation logic receives clean values). The shared
+`InputSanitizer` helper enforces this as a single source of truth.
 
 ---
 
@@ -453,11 +433,8 @@ user receiving something they should not.
 
 ### Domain Integrity
 
-Mutations go through controlled methods. No public setters on domain entities.
-`Flag.Update()` sets all related fields atomically. Current `Flag` invariants are
-minimal: name emptiness is guarded in the entity, while valid environment and
-strategy-config rules are enforced before entity creation/update by validators and
-application-layer rules.
+All mutations go through controlled methods to prevent invalid state. No public setters
+on domain entities. `Flag.Update()` sets all related fields atomically.
 
 ---
 
@@ -473,38 +450,37 @@ application-layer rules.
 
 ## ⚖️ Design Tradeoffs
 
-### DTO Boundary vs Functional Core
+### DTO Boundary vs Convenience
 
-**Decision:** `IBanderasService` exposes DTOs for CRUD and AI flows, never exposes
-`Flag`, and intentionally accepts `FeatureEvaluationContext` for evaluation.
+**Decision:** `IBanderasService` speaks entirely in DTOs — no `Flag` entity in
+signatures.
 
 **Pros:**
-* Controllers have no domain entity knowledge — stable API layer
+* Controllers have zero domain knowledge — stable API layer
 * Mapping consolidated in one place — easier to reason about
 * Domain can evolve without breaking the API contract
-* Evaluation keeps a pure, immutable value-object input instead of passing loose
-  primitive parameters deeper into the core
 
 **Cons:**
 * Slight overhead — mapping `Flag → FlagResponse` inside the service
 * `EnvironmentType` enum still appears on the interface — acceptable for now
-* API layer knows about one domain value object on the evaluation path — accepted
-  because it is immutable and behaviorally aligned with the functional core
 
 ---
 
 ### Enum + JSON Strategy Configuration
 
-**Decision:** `StrategyConfig` stored as `jsonb`, deserialized at evaluation time.
+**Decision:** `StrategyConfig` is a typed Value Object stored as `jsonb` via EF Core
+Value Converter, validated at construction via `IStrategyConfigValidator` registry.
 
 **Pros:**
-* Flexible — each strategy defines its own config shape
+* Flexible — each strategy defines its own config shape via its validator
 * No schema migrations required when a strategy's config changes
+* Config/strategy type consistency enforced at the domain level — `Flag` rejects
+  mismatches via `FlagDomainException`; illegal states are unrepresentable
 
 **Cons:**
-* Config validity verified at write time only via FluentValidation — semantic
-  validation (is this config actually correct at runtime?) remains the strategy's
-  responsibility
+* Strategies still fail-closed on malformed config at evaluation time (defense in depth)
+* EF Core Value Converter cannot access `Flag.StrategyType` during read-back — requires
+  backing field reconciliation pattern in `Flag.StrategyConfig` getter
 
 ---
 
@@ -550,12 +526,34 @@ application-layer rules.
 
 ---
 
+### Environment Scoping: Record-per-Environment vs Embedded Environments
+
+**Decision:** Each `Flag` record is scoped to a single environment. The `(Name, Environment)`
+pair is the unique identity of a flag. Multiple records exist for the same flag name
+across environments.
+
+**Pros:**
+* Evaluation is a simple single-record lookup — no filtering inside a nested object
+* Schema stays flat and queryable
+* Environment isolation is enforced at the data model level
+
+**Cons:**
+* Fetching a cross-environment dashboard view requires multiple queries or a GROUP BY
+* Flag promotion workflows (dev → staging → prod) must coordinate multiple records
+
+**Comparison:** LaunchDarkly embeds all environment configs inside a single flag
+document, optimizing for dashboard reads. Our model optimizes for evaluation — the
+primary read pattern for a flag service. This was a deliberate tradeoff.
+
+---
+
 ## 🔌 Extensibility Points
 
 * Add new `IRolloutStrategy` implementations — zero changes to evaluator required
-* New strategy types require a corresponding `FluentValidation` rule in
-  `CreateFlagRequestValidator` and `UpdateFlagRequestValidator` before the API will
-  accept configurations for them
+* Adding a new strategy requires exactly three steps: implement `IRolloutStrategy`,
+  implement `IStrategyConfigValidator`, register both in `DependencyInjection.cs`.
+  Zero changes to `Flag`, `StrategyConfig`, `StrategyConfigFactory`, `FeatureEvaluator`,
+  or the EF Core converter. FluentValidation delegates to the factory automatically.
 * Introduce caching layer between service and repository (Phase 6)
 * Replace repository with external service if needed
 * Add event-driven evaluation tracking (Phase 4)
@@ -569,23 +567,14 @@ application-layer rules.
 
 ### AI Analysis Endpoint + `IPromptSanitizer` (Phase 1.5)
 
-* `IAiFlagAnalyzer` — Application interface implemented in Infrastructure
-* `POST /api/flags/health` — sends flag data to AI model, returns health analysis
-* `AiFlagAnalyzer` — Semantic Kernel + Azure OpenAI implementation
-* `UnavailableAiFlagAnalyzer` — endpoint-scoped unavailable implementation used
-  when `AzureOpenAI:Endpoint` is missing or blank
-* `AiFlagAnalyzer` validates deserialized model output before it crosses the
-  infrastructure boundary: summary must be present, assessments must be non-empty,
-  every input flag must be covered by name using case-insensitive matching, and
-  statuses must stay within `Healthy`, `Stale`, `Misconfigured`, or `NeedsReview`
-* `IPromptSanitizer` — interface for sanitizing string values before embedding in
-  AI prompts; specifically targets newline injection, instruction override patterns,
+* `IAiFlagAnalyzer` — new service interface behind `AIController`
+* `POST /api/flags/analyze` — sends flag data to AI model, returns health analysis
+* `IPromptSanitizer` — new interface for sanitizing string values before embedding
+  in AI prompts; specifically targets newline injection, instruction override patterns,
   and role confusion attacks
-* Failed AI output validation throws `AiAnalysisUnavailableException`; middleware logs
-  the diagnostic reason and returns the stable `503 application/problem+json` surface
 * `InputSanitizer` (HTTP boundary) is a complementary first layer, not a substitute
-* See `Docs/Security/adr-input-security-model-v1.1.md` for the original prompt
-  injection threat model
+* See `adr-input-security-model.md` DEFERRED-004 for the full prompt injection threat
+  model
 
 ---
 
@@ -594,11 +583,82 @@ application-layer rules.
 * Azure Key Vault — connection string and secrets out of `appsettings.json`
 * Azure Application Insights — distributed tracing, request telemetry, evaluation
   custom events
-* Azure OpenAI configuration is endpoint-scoped: missing `AzureOpenAI:Endpoint`
-  registers `UnavailableAiFlagAnalyzer`, allowing non-AI endpoints to start and
-  keeping AI analysis failures on the documented 503 path
 * Structured logging via Application Insights custom dimensions — values logged as
   data, not interpolated strings (log injection mitigation)
+
+---
+
+### Multivariate Flag Support (Phase 2+)
+
+The current evaluation engine returns a boolean (`IsEnabled`). A future phase will
+extend this to support multivariate flags — flags that evaluate to a *named variation*
+rather than a simple on/off state. Think of boolean flags as a light switch (on/off);
+multivariate flags are a dial with multiple named positions (e.g. `"control"`,
+`"variant-a"`, `"variant-b"`).
+
+**Design intent:**
+* `Flag` entity will gain a `Variations` collection — a list of typed values with
+  names and stable IDs (e.g. `{ id, name, value }`)
+* Evaluation result changes from `bool` to `string? variationKey` — the key of the
+  winning variation
+* `StrategyConfig` (already stored as `jsonb`) is designed to accommodate variation
+  weights and targeting rules without a schema migration — this was a deliberate
+  forward-compatibility decision
+* `FlagResponse` DTO will evolve to carry the variations list alongside the evaluated
+  variation key
+
+**Evaluation contract evolution:**
+* `IRolloutStrategy.Evaluate()` will return `string variationKey` rather than `bool`
+* Existing boolean strategies will map `true → "on"` / `false → "off"` as a
+  compatibility shim during the transition
+
+**Why `jsonb` was chosen with this in mind:** Flexible variation shapes (boolean,
+string, number, JSON object) can be encoded in the existing `StrategyConfig` column
+without new columns or migrations per strategy type. Each strategy owns its config
+shape — the column is a contract between the strategy and its validator, not between
+the column and the schema.
+
+---
+
+### Attribute-Based Targeting Rules (Phase 5+)
+
+The current `FeatureEvaluationContext` carries `UserId` and `IReadOnlyList<string> Roles`.
+Phase 5 will expand this into a general-purpose attribute bag supporting rule-based
+targeting — evaluating arbitrary user or context attributes against configured clauses.
+
+**Design intent:**
+* `FeatureEvaluationContext` gains an `Attributes` dictionary (`string → object`)
+* `StrategyConfig` for a targeting strategy encodes a rules array: attribute +
+  operator + values
+* Supported operators: `in`, `notIn`, `startsWith`, `endsWith`, `contains`,
+  `greaterThan`, `lessThan`
+* Rule evaluation: clauses within a rule are AND; rules within a ruleset are OR —
+  matching industry-standard targeting model (see LaunchDarkly, Unleash)
+* `RoleStrategy` is the current precursor — it already performs a config-driven `in`
+  check on a single attribute. The full targeting engine generalizes this pattern.
+
+**Architectural fit:** A new `TargetingStrategy` implementing `IRolloutStrategy` plugs
+into the existing registry dispatch with zero changes to `FeatureEvaluator`. The
+Strategy Pattern registration was designed with exactly this extension in mind.
+
+---
+
+### Flag Key vs Display Name (Phase 7 — SDK)
+
+Currently `Flag.Name` serves as both the human-readable display label and the stable
+programmatic identifier used in SDK calls and API routes.
+
+**Planned distinction:**
+* `Name` — human-readable display label, mutable by operators in the UI
+* `Key` — stable, URL-safe slug (e.g. `alternate-checkout`), set at creation and
+  immutable
+* SDK calls (`IsEnabledAsync("alternate-checkout", userId)`) will use `Key`, not `Name`
+* This prevents SDK integrations from breaking when a flag is renamed in the UI
+
+**Current state:** `Name` is used as the programmatic key in all routes
+(`/flags/{name}`). The `(Name, Environment)` unique index is sufficient for Phase 1.
+The `Key` concept will be introduced when the `.NET SDK` is designed in Phase 7 — at
+that point a migration adding a `Key` column and a new unique index will be required.
 
 ---
 
@@ -654,9 +714,9 @@ application-layer rules.
 * Connection string uses `Host=postgres` — do not change to `localhost`
 * See KI-002 before adding new callers to `FeatureEvaluator.Evaluate`
 * KI-003 is closed — `StrategyConfig` is now validated at write time via FluentValidation
-* Any new `IRolloutStrategy` implementation requires a corresponding validator rule in
-  `CreateFlagRequestValidator` and `UpdateFlagRequestValidator` — do not accept a new
-  strategy type without adding its config validation
+* Any new `IRolloutStrategy` implementation requires a corresponding
+  `IStrategyConfigValidator` implementation registered in `DependencyInjection.cs` —
+  FluentValidation delegates to the factory automatically; no changes to request validators
 * Do not inline sanitization logic — always call `InputSanitizer.Clean()` or
   `CleanCollection()` from `Banderas.Application.Validators`
 * Any non-HTTP input surface (CLI, seeds, test helpers) must call `InputSanitizer`
@@ -665,6 +725,8 @@ application-layer rules.
   length and structure are validated
 * See `adr-input-security-model.md` before making changes that affect the security
   boundary, deferred mitigations, or the prompt injection threat model
+* `Flag.Name` currently serves as both display label and programmatic key — do not
+  introduce a separate `Key` field until Phase 7 SDK design is underway
 
 ---
 
@@ -683,5 +745,5 @@ Its strength lies in:
   deferred risks are phase-gated with clear rationale
 * Extensibility through composition — new strategies require zero changes to existing
   code, but must register their config validation rules
- 
+
 The architecture prioritizes long-term maintainability over short-term simplicity.

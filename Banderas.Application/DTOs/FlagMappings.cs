@@ -12,7 +12,7 @@ public static class FlagMappings
             flag.IsEnabled,
             flag.IsArchived,
             flag.StrategyType,
-            flag.StrategyConfig,
+            flag.StrategyConfig.RawJson,
             flag.CreatedAt,
             flag.UpdatedAt
         );

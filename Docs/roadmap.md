@@ -173,8 +173,8 @@ Every phase of this roadmap builds toward that demo.
   * [x] Remove `IsSeeded` from the `Flag` domain entity
   * [x] Archived-flag integration test coverage — PUT/DELETE/evaluate → 404,
         `FlagDomainException` → 409 middleware contract (PR TBD)
-  * [ ] Convert `StrategyConfig` from raw `string` to typed Value Objects
-  * [ ] Enforce config/strategy type consistency inside `Flag`
+  * [x] Convert `StrategyConfig` from raw `string` to typed Value Objects
+  * [x] Enforce config/strategy type consistency inside `Flag`
 * [ ] Contract tests for API responses
 * [ ] Handle invalid strategy configurations gracefully
 * [ ] Test environment-specific behavior edge cases
@@ -256,14 +256,16 @@ Every phase of this roadmap builds toward that demo.
 
 **Phase 2 — Testing & Reliability**
 
-1. Continue strengthening `Flag` domain invariants — next backlog item:
-   typed `StrategyConfig` Value Objects, then config/strategy type consistency
+1. Continue strengthening `Flag` domain invariants — typed `StrategyConfig` VO and
+   config/strategy consistency are done; next backlog item: consolidate mutation methods
 2. Decide whether GET query environment validation should move earlier or remain
    explicitly documented as service-level validation
 3. Continue working through the `Flag` DDD analysis backlog
 
 **Phase 2 progress: archived state terminal (PR #59), `IsSeeded` removed from domain,
-archived-flag integration test coverage complete. Next: typed `StrategyConfig` Value Objects.**
+archived-flag integration test coverage complete, typed `StrategyConfig` Value Object
+with config/strategy consistency enforcement complete. Next: contract tests for API
+responses.**
 
 ---
 

@@ -4,6 +4,7 @@ using Banderas.Application.Evaluation;
 using Banderas.Application.Services;
 using Banderas.Application.Strategies;
 using Banderas.Application.Telemetry;
+using Banderas.Application.Validators;
 using Banderas.Domain.Entities;
 using Banderas.Domain.Enums;
 using Banderas.Domain.Exceptions;
@@ -27,13 +28,19 @@ public sealed class BanderasServiceLoggingTests
         _repo = new TestBanderasRepository();
         _evaluator = new FeatureEvaluator(new IRolloutStrategy[] { new NoneStrategy() });
         _fakeLogger = new FakeLogger<BanderasService>();
+        StrategyConfigFactory configFactory = new([
+            new NoneConfigValidator(),
+            new PercentageConfigValidator(),
+            new RoleBasedConfigValidator(),
+        ]);
         _service = new BanderasService(
             _repo,
             _evaluator,
             _fakeLogger,
             new NullTelemetryService(),
             new NullPromptSanitizer(),
-            new NullAiFlagAnalyzer()
+            new NullAiFlagAnalyzer(),
+            configFactory
         );
     }
 
@@ -46,7 +53,7 @@ public sealed class BanderasServiceLoggingTests
             EnvironmentType.Development,
             isEnabled: false,
             RolloutStrategy.None,
-            null
+            new StrategyConfig(RolloutStrategy.None, "{}")
         );
 
         FeatureEvaluationContext context = new("user-1", [], EnvironmentType.Development);
@@ -70,7 +77,7 @@ public sealed class BanderasServiceLoggingTests
             EnvironmentType.Development,
             isEnabled: true,
             RolloutStrategy.None,
-            null
+            new StrategyConfig(RolloutStrategy.None, "{}")
         );
 
         FeatureEvaluationContext context = new("user-1", [], EnvironmentType.Development);
@@ -94,7 +101,7 @@ public sealed class BanderasServiceLoggingTests
             EnvironmentType.Development,
             isEnabled: false,
             RolloutStrategy.None,
-            null
+            new StrategyConfig(RolloutStrategy.None, "{}")
         );
 
         const string RawUserId = "user-abc-123";
