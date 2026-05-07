@@ -1,78 +1,68 @@
 ---
 name: git-workflow
 description: >
-  Generate a feature branch setup command, conventional commits, a push command, and
-  a standardized pull request creation command for the completed feature. Use this skill whenever the user says
-  "/git-workflow", "generate commits", "write the PR", "let's commit", or after
-  post-work documentation is complete. The user takes over after this point.
+  Generate a reviewable summary and executable shell script that creates a feature branch,
+  groups changes into conventional commits, pushes, and opens a draft PR. Use this skill
+  whenever the user says "/git-workflow", "generate commits", "write the PR", "let's commit",
+  or after post-work documentation is complete. The user reviews the summary and runs the
+  script. The session ends here.
 ---
 
 # Git Workflow
 
-Produce the exact git commands and PR content the user needs to copy-paste. No
-guesswork, no placeholders. Everything here is ready to run or paste. The workflow
-must never push feature work directly to `dev`, `main`, or `master`.
+Produce a reviewable summary and a single executable shell script. The user reviews both,
+runs the script, and the workflow is done. No copy-pasting individual commands.
 
-## Before you begin — confirm readiness
+## Before you begin -- confirm readiness
 
 Ask: "Is post-work complete? Are all foundation docs updated?" Do not proceed until
-confirmed. This is the final step — foundation docs must already reflect the new state.
+confirmed. This is the final step -- foundation docs must already reflect the new state.
 
-## Step 1 — Read the context
+## Step 1 -- Read the context
 
 Read these to produce accurate commit messages and PR content:
 
-- `Docs/decisions/<feature-branch-name>/spec.md` — scope, phase, feature name
-- `Docs/decisions/<feature-branch-name>/implementation-notes.md` — what was built,
+- `Docs/decisions/<feature-branch-name>/spec.md` -- scope, phase, feature name
+- `Docs/decisions/<feature-branch-name>/implementation-notes.md` -- what was built,
   deviations, key decisions, file-by-file changes
 
-## Step 2 — Create or switch to the feature branch first
+## Step 2 -- Plan the branch, commits, and PR
 
-Before staging or committing, generate a branch setup command.
+### Branch rules
 
-**Rules:**
-- If currently on `dev`, `main`, or `master`, create a feature branch before any
-  commit commands.
+- If currently on `dev`, `main`, or `master`, the script must create a feature branch
+  before any commit commands.
 - Prefer the branch name from the spec frontmatter/body if present, e.g.
-  `fix/ai-response-validation`.
+  `refactor/typed-strategy-config`.
 - If the spec does not name a branch, derive one from the decision folder or feature
   name using lowercase kebab-case and one of these prefixes:
   - `feature/` for net-new behavior
   - `fix/` for bug fixes or hardening
   - `refactor/` for structural changes
-  - `Docs/` for documentation-only work
-- If already on a non-base feature branch, keep that branch and include a comment
-  confirming it.
-- Never emit `git push origin dev`, `git push origin main`, or
-  `git push origin master` for feature work.
+  - `docs/` for documentation-only work
+- If already on a non-base feature branch, keep that branch.
+- The script must never push to `dev`, `main`, or `master`.
 
-**Example output format:**
+### Commit grouping
 
-```bash
-# Branch setup
-git switch -c fix/ai-response-validation
-```
-
-## Step 3 — Group changes into logical commits
-
-Group file changes into 3–5 commits maximum. Use this grouping priority:
+Group file changes into 3-5 commits maximum. Use this grouping priority:
 
 | Group | Files | Commit type |
 |---|---|---|
-| Domain / Application layer | entities, value objects, interfaces, services | `feat` or `refactor` |
-| Infrastructure / Persistence | repositories, DbContext, migrations, config | `feat` or `refactor` |
+| Domain / Application layer | entities, value objects, interfaces, services, validators | `feat` or `refactor` |
+| Infrastructure / Persistence | repositories, DbContext, migrations, config, converters | `feat` or `refactor` |
 | API layer | controllers, middleware, DTOs, DI registration | `feat` or `fix` |
-| Tests | unit tests, integration tests | `test` |
-| Documentation | all docs/decisions/*, docs/architecture.md, etc. | `docs` |
+| Tests | unit tests, integration tests, test helpers | `test` |
+| Documentation | all Docs/decisions/*, Docs/architecture.md, etc. | `docs` |
 
 Never mix code and documentation in the same commit. The docs commit is always last.
 
-## Step 4 — Write the commits
+### Commit message format
 
-Use Conventional Commits format strictly:
+Use Conventional Commits strictly:
 
 ```
-<type>(<scope>): <short description in sentence case, ≤72 chars>
+<type>(<scope>): <short description in sentence case, <=72 chars>
 
 <optional body: what and why, not how. Wrap at 72 chars.>
 ```
@@ -80,80 +70,26 @@ Use Conventional Commits format strictly:
 Types: `feat`, `fix`, `refactor`, `test`, `docs`, `chore`
 Scope: the layer or domain area (e.g., `domain`, `api`, `infra`, `tests`, `docs`)
 
-**Rules:**
+Rules:
 - Description is sentence case, no period at the end
 - Body is optional but include it for non-obvious changes
 - One blank line between subject and body
 - Reference the spec in the docs commit body
 
-**Example output format:**
+### PR content
 
-```bash
-# Commit 1 — Domain layer
-git add src/FeatureFlag.Domain/Exceptions/ src/FeatureFlag.Domain/Entities/
-git commit -m "feat(domain): add domain exception hierarchy and base exception
-
-Named exception types carry HTTP status codes so the middleware
-never needs to change when new error conditions are added."
-
-# Commit 2 — API layer
-git add src/FeatureFlag.Api/Middleware/ src/FeatureFlag.Api/DependencyInjection.cs
-git commit -m "feat(api): add GlobalExceptionMiddleware and wire into pipeline"
-
-# Commit 3 — Tests
-git add tests/FeatureFlag.Tests/Middleware/
-git commit -m "test(api): add unit tests for GlobalExceptionMiddleware"
-
-# Commit 4 — Docs
-git add docs/
-git commit -m "docs: update foundation docs and add implementation notes for exception handling
-
-Spec: docs/decisions/feat/global-exception-handling/spec.md"
-```
-
-## Step 5 — Write the push command
-
-```bash
-git push -u origin <feature-branch-name>
-```
-
-The branch name here must match the branch setup command from Step 2. Do not use
-the current base branch name unless the work is intentionally documentation or
-repository maintenance on a non-protected branch and the user explicitly requested it.
-
-## Step 6 — Write the PR creation command
-
-**Title format:** `<type>(<scope>): <Feature Name> — Phase <X>`
-
-Write the PR body to a temporary markdown file, then create the PR with `gh`.
-Default base branch is `dev` unless the repository default branch or user request
-clearly says otherwise.
-
-**Command template:**
-
-```bash
-cat > /tmp/<feature-slug>-pr.md <<'EOF'
-<PR body markdown>
-EOF
-
-gh pr create \
-  --base dev \
-  --head <feature-branch-name> \
-  --title "<type>(<scope>): <Feature Name> — Phase <X>" \
-  --body-file /tmp/<feature-slug>-pr.md \
-  --draft
-```
+**Title format:** `<type>(<scope>): <Feature Name> -- Phase <X>`
 
 **Body template:**
 
 ```markdown
 ## Summary
 
-<2–3 sentences from the "What Was Built" section of implementation-notes.md>
+<2-3 sentences from the "What Was Built" section of implementation-notes.md>
 
 ## Changes in this PR
 
-<bullet list of the logical commit groups — one line each>
+<bullet list of the logical commit groups -- one line each>
 
 ## Spec
 
@@ -172,12 +108,99 @@ gh pr create \
 <paste the "How to Test" section from implementation-notes.md>
 ```
 
-## Step 7 — Hand off
+Default base branch is `dev` unless the repository default branch or user request
+clearly says otherwise.
 
-Output the branch setup, commit, push, and PR creation commands in copy-pasteable
-blocks, then end with:
+## Step 3 -- Present the summary for review
 
-> That's everything. Copy the commands and run them in order. The branch will be
-> pushed and the draft PR will be opened for you. The rest is yours.
+Show the user a structured summary:
+
+```
+## Git Workflow Summary
+
+**Branch:** <branch-name> (from <base-branch>)
+**Commits:** <N>
+
+### Commit 1 -- <group name>
+<commit message subject>
+Files: <list of files/globs>
+
+### Commit 2 -- <group name>
+...
+
+### PR
+**Title:** <title>
+**Base:** <base-branch>
+**Draft:** yes
+
+<PR body preview>
+```
+
+Then say:
+
+> Review the summary above. The script is at `/tmp/<feature-slug>-workflow.sh`.
+> Run it with `! bash /tmp/<feature-slug>-workflow.sh` when ready.
+
+## Step 4 -- Write the script
+
+Write the script to `/tmp/<feature-slug>-workflow.sh`. The script must:
+
+1. Be executable as a single `bash` invocation
+2. Use `set -euo pipefail` at the top -- fail fast on any error
+3. Create or switch to the feature branch
+4. Stage files and commit in the planned groups (use HEREDOCs for multi-line messages)
+5. Push with `-u origin <branch-name>`
+6. Write the PR body to a temp file and create a draft PR via `gh pr create`
+7. Print the PR URL on success
+8. Clean up the PR body temp file
+9. Delete itself (`rm -- "$0"`) as the last line
+
+**Script structure:**
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+
+# --- Branch setup ---
+git switch -c <branch-name>
+
+# --- Commit 1: <group> ---
+git add <files>
+git commit -m "$(cat <<'EOF'
+<commit message>
+EOF
+)"
+
+# --- Commit N: <group> ---
+# ...
+
+# --- Push ---
+git push -u origin <branch-name>
+
+# --- PR ---
+cat > /tmp/<slug>-pr-body.md <<'PREOF'
+<PR body markdown>
+PREOF
+
+gh pr create \
+  --base dev \
+  --head <branch-name> \
+  --title "<title>" \
+  --body-file /tmp/<slug>-pr-body.md \
+  --draft
+
+rm -f /tmp/<slug>-pr-body.md
+
+# --- Self-destruct ---
+rm -- "$0"
+```
+
+## Step 5 -- Hand off
+
+After writing the script and presenting the summary, end with:
+
+> That's everything. Review the summary, then run the script. The branch will be
+> created, commits made, pushed, and a draft PR opened. The script deletes itself
+> after a successful run.
 
 Do not suggest any further agent actions. The session ends here.

@@ -72,7 +72,7 @@ Use this structure exactly:
 
 **Session date:** <today>
 **Branch:** <branch>
-**Spec reference:** docs/decisions/<feature-branch-name>/spec.md
+**Spec reference:** Docs/decisions/<feature-branch-name>/spec.md
 **Build status:** <from user confirmation>
 **Tests:** <X>/<X> passing
 **PR:** TBD

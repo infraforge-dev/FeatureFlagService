@@ -3,7 +3,7 @@ name: spec
 description: >
   Drive a structured interview with the user to reach shared understanding of a feature,
   then produce a specification document (spec.md) placed in
-  docs/decisions/<feature-branch-name>/spec.md. Use this skill whenever the user says
+  Docs/decisions/<feature-branch-name>/spec.md. Use this skill whenever the user says
   "/spec", "let's spec this out", "write the spec", "create a spec", or is ready to
   define a feature after a session-start orientation. Large features may produce multiple
   phased spec files named spec-NN-<slug>.md (e.g. spec-01-create-flag.md).
@@ -81,7 +81,7 @@ Using the confirmed answers, produce the spec using this template structure:
 ```
 # Specification: <Feature Name>
 
-**Document:** docs/decisions/<feature-branch-name>/spec.md
+**Document:** Docs/decisions/<feature-branch-name>/spec.md
 **Status:** Draft
 **Branch:** <branch>
 **PR:** TBD
