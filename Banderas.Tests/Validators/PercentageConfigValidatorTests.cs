@@ -1,6 +1,7 @@
 using Banderas.Application.Validators;
 using Banderas.Domain.Enums;
 using Banderas.Domain.Exceptions;
+using Banderas.Domain.ValueObjects;
 using FluentAssertions;
 
 namespace Banderas.Tests.Validators;
@@ -22,7 +23,7 @@ public sealed class PercentageConfigValidatorTests
     public void Validate_WithValidConfig_ReturnsStrategyConfig()
     {
         // Arrange & Act
-        var config = _validator.Validate("""{"percentage":50}""");
+        StrategyConfig config = _validator.Validate("""{"percentage":50}""");
 
         // Assert
         config.ValidatedFor.Should().Be(RolloutStrategy.Percentage);
@@ -86,7 +87,7 @@ public sealed class PercentageConfigValidatorTests
     public void Validate_WithPercentageAtBoundary_ReturnsStrategyConfig(int percentage)
     {
         // Arrange & Act
-        var config = _validator.Validate($$$"""{"percentage":{{{percentage}}}}""");
+        StrategyConfig config = _validator.Validate($$$"""{"percentage":{{{percentage}}}}""");
 
         // Assert
         config.ValidatedFor.Should().Be(RolloutStrategy.Percentage);

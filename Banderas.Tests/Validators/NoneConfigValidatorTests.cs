@@ -1,6 +1,7 @@
 using Banderas.Application.Validators;
 using Banderas.Domain.Enums;
 using Banderas.Domain.Exceptions;
+using Banderas.Domain.ValueObjects;
 using FluentAssertions;
 
 namespace Banderas.Tests.Validators;
@@ -22,7 +23,7 @@ public sealed class NoneConfigValidatorTests
     public void Validate_WithNull_ReturnsEmptyJsonConfig()
     {
         // Arrange & Act
-        var config = _validator.Validate(null);
+        StrategyConfig config = _validator.Validate(null);
 
         // Assert
         config.ValidatedFor.Should().Be(RolloutStrategy.None);
@@ -34,7 +35,7 @@ public sealed class NoneConfigValidatorTests
     public void Validate_WithEmptyString_ReturnsEmptyJsonConfig()
     {
         // Arrange & Act
-        var config = _validator.Validate("");
+        StrategyConfig config = _validator.Validate("");
 
         // Assert
         config.ValidatedFor.Should().Be(RolloutStrategy.None);
@@ -45,7 +46,7 @@ public sealed class NoneConfigValidatorTests
     [Trait("Category", "Unit")]
     public void Validate_WithWhitespace_ReturnsEmptyJsonConfig()
     {
-        var config = _validator.Validate("   ");
+        StrategyConfig config = _validator.Validate("   ");
 
         config.ValidatedFor.Should().Be(RolloutStrategy.None);
         config.RawJson.Should().Be("{}");

@@ -153,7 +153,10 @@ public sealed class BanderasService : IBanderasService
             throw new DuplicateFlagNameException(name, request.Environment);
         }
 
-        var strategyConfig = _configFactory.Create(request.StrategyType, request.StrategyConfig);
+        StrategyConfig strategyConfig = _configFactory.Create(
+            request.StrategyType,
+            request.StrategyConfig
+        );
         var flag = new Flag(
             name,
             request.Environment,
@@ -181,7 +184,10 @@ public sealed class BanderasService : IBanderasService
             ?? throw new FlagNotFoundException(name);
 
         // Single atomic update — sets UpdatedAt exactly once
-        var strategyConfig = _configFactory.Create(request.StrategyType, request.StrategyConfig);
+        StrategyConfig strategyConfig = _configFactory.Create(
+            request.StrategyType,
+            request.StrategyConfig
+        );
         flag.Update(request.IsEnabled, request.StrategyType, strategyConfig);
         await _repository.SaveChangesAsync(ct);
     }

@@ -1,5 +1,6 @@
 using Banderas.Domain.Entities;
 using Banderas.Domain.Enums;
+using Banderas.Domain.ValueObjects;
 using Banderas.Infrastructure.Persistence;
 using Banderas.Infrastructure.Seeding;
 using FluentAssertions;
@@ -68,7 +69,7 @@ public sealed class SeedDataStartupTests
                 EnvironmentType.Production,
                 isEnabled: true,
                 RolloutStrategy.None,
-                strategyConfig: null
+                strategyConfig: StrategyConfig.Create(RolloutStrategy.None, "{}")
             );
             await dbContext.Flags.AddAsync(manualFlag);
             await dbContext.SaveChangesAsync();

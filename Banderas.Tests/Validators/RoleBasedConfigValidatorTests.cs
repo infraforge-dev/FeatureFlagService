@@ -1,6 +1,7 @@
 using Banderas.Application.Validators;
 using Banderas.Domain.Enums;
 using Banderas.Domain.Exceptions;
+using Banderas.Domain.ValueObjects;
 using FluentAssertions;
 
 namespace Banderas.Tests.Validators;
@@ -22,7 +23,7 @@ public sealed class RoleBasedConfigValidatorTests
     public void Validate_WithValidConfig_ReturnsStrategyConfig()
     {
         // Arrange & Act
-        var config = _validator.Validate("""{"roles":["Admin","Editor"]}""");
+        StrategyConfig config = _validator.Validate("""{"roles":["Admin","Editor"]}""");
 
         // Assert
         config.ValidatedFor.Should().Be(RolloutStrategy.RoleBased);

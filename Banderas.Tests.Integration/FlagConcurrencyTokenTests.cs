@@ -1,6 +1,7 @@
 using Banderas.Domain.Entities;
 using Banderas.Domain.Enums;
 using Banderas.Domain.Exceptions;
+using Banderas.Domain.ValueObjects;
 using Banderas.Domain.Interfaces;
 using Banderas.Infrastructure.Persistence;
 using Banderas.Tests.Integration.Fixtures;
@@ -38,7 +39,7 @@ public sealed class FlagConcurrencyTokenTests : IntegrationTestBase
                 EnvironmentType.Development,
                 isEnabled: false,
                 RolloutStrategy.None,
-                strategyConfig: null
+                strategyConfig: StrategyConfig.Create(RolloutStrategy.None, "{}")
             );
             db.Flags.Add(seed);
             await db.SaveChangesAsync();

@@ -1,6 +1,5 @@
 using Banderas.Application.DTOs;
 using Banderas.Application.Validation;
-using Banderas.Domain.Enums;
 using FluentValidation;
 
 namespace Banderas.Application.Validators;

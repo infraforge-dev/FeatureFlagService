@@ -1,6 +1,7 @@
 using Banderas.Application.Validators;
 using Banderas.Domain.Enums;
 using Banderas.Domain.Exceptions;
+using Banderas.Domain.ValueObjects;
 using FluentAssertions;
 
 namespace Banderas.Tests.Validators;
@@ -18,7 +19,7 @@ public sealed class StrategyConfigFactoryTests
     [Trait("Category", "Unit")]
     public void Create_Percentage_WithValidConfig_ReturnsStrategyConfig()
     {
-        var config = _factory.Create(RolloutStrategy.Percentage, """{"percentage":50}""");
+        StrategyConfig config = _factory.Create(RolloutStrategy.Percentage, """{"percentage":50}""");
 
         config.ValidatedFor.Should().Be(RolloutStrategy.Percentage);
         config.RawJson.Should().Be("""{"percentage":50}""");
@@ -28,7 +29,7 @@ public sealed class StrategyConfigFactoryTests
     [Trait("Category", "Unit")]
     public void Create_RoleBased_WithValidConfig_ReturnsStrategyConfig()
     {
-        var config = _factory.Create(RolloutStrategy.RoleBased, """{"roles":["Admin"]}""");
+        StrategyConfig config = _factory.Create(RolloutStrategy.RoleBased, """{"roles":["Admin"]}""");
 
         config.ValidatedFor.Should().Be(RolloutStrategy.RoleBased);
         config.RawJson.Should().Be("""{"roles":["Admin"]}""");
@@ -38,7 +39,7 @@ public sealed class StrategyConfigFactoryTests
     [Trait("Category", "Unit")]
     public void Create_None_WithNullConfig_ReturnsEmptyJsonConfig()
     {
-        var config = _factory.Create(RolloutStrategy.None, null);
+        StrategyConfig config = _factory.Create(RolloutStrategy.None, null);
 
         config.ValidatedFor.Should().Be(RolloutStrategy.None);
         config.RawJson.Should().Be("{}");
