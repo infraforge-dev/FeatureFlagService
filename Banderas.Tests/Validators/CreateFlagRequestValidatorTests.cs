@@ -9,12 +9,23 @@ namespace Banderas.Tests.Validators;
 [Trait("Category", "Unit")]
 public sealed class CreateFlagRequestValidatorTests
 {
+    private readonly CreateFlagRequestValidator _validator;
+
+    public CreateFlagRequestValidatorTests()
+    {
+        var factory = new StrategyConfigFactory([
+            new NoneConfigValidator(),
+            new PercentageConfigValidator(),
+            new RoleBasedConfigValidator(),
+        ]);
+        _validator = new CreateFlagRequestValidator(factory);
+    }
+
     [Fact]
     [Trait("Category", "Unit")]
     public async Task Validate_WhenNameIsEmpty_ReturnsInvalidAsync()
     {
         // Arrange
-        var validator = new CreateFlagRequestValidator();
         var request = new CreateFlagRequest(
             "",
             EnvironmentType.Development,
@@ -24,7 +35,7 @@ public sealed class CreateFlagRequestValidatorTests
         );
 
         // Act
-        ValidationResult result = await validator.ValidateAsync(request);
+        ValidationResult result = await _validator.ValidateAsync(request);
 
         // Assert
         result.IsValid.Should().BeFalse();
@@ -36,7 +47,6 @@ public sealed class CreateFlagRequestValidatorTests
     public async Task Validate_WhenNameIsWhitespaceOnly_ReturnsInvalidAsync()
     {
         // Arrange
-        var validator = new CreateFlagRequestValidator();
         var request = new CreateFlagRequest(
             "   ",
             EnvironmentType.Development,
@@ -46,7 +56,7 @@ public sealed class CreateFlagRequestValidatorTests
         );
 
         // Act
-        ValidationResult result = await validator.ValidateAsync(request);
+        ValidationResult result = await _validator.ValidateAsync(request);
 
         // Assert
         result.IsValid.Should().BeFalse();
@@ -58,7 +68,6 @@ public sealed class CreateFlagRequestValidatorTests
     public async Task Validate_WhenNameExceedsMaxLength_ReturnsInvalidAsync()
     {
         // Arrange
-        var validator = new CreateFlagRequestValidator();
         var request = new CreateFlagRequest(
             new string('a', 101),
             EnvironmentType.Development,
@@ -68,7 +77,7 @@ public sealed class CreateFlagRequestValidatorTests
         );
 
         // Act
-        ValidationResult result = await validator.ValidateAsync(request);
+        ValidationResult result = await _validator.ValidateAsync(request);
 
         // Assert
         result.IsValid.Should().BeFalse();
@@ -84,7 +93,6 @@ public sealed class CreateFlagRequestValidatorTests
     public async Task Validate_WhenNameContainsInvalidCharacters_ReturnsInvalidAsync(string name)
     {
         // Arrange
-        var validator = new CreateFlagRequestValidator();
         var request = new CreateFlagRequest(
             name,
             EnvironmentType.Development,
@@ -94,7 +102,7 @@ public sealed class CreateFlagRequestValidatorTests
         );
 
         // Act
-        ValidationResult result = await validator.ValidateAsync(request);
+        ValidationResult result = await _validator.ValidateAsync(request);
 
         // Assert
         result.IsValid.Should().BeFalse();
@@ -108,7 +116,6 @@ public sealed class CreateFlagRequestValidatorTests
         // Arrange
         // The validator runs the regex on the cleaned value; the service layer
         // strips whitespace before storing. Padded input like " dark-mode " is accepted.
-        var validator = new CreateFlagRequestValidator();
         var request = new CreateFlagRequest(
             " dark-mode ",
             EnvironmentType.Development,
@@ -118,7 +125,7 @@ public sealed class CreateFlagRequestValidatorTests
         );
 
         // Act
-        ValidationResult result = await validator.ValidateAsync(request);
+        ValidationResult result = await _validator.ValidateAsync(request);
 
         // Assert
         result.IsValid.Should().BeTrue();
@@ -129,7 +136,6 @@ public sealed class CreateFlagRequestValidatorTests
     public async Task Validate_WhenNameUsesAllowedCharacters_ReturnsValidAsync()
     {
         // Arrange
-        var validator = new CreateFlagRequestValidator();
         var request = new CreateFlagRequest(
             "my-flag_v2",
             EnvironmentType.Development,
@@ -139,7 +145,7 @@ public sealed class CreateFlagRequestValidatorTests
         );
 
         // Act
-        ValidationResult result = await validator.ValidateAsync(request);
+        ValidationResult result = await _validator.ValidateAsync(request);
 
         // Assert
         result.IsValid.Should().BeTrue();
@@ -150,7 +156,6 @@ public sealed class CreateFlagRequestValidatorTests
     public async Task Validate_WhenEnvironmentIsNone_ReturnsInvalidAsync()
     {
         // Arrange
-        var validator = new CreateFlagRequestValidator();
         var request = new CreateFlagRequest(
             "test-flag",
             EnvironmentType.None,
@@ -160,7 +165,7 @@ public sealed class CreateFlagRequestValidatorTests
         );
 
         // Act
-        ValidationResult result = await validator.ValidateAsync(request);
+        ValidationResult result = await _validator.ValidateAsync(request);
 
         // Assert
         result.IsValid.Should().BeFalse();
@@ -175,11 +180,10 @@ public sealed class CreateFlagRequestValidatorTests
     public async Task Validate_WhenEnvironmentIsValid_ReturnsValidAsync(EnvironmentType env)
     {
         // Arrange
-        var validator = new CreateFlagRequestValidator();
         var request = new CreateFlagRequest("test-flag", env, true, RolloutStrategy.None, null!);
 
         // Act
-        ValidationResult result = await validator.ValidateAsync(request);
+        ValidationResult result = await _validator.ValidateAsync(request);
 
         // Assert
         result.IsValid.Should().BeTrue();
@@ -190,7 +194,6 @@ public sealed class CreateFlagRequestValidatorTests
     public async Task Validate_WhenStrategyIsNoneButConfigIsProvided_ReturnsInvalidAsync()
     {
         // Arrange
-        var validator = new CreateFlagRequestValidator();
         var request = new CreateFlagRequest(
             "test-flag",
             EnvironmentType.Development,
@@ -200,7 +203,7 @@ public sealed class CreateFlagRequestValidatorTests
         );
 
         // Act
-        ValidationResult result = await validator.ValidateAsync(request);
+        ValidationResult result = await _validator.ValidateAsync(request);
 
         // Assert
         result.IsValid.Should().BeFalse();
@@ -212,7 +215,6 @@ public sealed class CreateFlagRequestValidatorTests
     public async Task Validate_WhenStrategyIsNoneAndConfigIsNull_ReturnsValidAsync()
     {
         // Arrange
-        var validator = new CreateFlagRequestValidator();
         var request = new CreateFlagRequest(
             "test-flag",
             EnvironmentType.Development,
@@ -222,7 +224,7 @@ public sealed class CreateFlagRequestValidatorTests
         );
 
         // Act
-        ValidationResult result = await validator.ValidateAsync(request);
+        ValidationResult result = await _validator.ValidateAsync(request);
 
         // Assert
         result.IsValid.Should().BeTrue();
@@ -233,7 +235,6 @@ public sealed class CreateFlagRequestValidatorTests
     public async Task Validate_WhenStrategyIsPercentageWithValidConfig_ReturnsValidAsync()
     {
         // Arrange
-        var validator = new CreateFlagRequestValidator();
         var request = new CreateFlagRequest(
             "test-flag",
             EnvironmentType.Development,
@@ -243,7 +244,7 @@ public sealed class CreateFlagRequestValidatorTests
         );
 
         // Act
-        ValidationResult result = await validator.ValidateAsync(request);
+        ValidationResult result = await _validator.ValidateAsync(request);
 
         // Assert
         result.IsValid.Should().BeTrue();
@@ -254,7 +255,6 @@ public sealed class CreateFlagRequestValidatorTests
     public async Task Validate_WhenStrategyIsPercentageWithNullConfig_ReturnsInvalidAsync()
     {
         // Arrange
-        var validator = new CreateFlagRequestValidator();
         var request = new CreateFlagRequest(
             "test-flag",
             EnvironmentType.Development,
@@ -264,7 +264,7 @@ public sealed class CreateFlagRequestValidatorTests
         );
 
         // Act
-        ValidationResult result = await validator.ValidateAsync(request);
+        ValidationResult result = await _validator.ValidateAsync(request);
 
         // Assert
         result.IsValid.Should().BeFalse();
@@ -276,7 +276,6 @@ public sealed class CreateFlagRequestValidatorTests
     public async Task Validate_WhenStrategyIsPercentageWithInvalidConfig_ReturnsInvalidAsync()
     {
         // Arrange
-        var validator = new CreateFlagRequestValidator();
         var request = new CreateFlagRequest(
             "test-flag",
             EnvironmentType.Development,
@@ -286,7 +285,7 @@ public sealed class CreateFlagRequestValidatorTests
         );
 
         // Act
-        ValidationResult result = await validator.ValidateAsync(request);
+        ValidationResult result = await _validator.ValidateAsync(request);
 
         // Assert
         result.IsValid.Should().BeFalse();
@@ -298,7 +297,6 @@ public sealed class CreateFlagRequestValidatorTests
     public async Task Validate_WhenStrategyIsRoleBasedWithValidConfig_ReturnsValidAsync()
     {
         // Arrange
-        var validator = new CreateFlagRequestValidator();
         var request = new CreateFlagRequest(
             "test-flag",
             EnvironmentType.Development,
@@ -308,7 +306,7 @@ public sealed class CreateFlagRequestValidatorTests
         );
 
         // Act
-        ValidationResult result = await validator.ValidateAsync(request);
+        ValidationResult result = await _validator.ValidateAsync(request);
 
         // Assert
         result.IsValid.Should().BeTrue();
@@ -319,7 +317,6 @@ public sealed class CreateFlagRequestValidatorTests
     public async Task Validate_WhenStrategyIsRoleBasedWithNullConfig_ReturnsInvalidAsync()
     {
         // Arrange
-        var validator = new CreateFlagRequestValidator();
         var request = new CreateFlagRequest(
             "test-flag",
             EnvironmentType.Development,
@@ -329,7 +326,7 @@ public sealed class CreateFlagRequestValidatorTests
         );
 
         // Act
-        ValidationResult result = await validator.ValidateAsync(request);
+        ValidationResult result = await _validator.ValidateAsync(request);
 
         // Assert
         result.IsValid.Should().BeFalse();
@@ -341,7 +338,6 @@ public sealed class CreateFlagRequestValidatorTests
     public async Task Validate_WhenStrategyIsRoleBasedWithInvalidConfig_ReturnsInvalidAsync()
     {
         // Arrange
-        var validator = new CreateFlagRequestValidator();
         var request = new CreateFlagRequest(
             "test-flag",
             EnvironmentType.Development,
@@ -351,7 +347,7 @@ public sealed class CreateFlagRequestValidatorTests
         );
 
         // Act
-        ValidationResult result = await validator.ValidateAsync(request);
+        ValidationResult result = await _validator.ValidateAsync(request);
 
         // Assert
         result.IsValid.Should().BeFalse();
@@ -365,7 +361,6 @@ public sealed class CreateFlagRequestValidatorTests
         // Arrange
         // Use Percentage strategy so the config field is expected; the 2000-char
         // rule applies before the structure validation rule triggers.
-        var validator = new CreateFlagRequestValidator();
         var request = new CreateFlagRequest(
             "test-flag",
             EnvironmentType.Development,
@@ -375,7 +370,7 @@ public sealed class CreateFlagRequestValidatorTests
         );
 
         // Act
-        ValidationResult result = await validator.ValidateAsync(request);
+        ValidationResult result = await _validator.ValidateAsync(request);
 
         // Assert
         result.IsValid.Should().BeFalse();

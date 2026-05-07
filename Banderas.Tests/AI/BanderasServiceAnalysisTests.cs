@@ -5,9 +5,11 @@ using Banderas.Application.Exceptions;
 using Banderas.Application.Services;
 using Banderas.Application.Strategies;
 using Banderas.Application.Telemetry;
+using Banderas.Application.Validators;
 using Banderas.Domain.Entities;
 using Banderas.Domain.Enums;
 using Banderas.Domain.Interfaces;
+using Banderas.Domain.ValueObjects;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Banderas.Tests.AI;
@@ -23,13 +25,19 @@ public sealed class BanderasServiceAnalysisTests
     public BanderasServiceAnalysisTests()
     {
         FeatureEvaluator evaluator = new(new IRolloutStrategy[] { new NoneStrategy() });
+        StrategyConfigFactory configFactory = new([
+            new NoneConfigValidator(),
+            new PercentageConfigValidator(),
+            new RoleBasedConfigValidator(),
+        ]);
         _service = new BanderasService(
             _repo,
             evaluator,
             NullLogger<BanderasService>.Instance,
             new NullTelemetryService(),
             _sanitizer,
-            _analyzer
+            _analyzer,
+            configFactory
         );
     }
 
@@ -63,7 +71,7 @@ public sealed class BanderasServiceAnalysisTests
                 EnvironmentType.Development,
                 true,
                 RolloutStrategy.None,
-                null
+                new StrategyConfig(RolloutStrategy.None, "{}")
             ),
         ];
 
@@ -79,7 +87,13 @@ public sealed class BanderasServiceAnalysisTests
     {
         _repo.Flags =
         [
-            new Flag("flag-a", EnvironmentType.Development, true, RolloutStrategy.None, "{}"),
+            new Flag(
+                "flag-a",
+                EnvironmentType.Development,
+                true,
+                RolloutStrategy.None,
+                new StrategyConfig(RolloutStrategy.None, "{}")
+            ),
         ];
 
         await _service.AnalyzeFlagsAsync(new FlagHealthRequest());

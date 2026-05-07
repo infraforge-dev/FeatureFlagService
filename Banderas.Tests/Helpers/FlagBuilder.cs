@@ -1,5 +1,6 @@
 using Banderas.Domain.Entities;
 using Banderas.Domain.Enums;
+using Banderas.Domain.ValueObjects;
 
 namespace Banderas.Tests.Helpers;
 
@@ -13,6 +14,7 @@ internal static class FlagBuilder
         string? strategyConfig = null
     )
     {
-        return new Flag(name, environment, isEnabled, strategy, strategyConfig!);
+        var config = new StrategyConfig(strategy, strategyConfig ?? "{}");
+        return new Flag(name, environment, isEnabled, strategy, config);
     }
 }

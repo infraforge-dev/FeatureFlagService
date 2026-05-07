@@ -1,6 +1,7 @@
 using Banderas.Domain.Entities;
 using Banderas.Domain.Enums;
 using Banderas.Domain.Exceptions;
+using Banderas.Domain.ValueObjects;
 using Banderas.Tests.Helpers;
 using FluentAssertions;
 
@@ -28,7 +29,8 @@ public sealed class FlagArchivedInvariantTests
         Flag flag = FlagBuilder.Build();
         flag.Archive();
 
-        Action act = () => flag.UpdateStrategy(RolloutStrategy.None, null);
+        var config = new StrategyConfig(RolloutStrategy.None, "{}");
+        Action act = () => flag.UpdateStrategy(RolloutStrategy.None, config);
 
         act.Should().Throw<FlagDomainException>();
     }
@@ -52,7 +54,8 @@ public sealed class FlagArchivedInvariantTests
         Flag flag = FlagBuilder.Build();
         flag.Archive();
 
-        Action act = () => flag.Update(false, RolloutStrategy.None, null);
+        var config = new StrategyConfig(RolloutStrategy.None, "{}");
+        Action act = () => flag.Update(false, RolloutStrategy.None, config);
 
         act.Should().Throw<FlagDomainException>();
     }
@@ -85,11 +88,12 @@ public sealed class FlagArchivedInvariantTests
     public void UpdateStrategy_WhenFlagIsNotArchived_Succeeds()
     {
         Flag flag = FlagBuilder.Build();
+        var config = new StrategyConfig(RolloutStrategy.Percentage, """{"percentage":50}""");
 
-        flag.UpdateStrategy(RolloutStrategy.Percentage, "{\"percentage\":50}");
+        flag.UpdateStrategy(RolloutStrategy.Percentage, config);
 
         flag.StrategyType.Should().Be(RolloutStrategy.Percentage);
-        flag.StrategyConfig.Should().Be("{\"percentage\":50}");
+        flag.StrategyConfig.RawJson.Should().Be("""{"percentage":50}""");
     }
 
     [Fact]
@@ -108,12 +112,13 @@ public sealed class FlagArchivedInvariantTests
     public void Update_WhenFlagIsNotArchived_Succeeds()
     {
         Flag flag = FlagBuilder.Build(isEnabled: true);
+        var config = new StrategyConfig(RolloutStrategy.Percentage, """{"percentage":25}""");
 
-        flag.Update(false, RolloutStrategy.Percentage, "{\"percentage\":25}");
+        flag.Update(false, RolloutStrategy.Percentage, config);
 
         flag.IsEnabled.Should().BeFalse();
         flag.StrategyType.Should().Be(RolloutStrategy.Percentage);
-        flag.StrategyConfig.Should().Be("{\"percentage\":25}");
+        flag.StrategyConfig.RawJson.Should().Be("""{"percentage":25}""");
     }
 
     [Fact]
