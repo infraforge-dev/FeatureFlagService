@@ -1,8 +1,8 @@
 using Banderas.Domain.Entities;
 using Banderas.Domain.Enums;
 using Banderas.Domain.Exceptions;
-using Banderas.Domain.ValueObjects;
 using Banderas.Domain.Interfaces;
+using Banderas.Domain.ValueObjects;
 using Banderas.Infrastructure.Persistence;
 using Banderas.Tests.Integration.Fixtures;
 using FluentAssertions;

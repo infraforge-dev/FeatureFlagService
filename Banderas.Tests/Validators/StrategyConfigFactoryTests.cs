@@ -19,7 +19,10 @@ public sealed class StrategyConfigFactoryTests
     [Trait("Category", "Unit")]
     public void Create_Percentage_WithValidConfig_ReturnsStrategyConfig()
     {
-        StrategyConfig config = _factory.Create(RolloutStrategy.Percentage, """{"percentage":50}""");
+        StrategyConfig config = _factory.Create(
+            RolloutStrategy.Percentage,
+            """{"percentage":50}"""
+        );
 
         config.ValidatedFor.Should().Be(RolloutStrategy.Percentage);
         config.RawJson.Should().Be("""{"percentage":50}""");
@@ -29,7 +32,10 @@ public sealed class StrategyConfigFactoryTests
     [Trait("Category", "Unit")]
     public void Create_RoleBased_WithValidConfig_ReturnsStrategyConfig()
     {
-        StrategyConfig config = _factory.Create(RolloutStrategy.RoleBased, """{"roles":["Admin"]}""");
+        StrategyConfig config = _factory.Create(
+            RolloutStrategy.RoleBased,
+            """{"roles":["Admin"]}"""
+        );
 
         config.ValidatedFor.Should().Be(RolloutStrategy.RoleBased);
         config.RawJson.Should().Be("""{"roles":["Admin"]}""");
