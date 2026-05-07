@@ -46,12 +46,13 @@
 **Phase 2 — Enforce Archived State as Terminal (PR #59): ✅ Complete**
 **Phase 2 — Remove `IsSeeded` from `Flag` Domain Entity (PR TBD): ✅ Complete**
 **Phase 2 — Archived-Flag Integration Test Coverage (PR TBD): ✅ Complete**
+**Phase 2 — Typed StrategyConfig Value Object (PR TBD): ✅ Complete**
 
 **Gate Decision:** GO WITH CONDITIONS — AI response validation condition closed
 
 Audit report: `Docs/architecture-review-phase1-report.md`
 
-169/169 tests passing (115 unit + 54 integration).
+158 unit tests + 54 integration tests passing.
 
 ---
 
@@ -65,6 +66,10 @@ Audit report: `Docs/architecture-review-phase1-report.md`
   `IsSeeded` is an EF Core shadow property on the `flags` table, stamped `true`
   by `DatabaseSeeder` after insert and queried via `EF.Property<bool>(f, "IsSeeded")`;
   no longer exposed on the `Flag` domain entity
+- `StrategyConfig` value object — sealed record with `ValidatedFor` and `RawJson`;
+  `internal` trusted constructor for EF Core materialization and seed data;
+  `Flag` enforces `config.ValidatedFor == strategyType` at construction and mutation
+- `IStrategyConfigValidator` interface — validator registry contract for strategy configs
 - `FeatureEvaluationContext` value object — `IEquatable<T>`, guard clauses, immutable roles
 - `RolloutStrategy` enum (None, Percentage, RoleBased)
 - `EnvironmentType` enum (None = 0 sentinel, Development, Staging, Production)
@@ -93,6 +98,11 @@ Audit report: `Docs/architecture-review-phase1-report.md`
   `FlagMappings`, `FlagHealthRequest`, `FlagAssessment`, `FlagHealthAnalysisResponse`
 - `FlagResponse.StrategyConfig` — `string?` (nullable); flags with `RolloutStrategy.None`
   have no strategy config
+- `Flag.StrategyConfig` is now a typed `StrategyConfig` value object — constructor,
+  `Update()`, and `UpdateStrategy()` enforce `config.ValidatedFor == strategyType`;
+  `BanderasService` calls `StrategyConfigFactory.Create()` before passing to `Flag`
+- Adding a new strategy requires three steps: implement `IRolloutStrategy`, implement
+  `IStrategyConfigValidator`, register both in `DependencyInjection.cs`
 - `IPromptSanitizer` / `PromptSanitizer` — newline normalization, instruction override
   phrase redaction, role confusion marker stripping, 500-char length cap;
   `GeneratedRegex` for compile-time regex
@@ -100,11 +110,20 @@ Audit report: `Docs/architecture-review-phase1-report.md`
 - `FlagHealthConstants` — `internal` named constants for default (30), min (1),
   max (365) staleness threshold
 - `AiAnalysisUnavailableException` — signals AI service failure; caught by middleware → 503
-- `DependencyInjection.cs` — `AddApplication()` extension method
+- `StrategyConfigFactory` — registry dispatch keyed on `RolloutStrategy`;
+  `Create(RolloutStrategy, string?) → StrategyConfig`
+- `NoneConfigValidator`, `PercentageConfigValidator`, `RoleBasedConfigValidator` —
+  `IStrategyConfigValidator` implementations; structural JSON validation per strategy
+- `StrategyConfigRules` — delegates to `StrategyConfigFactory` for FluentValidation
+  `Must()` cross-field checks
+- `DependencyInjection.cs` — `AddApplication()` extension method; registers
+  `IStrategyConfigValidator` implementations and `StrategyConfigFactory`
 
 ### Infrastructure Layer
 
 - EF Core + Npgsql repository (`BanderasRepository`)
+- `StrategyConfigConverter` — EF Core `ValueConverter<StrategyConfig, string>`;
+  `FlagConfiguration` maps `StrategyConfig` property via backing field with converter
 - `IBanderasRepository.GetAllAsync(EnvironmentType? environment = null, ...)` —
   nullable environment param; `null` = no filter, returns all non-archived flags
   across all environments; passing an explicit value preserves scoped behavior
@@ -152,15 +171,17 @@ Audit report: `Docs/architecture-review-phase1-report.md`
 
 ### Tests
 
-- 115 unit tests — strategies, evaluator, validators, logging behavior,
+- 158 unit tests — strategies, evaluator, validators, logging behavior,
   prompt sanitization (21), service analysis (5), `Flag` archived-terminal
-  invariants (10)
+  invariants (10), `StrategyConfig` VO (8), config validators (28),
+  `StrategyConfigFactory` (7)
 - 54 integration tests — all endpoints including `POST /api/flags/health`,
   missing-Azure-OpenAI startup resilience, AI-unavailable 503 behavior,
   semantic AI response validation, archived-flag mutation coverage (PUT/DELETE/evaluate
   → 404), and `FlagDomainException` → 409 ProblemDetails middleware contract
-- 169/169 passing
-- `AssemblyInfo.cs` — `InternalsVisibleTo("Banderas.Tests")`
+- 158 unit + 54 integration passing
+- `InternalsVisibleTo("Banderas.Tests")` and `InternalsVisibleTo("Banderas.Infrastructure")`
+  via `Banderas.Domain.csproj`
 - `BanderasServiceLoggingTests` — `NullPromptSanitizer` + `NullAiFlagAnalyzer`
   hand-written stubs (consistent with existing `NullTelemetryService` pattern)
 - `AiFlagAnalyzerValidationTests` — Semantic Kernel stub coverage for summary,
@@ -221,7 +242,8 @@ undocumented status values before any `200 OK` response can leave the AI boundar
 2. Continue working through the `Flag` DDD analysis backlog
    (`Docs/Decisions/flag-ddd-analysis-backlog.md`) — next item: consolidate
    `SetEnabled` / `UpdateStrategy` / `Update` by concern
-3. Convert `StrategyConfig` from raw `string` to typed Value Objects
+3. Contract tests for API responses
+4. Handle invalid strategy configurations gracefully (defense-in-depth beyond VO validation)
 
 ---
 
@@ -326,6 +348,16 @@ undocumented status values before any `200 OK` response can leave the AI boundar
   malformed model field slips through. The rule going forward: when a spec adds a
   private boundary guard, include tests that exercise the real public boundary around
   that private method, plus one HTTP test for the translated error surface.
+
+- `[2026-05-07] — EF Core Value Converters cannot access sibling properties`
+
+  When converting a Value Object that depends on a sibling property (e.g., `StrategyConfig`
+  needs `Flag.StrategyType` for `ValidatedFor`), the converter only sees its own column.
+  The solution is a backing field with a lazy-reconciling property getter: EF Core writes
+  to the backing field via the converter, and the property getter fixes `ValidatedFor`
+  from `StrategyType` on first access. The rule going forward: when a VO's identity depends
+  on another property of its owning entity, use the backing field + reconciliation pattern
+  rather than trying to pass context through the converter.
 
 ---
 
