@@ -20,7 +20,7 @@ public sealed class RoleStrategy : IRolloutStrategy
         RoleConfig? config;
         try
         {
-            config = JsonSerializer.Deserialize<RoleConfig>(flag.StrategyConfig, Options);
+            config = JsonSerializer.Deserialize<RoleConfig>(flag.StrategyConfig.RawJson, Options);
         }
         catch (JsonException)
         {

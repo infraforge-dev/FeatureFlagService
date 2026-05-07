@@ -22,7 +22,10 @@ public sealed class PercentageStrategy : IRolloutStrategy
         PercentageConfig? config;
         try
         {
-            config = JsonSerializer.Deserialize<PercentageConfig>(flag.StrategyConfig, Options);
+            config = JsonSerializer.Deserialize<PercentageConfig>(
+                flag.StrategyConfig.RawJson,
+                Options
+            );
         }
         catch (JsonException)
         {

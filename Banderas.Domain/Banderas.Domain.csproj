@@ -9,4 +9,8 @@
     <!-- Intentional trade-off: named constants over magic numbers. See spec PR#36. -->
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Banderas.Tests" />
+    <InternalsVisibleTo Include="Banderas.Infrastructure" />
+  </ItemGroup>
 </Project>

@@ -23,6 +23,13 @@ public static class DependencyInjection
         // AI — Prompt sanitizer lives in Application (pure string logic, no I/O)
         services.AddScoped<IPromptSanitizer, PromptSanitizer>();
 
+        // Strategy config validators — Singleton: stateless, pure validation
+        // Adding a new strategy? Implement IRolloutStrategy + IStrategyConfigValidator, register both here.
+        services.AddSingleton<IStrategyConfigValidator, NoneConfigValidator>();
+        services.AddSingleton<IStrategyConfigValidator, PercentageConfigValidator>();
+        services.AddSingleton<IStrategyConfigValidator, RoleBasedConfigValidator>();
+        services.AddSingleton<StrategyConfigFactory>();
+
         // Strategies — Singleton: stateless, safe to share across requests
         services.AddSingleton<IRolloutStrategy, NoneStrategy>();
         services.AddSingleton<IRolloutStrategy, PercentageStrategy>();

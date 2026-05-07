@@ -7,6 +7,7 @@ using Banderas.Application.Evaluation;
 using Banderas.Application.Interfaces;
 using Banderas.Application.Telemetry;
 using Banderas.Application.Validation;
+using Banderas.Application.Validators;
 using Banderas.Domain.Entities;
 using Banderas.Domain.Enums;
 using Banderas.Domain.Exceptions;
@@ -24,6 +25,7 @@ public sealed class BanderasService : IBanderasService
     private readonly ITelemetryService _telemetryService;
     private readonly IPromptSanitizer _promptSanitizer;
     private readonly IAiFlagAnalyzer _aiFlagAnalyzer;
+    private readonly StrategyConfigFactory _configFactory;
 
     public BanderasService(
         IBanderasRepository repository,
@@ -31,7 +33,8 @@ public sealed class BanderasService : IBanderasService
         ILogger<BanderasService> logger,
         ITelemetryService telemetryService,
         IPromptSanitizer promptSanitizer,
-        IAiFlagAnalyzer aiFlagAnalyzer
+        IAiFlagAnalyzer aiFlagAnalyzer,
+        StrategyConfigFactory configFactory
     )
     {
         _repository = repository;
@@ -40,6 +43,7 @@ public sealed class BanderasService : IBanderasService
         _telemetryService = telemetryService;
         _promptSanitizer = promptSanitizer;
         _aiFlagAnalyzer = aiFlagAnalyzer;
+        _configFactory = configFactory;
     }
 
     public async Task<FlagResponse> GetFlagAsync(
@@ -149,12 +153,13 @@ public sealed class BanderasService : IBanderasService
             throw new DuplicateFlagNameException(name, request.Environment);
         }
 
+        var strategyConfig = _configFactory.Create(request.StrategyType, request.StrategyConfig);
         var flag = new Flag(
             name,
             request.Environment,
             request.IsEnabled,
             request.StrategyType,
-            request.StrategyConfig
+            strategyConfig
         );
 
         await _repository.AddAsync(flag, ct);
@@ -176,7 +181,8 @@ public sealed class BanderasService : IBanderasService
             ?? throw new FlagNotFoundException(name);
 
         // Single atomic update — sets UpdatedAt exactly once
-        flag.Update(request.IsEnabled, request.StrategyType, request.StrategyConfig);
+        var strategyConfig = _configFactory.Create(request.StrategyType, request.StrategyConfig);
+        flag.Update(request.IsEnabled, request.StrategyType, strategyConfig);
         await _repository.SaveChangesAsync(ct);
     }
 
