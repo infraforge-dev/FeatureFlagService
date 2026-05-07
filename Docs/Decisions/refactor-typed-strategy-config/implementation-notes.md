@@ -4,7 +4,7 @@
 **Branch:** `refactor/typed-strategy-config`
 **Spec reference:** Docs/Decisions/refactor-typed-strategy-config/spec.md
 **Build status:** Passing (0 warnings, 0 errors with TreatWarningsAsErrors=true)
-**Tests:** 158/158 unit tests passing
+**Tests:** 158/158 unit + 54/54 integration tests passing (212 total)
 **PR:** TBD
 
 ## What Was Built
@@ -108,9 +108,15 @@ via DI, `StrategyConfigRules` became an instance class constructed with the fact
    creates a new `StrategyConfig` record. This is correct but subtle -- a future
    refactor should consider whether a post-materialization hook is cleaner.
 
-2. **Integration test coverage.** The EF Core Value Converter path (AC-11) is not
-   covered by the unit test suite. It will be exercised by existing integration tests
-   that create/read flags. Verify all 54 integration tests still pass before merging.
+2. ~~**Integration test coverage.** The EF Core Value Converter path (AC-11) is not
+   covered by the unit test suite.~~ **Resolved:** All 54 integration tests pass.
+   Two integration tests (`FlagConcurrencyTokenTests`, `SeedDataStartupTests`) were
+   passing `null` for `StrategyConfig` in `Flag` constructors -- fixed to use
+   `StrategyConfig.Create(RolloutStrategy.None, "{}")`.
+
+3. **IDE0008 `var` style compliance.** Follow-up fix replaced 11 `var` usages with
+   explicit `StrategyConfig` type across `BanderasService.cs` and 4 test files to
+   comply with `.editorconfig` (`csharp_style_var_elsewhere = false:warning`).
 
 ## How to Test
 
@@ -172,5 +178,7 @@ the domain.
 - [x] Unit tests for Flag guard clauses (3)
 - [x] All existing tests updated and passing
 - [x] 158/158 unit tests passing
+- [x] 54/54 integration tests passing -- HTTP request/response shapes unchanged
 - [x] `dotnet build -p:TreatWarningsAsErrors=true` -- 0 warnings
 - [x] CSharpier check passes
+- [x] IDE0008 `var` style compliance -- all method-call `var` replaced with explicit types per `.editorconfig`

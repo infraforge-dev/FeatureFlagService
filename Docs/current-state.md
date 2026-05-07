@@ -52,7 +52,7 @@
 
 Audit report: `Docs/architecture-review-phase1-report.md`
 
-158 unit tests + 54 integration tests passing.
+158 unit tests + 54 integration tests passing (all 212 green).
 
 ---
 
@@ -358,6 +358,17 @@ undocumented status values before any `200 OK` response can leave the AI boundar
   from `StrategyType` on first access. The rule going forward: when a VO's identity depends
   on another property of its owning entity, use the backing field + reconciliation pattern
   rather than trying to pass context through the converter.
+
+- `[2026-05-07] — Respect .editorconfig var rules and use typed VO constructors in tests`
+
+  After the typed `StrategyConfig` refactor, IDE0008 warnings appeared because `var` was
+  used with factory/validator method calls (e.g., `_configFactory.Create(...)`) where the
+  return type is not apparent. The `.editorconfig` allows `var` only with `new` expressions
+  (`csharp_style_var_when_type_is_apparent = true`). Additionally, two integration tests
+  passed `null` for `StrategyConfig` in `Flag` constructors, causing `NullReferenceException`
+  on the new `config.ValidatedFor` guard. The rule going forward: after introducing a typed
+  VO, audit all test files for null-construction patterns and check `.editorconfig` style
+  rules before merging.
 
 ---
 
