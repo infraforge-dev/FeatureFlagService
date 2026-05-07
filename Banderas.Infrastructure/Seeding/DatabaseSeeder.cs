@@ -1,5 +1,6 @@
 using Banderas.Domain.Entities;
 using Banderas.Domain.Enums;
+using Banderas.Domain.ValueObjects;
 using Banderas.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
@@ -140,6 +141,10 @@ public sealed class DatabaseSeeder(BanderasDbContext db, ILogger<DatabaseSeeder>
         string StrategyConfig
     )
     {
-        public Flag ToFlag() => new(Name, Environment, IsEnabled, StrategyType, StrategyConfig);
+        public Flag ToFlag()
+        {
+            var config = new StrategyConfig(StrategyType, StrategyConfig);
+            return new Flag(Name, Environment, IsEnabled, StrategyType, config);
+        }
     }
 }
