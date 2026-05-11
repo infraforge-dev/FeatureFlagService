@@ -61,7 +61,7 @@ Read all of these before writing a single line of code:
 
 1. `Docs/decisions/<feature-branch-name>/spec.md` — the contract
 2. `Docs/architecture.md` — layer boundaries and guardrails to respect
-3. `reference.md` — naming conventions, test patterns, tooling
+3. `current-state.md` — naming conventions, test patterns, tooling
 4. Existing test files in the relevant test project — match established conventions
 
 Extract and hold in context:

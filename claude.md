@@ -60,6 +60,13 @@ articulate tradeoffs clearly. Never just produce code silently. Always explain *
 
 ---
 
+## Verification policy
+If asserting that a third-party platform supports a specific feature,
+flag it with ⚠️ unverified and offer to fetch before proceeding.
+The developer decides whether verification is worth the tokens.
+
+---
+
 ## .NET Conventions
 
 ### Language and runtime
