@@ -70,37 +70,6 @@ public class Flag
         StrategyConfig = new StrategyConfig(RolloutStrategy.None, "{}");
     }
 
-    public void SetEnabled(bool enabled)
-    {
-        if (IsArchived)
-        {
-            throw new FlagDomainException($"Flag '{Name}' is archived and cannot be modified.");
-        }
-
-        IsEnabled = enabled;
-        UpdatedAt = DateTime.UtcNow;
-    }
-
-    public void UpdateStrategy(RolloutStrategy strategyType, StrategyConfig strategyConfig)
-    {
-        if (IsArchived)
-        {
-            throw new FlagDomainException($"Flag '{Name}' is archived and cannot be modified.");
-        }
-
-        if (strategyConfig.ValidatedFor != strategyType)
-        {
-            throw new FlagDomainException(
-                $"StrategyConfig was validated for '{strategyConfig.ValidatedFor}' "
-                    + $"but Flag strategy is '{strategyType}'."
-            );
-        }
-
-        StrategyType = strategyType;
-        StrategyConfig = strategyConfig;
-        UpdatedAt = DateTime.UtcNow;
-    }
-
     public void UpdateName(string name)
     {
         if (IsArchived)
@@ -118,10 +87,14 @@ public class Flag
     }
 
     /// <summary>
-    /// Atomically updates the enabled state and rollout strategy in a single
-    /// operation, setting UpdatedAt exactly once.
+    /// Atomically replaces the rollout configuration (enabled state, strategy type,
+    /// and strategy config) in a single operation, setting UpdatedAt exactly once.
     /// </summary>
-    public void Update(bool isEnabled, RolloutStrategy strategyType, StrategyConfig strategyConfig)
+    public void Reconfigure(
+        bool isEnabled,
+        RolloutStrategy strategyType,
+        StrategyConfig strategyConfig
+    )
     {
         if (IsArchived)
         {
