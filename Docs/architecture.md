@@ -174,6 +174,28 @@ access. `InputSanitizer` is the single source of truth for both surfaces.
 - CLI or seed data sanitization (any future non-HTTP input surface must call
   `InputSanitizer` independently)
 
+**Environment sentinel validation — service-level by design:**
+
+The `EnvironmentType.None = 0` sentinel guard is enforced by
+`EnvironmentRules.RequireValid()` at the top of every `IBanderasService` method,
+not at the HTTP boundary. This is the deliberate single source of truth.
+
+- For mutating endpoints (POST/PUT/DELETE), request DTOs also carry a FluentValidation
+  `NotEqual(EnvironmentType.None)` rule — defense-in-depth, but the service-level
+  guard is the authoritative check.
+- For GET endpoints, `EnvironmentType` arrives as a bound query-string parameter
+  with no `IValidator<T>` in the pipeline. `EnvironmentRules.RequireValid()` in the
+  service is the *only* enforcement; `BanderasValidationException` is mapped to
+  `400 ValidationProblemDetails` by `GlobalExceptionMiddleware`.
+
+This is an intentional exception to the "validate at the HTTP boundary before any
+service code runs" convention. Rationale: the check is a one-line enum-sentinel
+guard, duplicating it via a model binder or action filter would split the rule
+across two surfaces without changing observable behavior, and any future non-HTTP
+caller (CLI, seed data, background job) gets the same guard for free. Treat
+`EnvironmentRules` as the canonical environment-validity contract — do not
+reintroduce env-sentinel checks at the controller layer.
+
 ---
 
 ### 3. Application Layer (`IBanderasService`)
@@ -434,7 +456,10 @@ user receiving something they should not.
 ### Domain Integrity
 
 All mutations go through controlled methods to prevent invalid state. No public setters
-on domain entities. `Flag.Update()` sets all related fields atomically.
+on domain entities. `Flag.Reconfigure()` atomically replaces the rollout configuration
+(enabled state, strategy type, strategy config) in a single operation; `Flag.UpdateName()`
+is a distinct rename concern; `Flag.Archive()` is the terminal-state transition. The
+mutation surface is named by concern, not by field.
 
 ---
 
