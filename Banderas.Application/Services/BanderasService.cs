@@ -183,12 +183,12 @@ public sealed class BanderasService : IBanderasService
             await _repository.GetByNameAsync(name, environment, ct)
             ?? throw new FlagNotFoundException(name);
 
-        // Single atomic update — sets UpdatedAt exactly once
+        // Atomic rollout reconfiguration — sets UpdatedAt exactly once
         StrategyConfig strategyConfig = _configFactory.Create(
             request.StrategyType,
             request.StrategyConfig
         );
-        flag.Update(request.IsEnabled, request.StrategyType, strategyConfig);
+        flag.Reconfigure(request.IsEnabled, request.StrategyType, strategyConfig);
         await _repository.SaveChangesAsync(ct);
     }
 

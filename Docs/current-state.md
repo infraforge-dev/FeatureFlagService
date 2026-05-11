@@ -47,12 +47,13 @@
 **Phase 2 — Remove `IsSeeded` from `Flag` Domain Entity (PR TBD): ✅ Complete**
 **Phase 2 — Archived-Flag Integration Test Coverage (PR TBD): ✅ Complete**
 **Phase 2 — Typed StrategyConfig Value Object (PR TBD): ✅ Complete**
+**Phase 2 — Consolidate Flag Mutation Methods by Concern (PR TBD): ✅ Complete**
 
 **Gate Decision:** GO WITH CONDITIONS — AI response validation condition closed
 
 Audit report: `Docs/architecture-review-phase1-report.md`
 
-158 unit tests + 54 integration tests passing (all 212 green).
+153 unit tests + 54 integration tests passing (all 207 green).
 
 ---
 
@@ -61,7 +62,9 @@ Audit report: `Docs/architecture-review-phase1-report.md`
 ### Domain Layer
 
 - `Flag` entity with controlled mutation (private setters, explicit mutation methods)
-- `Flag.Update()` — atomic method that sets enabled state, strategy, and `UpdatedAt`
+- `Flag.Reconfigure(bool, RolloutStrategy, StrategyConfig)` — atomic rollout
+  reconfiguration; single concern-named mutation that replaces the former trio
+  of `SetEnabled` / `UpdateStrategy` / `Update` field-shaped methods
 - Provenance bookkeeping for seeded rows lives at the persistence layer only —
   `IsSeeded` is an EF Core shadow property on the `flags` table, stamped `true`
   by `DatabaseSeeder` after insert and queried via `EF.Property<bool>(f, "IsSeeded")`;
@@ -79,8 +82,8 @@ Audit report: `Docs/architecture-review-phase1-report.md`
   `BanderasValidationException`, `FlagDomainException` (409 Conflict — generic
   domain invariant violation type)
 - `Flag` archived state is terminal — guard clause as the first statement of
-  `SetEnabled`, `UpdateStrategy`, `UpdateName`, `Update`, and `Archive`; throws
-  `FlagDomainException` if `IsArchived` is `true`
+  `Reconfigure`, `UpdateName`, and `Archive`; throws `FlagDomainException` if
+  `IsArchived` is `true`
 
 ### Application Layer
 
@@ -171,15 +174,16 @@ Audit report: `Docs/architecture-review-phase1-report.md`
 
 ### Tests
 
-- 158 unit tests — strategies, evaluator, validators, logging behavior,
+- 153 unit tests — strategies, evaluator, validators, logging behavior,
   prompt sanitization (21), service analysis (5), `Flag` archived-terminal
-  invariants (10), `StrategyConfig` VO (8), config validators (28),
-  `StrategyConfigFactory` (7)
+  invariants (5 — `Reconfigure`, `UpdateName`, `Archive` × archived/non-archived),
+  `StrategyConfig` VO (7), config validators (28), `StrategyConfigFactory` (7)
 - 54 integration tests — all endpoints including `POST /api/flags/health`,
   missing-Azure-OpenAI startup resilience, AI-unavailable 503 behavior,
   semantic AI response validation, archived-flag mutation coverage (PUT/DELETE/evaluate
-  → 404), and `FlagDomainException` → 409 ProblemDetails middleware contract
-- 158 unit + 54 integration passing
+  → 404), `FlagDomainException` → 409 ProblemDetails middleware contract, and
+  optimistic concurrency token via `Flag.Reconfigure` + `Flag.UpdateName`
+- 153 unit + 54 integration passing
 - `InternalsVisibleTo("Banderas.Tests")` and `InternalsVisibleTo("Banderas.Infrastructure")`
   via `Banderas.Domain.csproj`
 - `BanderasServiceLoggingTests` — `NullPromptSanitizer` + `NullAiFlagAnalyzer`
@@ -237,13 +241,16 @@ undocumented status values before any `200 OK` response can leave the AI boundar
 
 ### Immediate Next Tasks
 
-1. Decide whether GET query environment validation should move to the HTTP boundary
-   or remain documented as service-level validation
-2. Continue working through the `Flag` DDD analysis backlog
-   (`Docs/Decisions/flag-ddd-analysis-backlog.md`) — next item: consolidate
-   `SetEnabled` / `UpdateStrategy` / `Update` by concern
-3. Contract tests for API responses
-4. Handle invalid strategy configurations gracefully (defense-in-depth beyond VO validation)
+1. Continue working through the `Flag` DDD analysis backlog
+   (`Docs/Decisions/flag-ddd-analysis-backlog.md`) — next item: introduce
+   `Description` and/or `Tags` as environment-agnostic metadata on the `Flag`
+   definition
+2. Contract tests for API responses
+3. Handle invalid strategy configurations gracefully (defense-in-depth beyond VO validation)
+
+GET query environment validation placement is ratified as service-level
+(`EnvironmentRules.RequireValid` in `BanderasService`) — see
+`Docs/architecture.md` § Validation + Sanitization Layer.
 
 ---
 
@@ -369,6 +376,20 @@ undocumented status values before any `200 OK` response can leave the AI boundar
   on the new `config.ValidatedFor` guard. The rule going forward: after introducing a typed
   VO, audit all test files for null-construction patterns and check `.editorconfig` style
   rules before merging.
+
+- `[2026-05-11] — Name mutation methods after the concern, not the fields`
+
+  `Flag` previously exposed `SetEnabled`, `UpdateStrategy`, and `Update` — three
+  field-shaped mutations of the same domain concern ("change how this flag rolls out").
+  Only the third had a production caller; the other two were dead public surface that
+  invited a partial-mutation bug class (toggle enabled without restating strategy →
+  stale config). Consolidation deleted the field-shaped methods and renamed the
+  surviving one to `Reconfigure(...)`. The name does the load-bearing work: a future
+  reader cannot reach for `SetEnabled` because there is no such method, and the
+  surviving verb declares "full atomic replacement," not "patch one field." The rule
+  going forward: when a domain method's name is a field name plus a verb, ask whether
+  it is one slice of a larger concern; if production never calls it independently,
+  delete it and let the concern-named method be the only surface.
 
 ---
 

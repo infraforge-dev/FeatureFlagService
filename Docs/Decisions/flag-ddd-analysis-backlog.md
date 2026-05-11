@@ -77,7 +77,7 @@ public class FlagEnvironmentConfig
 - [X] **Introduce `FlagDomainException`** — dedicated domain exception type; thrown by domain invariant violations; lives in `Banderas.Domain`
 - [X] **Enforce archived state as terminal** — guard clause at top of `Archive()`, `SetEnabled()`, `UpdateStrategy()`, `Update()`, and `UpdateName()`; throw `FlagDomainException` if already archived (PR #59)
 - [X] **Remove `IsSeeded` from `Flag`** — move to infrastructure seeding concern; its presence on the domain entity is a boundary violation _(shipped as EF Core shadow property; second `Flag` constructor deleted; PR TBD)_
-- [ ] **Consolidate `SetEnabled()` + `UpdateStrategy()` + `Update()`** — separate by concern not field; name changes (`UpdateName()`) are a distinct operation; rollout config changes are one operation
+- [X] **Consolidate `SetEnabled()` + `UpdateStrategy()` + `Update()`** — separate by concern not field; name changes (`UpdateName()`) are a distinct operation; rollout config changes are one operation _(shipped: `SetEnabled` and `UpdateStrategy` deleted, `Update` renamed to `Reconfigure`; PR TBD)_
 - [ ] **Convert `StrategyConfig` from raw `string` to typed Value Objects** — one Value Object per strategy type (e.g. `PercentageConfig`, `RoleBasedConfig`); invalid config caught at construction
 - [ ] **Enforce config/strategy type consistency inside `Flag`** — `Flag` rejects a `PercentageConfig` when `StrategyType` is `RoleBased`; illegal state becomes unrepresentable
 - [ ] **Add `Description` to `Flag` definition** — environment-agnostic metadata
