@@ -58,7 +58,7 @@ public sealed class FlagConcurrencyTokenTests : IntegrationTestBase
         Flag flagA = (await dbA.Flags.FindAsync(flagId))!;
         Flag flagB = (await dbB.Flags.FindAsync(flagId))!;
 
-        flagA.SetEnabled(true);
+        flagA.Reconfigure(isEnabled: true, RolloutStrategy.None, flagA.StrategyConfig);
         await dbA.SaveChangesAsync();
 
         flagB.UpdateName("renamed-by-loser");

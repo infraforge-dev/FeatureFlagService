@@ -12,31 +12,6 @@ public sealed class FlagArchivedInvariantTests
 {
     [Fact]
     [Trait("Category", "Unit")]
-    public void SetEnabled_WhenFlagIsArchived_ThrowsFlagDomainException()
-    {
-        Flag flag = FlagBuilder.Build();
-        flag.Archive();
-
-        Action act = () => flag.SetEnabled(true);
-
-        act.Should().Throw<FlagDomainException>();
-    }
-
-    [Fact]
-    [Trait("Category", "Unit")]
-    public void UpdateStrategy_WhenFlagIsArchived_ThrowsFlagDomainException()
-    {
-        Flag flag = FlagBuilder.Build();
-        flag.Archive();
-
-        var config = new StrategyConfig(RolloutStrategy.None, "{}");
-        Action act = () => flag.UpdateStrategy(RolloutStrategy.None, config);
-
-        act.Should().Throw<FlagDomainException>();
-    }
-
-    [Fact]
-    [Trait("Category", "Unit")]
     public void UpdateName_WhenFlagIsArchived_ThrowsFlagDomainException()
     {
         Flag flag = FlagBuilder.Build();
@@ -49,13 +24,13 @@ public sealed class FlagArchivedInvariantTests
 
     [Fact]
     [Trait("Category", "Unit")]
-    public void Update_WhenFlagIsArchived_ThrowsFlagDomainException()
+    public void Reconfigure_WhenFlagIsArchived_ThrowsFlagDomainException()
     {
         Flag flag = FlagBuilder.Build();
         flag.Archive();
 
         var config = new StrategyConfig(RolloutStrategy.None, "{}");
-        Action act = () => flag.Update(false, RolloutStrategy.None, config);
+        Action act = () => flag.Reconfigure(false, RolloutStrategy.None, config);
 
         act.Should().Throw<FlagDomainException>();
     }
@@ -74,30 +49,6 @@ public sealed class FlagArchivedInvariantTests
 
     [Fact]
     [Trait("Category", "Unit")]
-    public void SetEnabled_WhenFlagIsNotArchived_Succeeds()
-    {
-        Flag flag = FlagBuilder.Build(isEnabled: false);
-
-        flag.SetEnabled(true);
-
-        flag.IsEnabled.Should().BeTrue();
-    }
-
-    [Fact]
-    [Trait("Category", "Unit")]
-    public void UpdateStrategy_WhenFlagIsNotArchived_Succeeds()
-    {
-        Flag flag = FlagBuilder.Build();
-        var config = new StrategyConfig(RolloutStrategy.Percentage, """{"percentage":50}""");
-
-        flag.UpdateStrategy(RolloutStrategy.Percentage, config);
-
-        flag.StrategyType.Should().Be(RolloutStrategy.Percentage);
-        flag.StrategyConfig.RawJson.Should().Be("""{"percentage":50}""");
-    }
-
-    [Fact]
-    [Trait("Category", "Unit")]
     public void UpdateName_WhenFlagIsNotArchived_Succeeds()
     {
         Flag flag = FlagBuilder.Build();
@@ -109,12 +60,12 @@ public sealed class FlagArchivedInvariantTests
 
     [Fact]
     [Trait("Category", "Unit")]
-    public void Update_WhenFlagIsNotArchived_Succeeds()
+    public void Reconfigure_WhenFlagIsNotArchived_Succeeds()
     {
         Flag flag = FlagBuilder.Build(isEnabled: true);
         var config = new StrategyConfig(RolloutStrategy.Percentage, """{"percentage":25}""");
 
-        flag.Update(false, RolloutStrategy.Percentage, config);
+        flag.Reconfigure(false, RolloutStrategy.Percentage, config);
 
         flag.IsEnabled.Should().BeFalse();
         flag.StrategyType.Should().Be(RolloutStrategy.Percentage);

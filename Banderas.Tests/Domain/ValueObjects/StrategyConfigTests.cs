@@ -86,29 +86,14 @@ public sealed class StrategyConfigTests
 
     [Fact]
     [Trait("Category", "Unit")]
-    public void FlagUpdate_WithMismatchedConfig_ThrowsFlagDomainException()
+    public void FlagReconfigure_WithMismatchedConfig_ThrowsFlagDomainException()
     {
         // Arrange
         Flag flag = FlagBuilder.Build();
         var config = new StrategyConfig(RolloutStrategy.Percentage, """{"percentage":50}""");
 
         // Act
-        Action act = () => flag.Update(true, RolloutStrategy.RoleBased, config);
-
-        // Assert
-        act.Should().Throw<FlagDomainException>();
-    }
-
-    [Fact]
-    [Trait("Category", "Unit")]
-    public void FlagUpdateStrategy_WithMismatchedConfig_ThrowsFlagDomainException()
-    {
-        // Arrange
-        Flag flag = FlagBuilder.Build();
-        var config = new StrategyConfig(RolloutStrategy.Percentage, """{"percentage":50}""");
-
-        // Act
-        Action act = () => flag.UpdateStrategy(RolloutStrategy.RoleBased, config);
+        Action act = () => flag.Reconfigure(true, RolloutStrategy.RoleBased, config);
 
         // Assert
         act.Should().Throw<FlagDomainException>();
