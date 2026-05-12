@@ -103,6 +103,50 @@ public sealed class BanderasServiceAnalysisTests
     }
 
     [Fact]
+    public async Task AnalyzeFlagsAsync_SanitizesDescriptionAndTagsAsync()
+    {
+        _repo.Flags =
+        [
+            new Flag(
+                "flag-a",
+                EnvironmentType.Development,
+                true,
+                RolloutStrategy.None,
+                new StrategyConfig(RolloutStrategy.None, "{}"),
+                description: "Controls checkout v2",
+                tags: ["squad-checkout", "release-q2"]
+            ),
+        ];
+
+        await _service.AnalyzeFlagsAsync(new FlagHealthRequest());
+
+        Assert.Contains("Controls checkout v2", _sanitizer.SanitizedInputs);
+        Assert.Contains("squad-checkout", _sanitizer.SanitizedInputs);
+        Assert.Contains("release-q2", _sanitizer.SanitizedInputs);
+    }
+
+    [Fact]
+    public async Task AnalyzeFlagsAsync_NullDescription_DoesNotSanitizeNullAsync()
+    {
+        _repo.Flags =
+        [
+            new Flag(
+                "flag-a",
+                EnvironmentType.Development,
+                true,
+                RolloutStrategy.None,
+                new StrategyConfig(RolloutStrategy.None, "{}"),
+                description: null,
+                tags: []
+            ),
+        ];
+
+        await _service.AnalyzeFlagsAsync(new FlagHealthRequest());
+
+        Assert.DoesNotContain(null!, _sanitizer.SanitizedInputs);
+    }
+
+    [Fact]
     public async Task AnalyzeFlagsAsync_AnalyzerThrows_PropagatesAiExceptionAsync()
     {
         _analyzer.ShouldThrow = true;
