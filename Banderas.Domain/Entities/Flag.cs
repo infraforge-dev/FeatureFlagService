@@ -13,6 +13,8 @@ public class Flag
     public bool IsEnabled { get; private set; }
     public bool IsArchived { get; private set; }
     public RolloutStrategy StrategyType { get; private set; }
+    public string? Description { get; private set; }
+    public IReadOnlyList<string> Tags { get; private set; } = [];
 
     private StrategyConfig _strategyConfig = null!;
 
@@ -40,7 +42,9 @@ public class Flag
         EnvironmentType environment,
         bool isEnabled,
         RolloutStrategy strategyType,
-        StrategyConfig strategyConfig
+        StrategyConfig strategyConfig,
+        string? description = null,
+        IReadOnlyList<string>? tags = null
     )
     {
         if (string.IsNullOrWhiteSpace(name))
@@ -61,6 +65,8 @@ public class Flag
         IsEnabled = isEnabled;
         StrategyType = strategyType;
         StrategyConfig = strategyConfig;
+        Description = description;
+        Tags = tags ?? [];
     }
 
     // Required by EF Core
@@ -68,6 +74,7 @@ public class Flag
     {
         Name = string.Empty;
         StrategyConfig = new StrategyConfig(RolloutStrategy.None, "{}");
+        Tags = [];
     }
 
     public void UpdateName(string name)
@@ -124,6 +131,20 @@ public class Flag
 
         IsArchived = true;
         ArchivedAt = DateTime.UtcNow;
+        UpdatedAt = DateTime.UtcNow;
+    }
+
+    public void UpdateMetadata(string? description, IReadOnlyList<string> tags)
+    {
+        if (IsArchived)
+        {
+            throw new FlagDomainException($"Flag '{Name}' is archived and cannot be modified.");
+        }
+
+        ArgumentNullException.ThrowIfNull(tags);
+
+        Description = description;
+        Tags = tags;
         UpdatedAt = DateTime.UtcNow;
     }
 }

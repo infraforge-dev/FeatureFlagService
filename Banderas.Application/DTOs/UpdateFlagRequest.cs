@@ -11,8 +11,18 @@ namespace Banderas.Application.DTOs;
 /// JSON configuration for the selected strategy. Required when StrategyType is
 /// Percentage or RoleBased. Maximum 2000 characters.
 /// </param>
+/// <param name="Description">
+/// New description. Null = no change. Empty string = clear to null.
+/// Maximum 500 characters.
+/// </param>
+/// <param name="Tags">
+/// New tag set. Null = no change. Empty list = clear all tags. Otherwise replaces
+/// the existing tags wholesale after normalization (trim, lowercase, dedupe).
+/// </param>
 public sealed record UpdateFlagRequest(
     bool IsEnabled,
     RolloutStrategy StrategyType,
-    string? StrategyConfig
+    string? StrategyConfig,
+    string? Description = null,
+    IReadOnlyList<string>? Tags = null
 );

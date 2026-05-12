@@ -376,4 +376,137 @@ public sealed class CreateFlagRequestValidatorTests
         result.IsValid.Should().BeFalse();
         result.Errors.Should().Contain(e => e.PropertyName == "StrategyConfig");
     }
+
+    [Fact]
+    [Trait("Category", "Unit")]
+    public async Task Validate_WhenDescriptionIsAt500Chars_ReturnsValidAsync()
+    {
+        CreateFlagRequest request = NewRequest() with { Description = new string('a', 500) };
+
+        ValidationResult result = await _validator.ValidateAsync(request);
+
+        result.IsValid.Should().BeTrue();
+    }
+
+    [Fact]
+    [Trait("Category", "Unit")]
+    public async Task Validate_WhenDescriptionExceeds500Chars_ReturnsInvalidAsync()
+    {
+        CreateFlagRequest request = NewRequest() with { Description = new string('a', 501) };
+
+        ValidationResult result = await _validator.ValidateAsync(request);
+
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(e => e.PropertyName == "Description");
+    }
+
+    [Fact]
+    [Trait("Category", "Unit")]
+    public async Task Validate_WhenDescriptionIsNull_ReturnsValidAsync()
+    {
+        CreateFlagRequest request = NewRequest() with { Description = null };
+
+        ValidationResult result = await _validator.ValidateAsync(request);
+
+        result.IsValid.Should().BeTrue();
+    }
+
+    [Fact]
+    [Trait("Category", "Unit")]
+    public async Task Validate_WhenTagsCountIs20_ReturnsValidAsync()
+    {
+        CreateFlagRequest request = NewRequest() with
+        {
+            Tags = Enumerable.Range(1, 20).Select(i => $"tag-{i}").ToList(),
+        };
+
+        ValidationResult result = await _validator.ValidateAsync(request);
+
+        result.IsValid.Should().BeTrue();
+    }
+
+    [Fact]
+    [Trait("Category", "Unit")]
+    public async Task Validate_WhenTagsCountExceeds20_ReturnsInvalidAsync()
+    {
+        CreateFlagRequest request = NewRequest() with
+        {
+            Tags = Enumerable.Range(1, 21).Select(i => $"tag-{i}").ToList(),
+        };
+
+        ValidationResult result = await _validator.ValidateAsync(request);
+
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(e => e.PropertyName == "Tags");
+    }
+
+    [Fact]
+    [Trait("Category", "Unit")]
+    public async Task Validate_WhenTagEntryExceeds50Chars_ReturnsInvalidAsync()
+    {
+        CreateFlagRequest request = NewRequest() with { Tags = [new string('a', 51)] };
+
+        ValidationResult result = await _validator.ValidateAsync(request);
+
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(e => e.PropertyName.StartsWith("Tags"));
+    }
+
+    [Theory]
+    [InlineData("Bad Tag!")]
+    [InlineData("space inside")]
+    [InlineData("tag.with.dots")]
+    [InlineData("tag/slash")]
+    [Trait("Category", "Unit")]
+    public async Task Validate_WhenTagViolatesCharClass_ReturnsInvalidAsync(string tag)
+    {
+        CreateFlagRequest request = NewRequest() with { Tags = [tag] };
+
+        ValidationResult result = await _validator.ValidateAsync(request);
+
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(e => e.PropertyName.StartsWith("Tags"));
+    }
+
+    [Theory]
+    [InlineData("checkout")]
+    [InlineData("Checkout")]
+    [InlineData(" checkout ")]
+    [InlineData("CHECKOUT")]
+    [InlineData("release-q2")]
+    [InlineData("team_alpha")]
+    [Trait("Category", "Unit")]
+    public async Task Validate_WhenTagIsNormalizationFriendly_ReturnsValidAsync(string tag)
+    {
+        CreateFlagRequest request = NewRequest() with { Tags = [tag] };
+
+        ValidationResult result = await _validator.ValidateAsync(request);
+
+        result.IsValid.Should().BeTrue();
+    }
+
+    [Fact]
+    [Trait("Category", "Unit")]
+    public async Task Validate_WhenTagsIsNull_ReturnsValidAsync()
+    {
+        CreateFlagRequest request = NewRequest() with { Tags = null };
+
+        ValidationResult result = await _validator.ValidateAsync(request);
+
+        result.IsValid.Should().BeTrue();
+    }
+
+    [Fact]
+    [Trait("Category", "Unit")]
+    public async Task Validate_WhenTagsIsEmpty_ReturnsValidAsync()
+    {
+        CreateFlagRequest request = NewRequest() with { Tags = [] };
+
+        ValidationResult result = await _validator.ValidateAsync(request);
+
+        result.IsValid.Should().BeTrue();
+    }
+
+    private static CreateFlagRequest NewRequest() =>
+        new("test-flag", EnvironmentType.Development, true, RolloutStrategy.None, null);
 }

@@ -162,7 +162,9 @@ public sealed class BanderasService : IBanderasService
             request.Environment,
             request.IsEnabled,
             request.StrategyType,
-            strategyConfig
+            strategyConfig,
+            SanitizeDescription(request.Description),
+            NormalizeTags(request.Tags)
         );
 
         await _repository.AddAsync(flag, ct);
@@ -189,7 +191,47 @@ public sealed class BanderasService : IBanderasService
             request.StrategyConfig
         );
         flag.Reconfigure(request.IsEnabled, request.StrategyType, strategyConfig);
+
+        // Metadata mutation is a distinct concern (DD-6). Null on either field
+        // means "no change" (DD-7); skip the call entirely if neither is touched.
+        if (request.Description is not null || request.Tags is not null)
+        {
+            flag.UpdateMetadata(
+                description: request.Description is not null
+                    ? SanitizeDescription(request.Description)
+                    : flag.Description,
+                tags: request.Tags is not null ? NormalizeTags(request.Tags) : flag.Tags
+            );
+        }
+
         await _repository.SaveChangesAsync(ct);
+    }
+
+    private static string? SanitizeDescription(string? description)
+    {
+        if (description is null)
+        {
+            return null;
+        }
+
+        // Empty after Clean (incl. whitespace-only input) collapses to null —
+        // this is the "clear the description" signal on PUT (DD-7).
+        string? cleaned = Validators.InputSanitizer.Clean(description);
+        return string.IsNullOrEmpty(cleaned) ? null : cleaned;
+    }
+
+    private static List<string> NormalizeTags(IReadOnlyList<string>? tags)
+    {
+        if (tags is null)
+        {
+            return [];
+        }
+
+        return Validators
+            .InputSanitizer.CleanCollection(tags)
+            .Select(t => t.ToLowerInvariant())
+            .Distinct()
+            .ToList();
     }
 
     public async Task ArchiveFlagAsync(
@@ -219,7 +261,9 @@ public sealed class BanderasService : IBanderasService
         IReadOnlyList<Flag> flags = await _repository.GetAllAsync(ct: cancellationToken);
         List<FlagResponse> flagResponses = flags.Select(FlagMappings.ToResponse).ToList();
 
-        // StrategyConfig is string? — null guard required (AC-7)
+        // StrategyConfig and Description are string? — null guard required (AC-7).
+        // Tags are short structured labels but still pass through the sanitizer
+        // to defend against operator-authored prompt injection attempts.
         List<FlagResponse> sanitizedFlags = flagResponses
             .Select(f =>
                 f with
@@ -228,6 +272,10 @@ public sealed class BanderasService : IBanderasService
                     StrategyConfig = f.StrategyConfig is not null
                         ? _promptSanitizer.Sanitize(f.StrategyConfig)
                         : null,
+                    Description = f.Description is not null
+                        ? _promptSanitizer.Sanitize(f.Description)
+                        : null,
+                    Tags = f.Tags.Select(_promptSanitizer.Sanitize).ToList(),
                 }
             )
             .ToList();

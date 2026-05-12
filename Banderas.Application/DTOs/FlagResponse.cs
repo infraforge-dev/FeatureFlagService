@@ -24,4 +24,11 @@ public sealed record FlagResponse(
     string? StrategyConfig,
     DateTime CreatedAt,
     DateTime UpdatedAt
-);
+)
+{
+    /// <summary>Operator-authored description, or null if none.</summary>
+    public string? Description { get; init; }
+
+    /// <summary>Operator-authored organizational labels (normalized).</summary>
+    public IReadOnlyList<string> Tags { get; init; } = [];
+}
