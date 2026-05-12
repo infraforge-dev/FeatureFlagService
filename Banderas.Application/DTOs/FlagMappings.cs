@@ -15,5 +15,9 @@ public static class FlagMappings
             flag.StrategyConfig.RawJson,
             flag.CreatedAt,
             flag.UpdatedAt
-        );
+        )
+        {
+            Description = flag.Description,
+            Tags = flag.Tags,
+        };
 }
