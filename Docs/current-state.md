@@ -48,12 +48,13 @@
 **Phase 2 — Archived-Flag Integration Test Coverage (PR TBD): ✅ Complete**
 **Phase 2 — Typed StrategyConfig Value Object (PR TBD): ✅ Complete**
 **Phase 2 — Consolidate Flag Mutation Methods by Concern (PR TBD): ✅ Complete**
+**Phase 2 — Flag Description + Tags Metadata (PR TBD): ✅ Complete**
 
 **Gate Decision:** GO WITH CONDITIONS — AI response validation condition closed
 
 Audit report: `Docs/architecture-review-phase1-report.md`
 
-153 unit tests + 54 integration tests passing (all 207 green).
+203 unit tests + 70 integration tests passing (all 273 green).
 
 ---
 
@@ -82,8 +83,17 @@ Audit report: `Docs/architecture-review-phase1-report.md`
   `BanderasValidationException`, `FlagDomainException` (409 Conflict — generic
   domain invariant violation type)
 - `Flag` archived state is terminal — guard clause as the first statement of
-  `Reconfigure`, `UpdateName`, and `Archive`; throws `FlagDomainException` if
-  `IsArchived` is `true`
+  `Reconfigure`, `UpdateName`, `UpdateMetadata`, and `Archive`; throws
+  `FlagDomainException` if `IsArchived` is `true`
+- `Flag.Description` (`string?`) — operator-authored description; environment-agnostic
+  metadata persisted as a nullable `varchar(500)` column
+- `Flag.Tags` (`IReadOnlyList<string>`) — operator-authored organizational labels;
+  environment-agnostic metadata persisted as a `jsonb` column with SQL default `'[]'`
+- `Flag.UpdateMetadata(string?, IReadOnlyList<string>)` — third concern-named domain
+  mutation alongside `Reconfigure` and `UpdateName`; archived guard + `UpdatedAt` bump;
+  null description clears value, empty tag list clears collection
+- `Flag` constructor accepts optional `description` and `tags` for create-time
+  initialization; tags default to empty list when omitted
 
 ### Application Layer
 
@@ -101,6 +111,18 @@ Audit report: `Docs/architecture-review-phase1-report.md`
   `FlagMappings`, `FlagHealthRequest`, `FlagAssessment`, `FlagHealthAnalysisResponse`
 - `FlagResponse.StrategyConfig` — `string?` (nullable); flags with `RolloutStrategy.None`
   have no strategy config
+- `CreateFlagRequest` / `UpdateFlagRequest` / `FlagResponse` carry optional
+  `Description` (`string?`) and `Tags` (`IReadOnlyList<string>`); on `FlagResponse`
+  these are init-only properties with defaults (`null` / `[]`) so the existing 9-arg
+  positional constructor stays compatible with existing call sites
+- `UpdateFlagRequest` semantics: `description: null` / `tags: null` = no change;
+  `description: ""` = clear to null; `tags: []` = clear all tags
+- `BanderasService.CreateFlagAsync` and `UpdateFlagAsync` normalize tags
+  (`InputSanitizer.CleanCollection` + `ToLowerInvariant` + `Distinct`) and sanitize
+  description (empty/whitespace-only → null) before persisting; `Reconfigure` and
+  `UpdateMetadata` flush in a single `SaveChangesAsync`
+- `BanderasService.AnalyzeFlagsAsync` passes `Description` (when non-null) and each
+  `Tag` through `IPromptSanitizer` before the analyzer payload is built
 - `Flag.StrategyConfig` is now a typed `StrategyConfig` value object — constructor,
   `Update()`, and `UpdateStrategy()` enforce `config.ValidatedFor == strategyType`;
   `BanderasService` calls `StrategyConfigFactory.Create()` before passing to `Flag`
@@ -127,12 +149,22 @@ Audit report: `Docs/architecture-review-phase1-report.md`
 - EF Core + Npgsql repository (`BanderasRepository`)
 - `StrategyConfigConverter` — EF Core `ValueConverter<StrategyConfig, string>`;
   `FlagConfiguration` maps `StrategyConfig` property via backing field with converter
+- `TagListConverter` — EF Core `ValueConverter<IReadOnlyList<string>, string>` for
+  `Tags`; serializes/deserializes as a JSON array via `System.Text.Json`;
+  null-fallback to empty list on read to preserve the domain invariant
+- `FlagConfiguration` maps `Description` (nullable `varchar(500)`) and `Tags`
+  (`jsonb`, `IsRequired`, `HasDefaultValueSql("'[]'")`)
+- Migration `20260512194041_AddFlagDescriptionAndTags` — additive, zero-downtime,
+  zero-data-loss; existing rows pick up `Description = NULL` and `Tags = '[]'` on
+  apply via the SQL-level default
 - `IBanderasRepository.GetAllAsync(EnvironmentType? environment = null, ...)` —
   nullable environment param; `null` = no filter, returns all non-archived flags
   across all environments; passing an explicit value preserves scoped behavior
 - `AiFlagAnalyzer` — Semantic Kernel + Azure OpenAI implementation; all failures
   wrapped as `AiAnalysisUnavailableException`; validates deserialized model output
-  for summary, non-empty assessments, input-flag coverage, and documented status values
+  for summary, non-empty assessments, input-flag coverage, and documented status values;
+  `BuildPrompt` emits `Description` + `Tags` per flag and the system prompt declares
+  them inert data alongside name/config
 - `UnavailableAiFlagAnalyzer` — endpoint-scoped unavailable implementation used when
   `AzureOpenAI:Endpoint` is missing or blank
 - Semantic Kernel and `DefaultAzureCredential` fully excluded from `Testing`
@@ -174,16 +206,20 @@ Audit report: `Docs/architecture-review-phase1-report.md`
 
 ### Tests
 
-- 153 unit tests — strategies, evaluator, validators, logging behavior,
-  prompt sanitization (21), service analysis (5), `Flag` archived-terminal
-  invariants (5 — `Reconfigure`, `UpdateName`, `Archive` × archived/non-archived),
-  `StrategyConfig` VO (7), config validators (28), `StrategyConfigFactory` (7)
-- 54 integration tests — all endpoints including `POST /api/flags/health`,
+- 203 unit tests — strategies, evaluator, validators (including 17 new tag/description
+  rules), logging behavior, prompt sanitization (21), service analysis (7 — includes
+  description/tag sanitization), `Flag` archived-terminal invariants, `Flag` ctor
+  metadata defaults (2), `Flag.UpdateMetadata` (4), `BanderasServiceMetadataTests`
+  (10 — create normalization + update preserve/clear semantics), `StrategyConfig` VO,
+  config validators, `StrategyConfigFactory`
+- 70 integration tests — all endpoints including `POST /api/flags/health`,
   missing-Azure-OpenAI startup resilience, AI-unavailable 503 behavior,
-  semantic AI response validation, archived-flag mutation coverage (PUT/DELETE/evaluate
-  → 404), `FlagDomainException` → 409 ProblemDetails middleware contract, and
-  optimistic concurrency token via `Flag.Reconfigure` + `Flag.UpdateName`
-- 153 unit + 54 integration passing
+  semantic AI response validation, archived-flag mutation coverage,
+  `FlagDomainException` → 409 ProblemDetails middleware contract, optimistic
+  concurrency token, `TagListConverter` round-trip (3), `FlagCrudMetadata`
+  POST/PUT/GET semantics (10), and `AiHealthMetadataPrompt` end-to-end
+  description/tag sanitization across the HTTP boundary (3)
+- 203 unit + 70 integration passing
 - `InternalsVisibleTo("Banderas.Tests")` and `InternalsVisibleTo("Banderas.Infrastructure")`
   via `Banderas.Domain.csproj`
 - `BanderasServiceLoggingTests` — `NullPromptSanitizer` + `NullAiFlagAnalyzer`
@@ -199,8 +235,14 @@ Audit report: `Docs/architecture-review-phase1-report.md`
 ### Developer Experience
 
 - `Requests/smoke-test.http` — all endpoints covered including `POST /api/flags/health`
-  (default threshold + `stalenessThresholdDays: 7` variants)
-- `DatabaseSeeder` — six seed flags available immediately on `docker compose up`
+  (default threshold + `stalenessThresholdDays: 7` variants); the create-percentage
+  flag and one PUT now demonstrate the metadata fields, with a minimal create that
+  omits them for backward-compat illustration, and additional PUT variants for the
+  null=no-change / empty=clear semantics on description + tags
+- `DatabaseSeeder` — six seed flags available immediately on `docker compose up`;
+  every entry carries a realistic operator-authored description and 2–3 tags so
+  `GET /api/flags?environment=Development` and `POST /api/flags/health` exhibit
+  the metadata story without any setup
 
 ---
 
@@ -243,8 +285,9 @@ undocumented status values before any `200 OK` response can leave the AI boundar
 
 1. Continue working through the `Flag` DDD analysis backlog
    (`Docs/Decisions/flag-ddd-analysis-backlog.md`) — next item: introduce
-   `Description` and/or `Tags` as environment-agnostic metadata on the `Flag`
-   definition
+   `Variation` as a Value Object on `Flag` (multivariate flag support), or begin
+   the `Flag` → `FlagDefinition` / `FlagEnvironmentConfig` aggregate split — the
+   description/tags forward-migration is the split spec's concern
 2. Contract tests for API responses
 3. Handle invalid strategy configurations gracefully (defense-in-depth beyond VO validation)
 
@@ -390,6 +433,39 @@ GET query environment validation placement is ratified as service-level
   going forward: when a domain method's name is a field name plus a verb, ask whether
   it is one slice of a larger concern; if production never calls it independently,
   delete it and let the concern-named method be the only surface.
+
+- `[2026-05-12] — Use init-only properties to evolve positional records without breaking callers`
+
+  Adding two new fields to `FlagResponse` (positional record with 9 existing parameters)
+  broke an existing integration test's `new FlagResponse(...)` call site. Worse, the
+  `Tags` field needed a default of `[]` to preserve the domain invariant "Tags is never
+  null," but `[]` is not a compile-time constant and so cannot appear as a default in
+  a positional parameter. Switching `Description` and `Tags` to init-only properties
+  inside the record body — with body-level defaults (`null`, `[]`) — solved both
+  problems at once: existing positional callers stayed compatible, new callers use
+  object-initializer syntax (`new FlagResponse(...) { Description = ..., Tags = ... }`),
+  and JSON serialization round-trips both forms identically through `System.Text.Json`.
+  The rule going forward: when adding fields to an existing positional record DTO,
+  prefer init-only properties in the record body over positional parameters with
+  defaults — they survive collection-typed defaults, preserve positional call sites,
+  and don't reorder the constructor parameter list as the record evolves.
+
+- `[2026-05-12] — Sanitization at the HTTP boundary precedes prompt sanitization — write tests against the observable contract, not the upstream mechanism`
+
+  Spec AC-7 said description newlines would be "collapsed to spaces by `PromptSanitizer`,"
+  but in practice the `InputSanitizer.Clean` step at the HTTP boundary strips ASCII
+  control characters (including `\n` which is `< 0x20`) before persistence. By the
+  time `PromptSanitizer` runs in `AnalyzeFlagsAsync`, no newlines remain to collapse —
+  the prompt sanitizer's newline replacement is defense in depth, not the primary
+  enforcement point. The integration test originally asserted on the spec-described
+  mechanism ("checkout v2. Owner" with a space) and failed because the actual stored
+  value was "checkout v2.Owner" (newline stripped entirely, no space inserted). Test
+  was rewritten to assert the observable contract — the analyzer payload contains no
+  newlines and no documented dangerous phrases — independent of which layer enforced
+  it. The rule going forward: when a value passes through multiple sanitization layers,
+  test the end-state contract (what arrives at the destination) not the mechanism by
+  which any particular layer transforms it; spec language that names a specific layer
+  is a description, not a contract.
 
 ---
 

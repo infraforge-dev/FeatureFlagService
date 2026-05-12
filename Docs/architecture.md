@@ -276,7 +276,13 @@ reintroduce env-sentinel checks at the controller layer.
 
 **Core Entities:**
 
-* `Flag` — encapsulates business rules, private setters, explicit mutation methods
+* `Flag` — encapsulates business rules, private setters, explicit mutation methods.
+  Carries both per-environment behavior (`IsEnabled`, `StrategyType`, `StrategyConfig`,
+  `IsArchived`) and operator-authored metadata (`Description`, `Tags`). The
+  metadata fields are environment-agnostic by intent and will migrate to the
+  future `FlagDefinition` aggregate when the `Flag` → `FlagDefinition` /
+  `FlagEnvironmentConfig` aggregate split lands; per-env divergence is a temporary
+  accepted state, named in the backlog.
 
 **Value Objects:**
 
@@ -319,8 +325,11 @@ reintroduce env-sentinel checks at the controller layer.
 **Key Characteristics:**
 
 * Postgres via Npgsql
-* `FlagConfiguration` uses Fluent API: enums stored as strings, `StrategyConfig` as
-  `jsonb`
+* `FlagConfiguration` uses Fluent API: enums stored as strings; `StrategyConfig`
+  and `Tags` stored as `jsonb` via `ValueConverter`s (`StrategyConfigConverter`,
+  `TagListConverter`); `Description` as nullable `varchar(500)`; `Tags` carries a
+  SQL-level default `'[]'` so additive migrations are zero-downtime and existing
+  rows materialize as non-null empty lists
 * Partial unique index on `(Name, Environment)` filtered to `IsArchived = false` —
   archived flags are invisible to the uniqueness constraint
 * Repository filters out archived flags on all read operations
@@ -457,9 +466,11 @@ user receiving something they should not.
 
 All mutations go through controlled methods to prevent invalid state. No public setters
 on domain entities. `Flag.Reconfigure()` atomically replaces the rollout configuration
-(enabled state, strategy type, strategy config) in a single operation; `Flag.UpdateName()`
-is a distinct rename concern; `Flag.Archive()` is the terminal-state transition. The
-mutation surface is named by concern, not by field.
+(enabled state, strategy type, strategy config) in a single operation;
+`Flag.UpdateName()` is a distinct rename concern; `Flag.UpdateMetadata()` is a
+distinct definition-metadata concern (description + tags); `Flag.Archive()` is the
+terminal-state transition. The mutation surface is named by concern, not by field.
+Each concern has its own archived-state guard and its own `UpdatedAt` bump.
 
 ---
 
@@ -598,6 +609,11 @@ primary read pattern for a flag service. This was a deliberate tradeoff.
   in AI prompts; specifically targets newline injection, instruction override patterns,
   and role confusion attacks
 * `InputSanitizer` (HTTP boundary) is a complementary first layer, not a substitute
+* `BanderasService.AnalyzeFlagsAsync` passes `Name`, `StrategyConfig` (when non-null),
+  `Description` (when non-null), and each `Tag` through `IPromptSanitizer` before the
+  payload reaches `AiFlagAnalyzer.BuildPrompt`. The system prompt declares all flag
+  data — names, descriptions, tags, configs, values — as inert and instructs the model
+  not to interpret them as instructions
 * See `adr-input-security-model.md` DEFERRED-004 for the full prompt injection threat
   model
 

@@ -177,6 +177,11 @@ Every phase of this roadmap builds toward that demo.
   * [x] Enforce config/strategy type consistency inside `Flag`
   * [x] Consolidate mutation methods by concern — delete `SetEnabled` /
         `UpdateStrategy`, rename `Update` → `Reconfigure`
+  * [x] Add `Description` (`string?`) + `Tags` (`IReadOnlyList<string>`) as
+        environment-agnostic metadata; new `Flag.UpdateMetadata` mutation;
+        `TagListConverter` + `jsonb` column; AI prompt embeds sanitized metadata
+        (PR TBD — landed on per-environment `Flag` ahead of the aggregate split;
+        forward-migration owed to the future `FlagDefinition` spec)
 * [ ] Contract tests for API responses
 * [ ] Handle invalid strategy configurations gracefully
 * [ ] Test environment-specific behavior edge cases
@@ -258,16 +263,20 @@ Every phase of this roadmap builds toward that demo.
 
 **Phase 2 — Testing & Reliability**
 
-1. Continue strengthening `Flag` domain invariants — typed `StrategyConfig` VO and
-   config/strategy consistency are done; next backlog item: consolidate mutation methods
+1. Continue strengthening `Flag` domain invariants — description + tags shipped on
+   the per-environment row; next backlog item is multivariate flag support
+   (`Variation` Value Object) or the `Flag` → `FlagDefinition` /
+   `FlagEnvironmentConfig` aggregate split
 2. Continue working through the `Flag` DDD analysis backlog
 3. Contract tests for API responses
 
 **Phase 2 progress: archived state terminal (PR #59), `IsSeeded` removed from domain,
 archived-flag integration test coverage complete, typed `StrategyConfig` Value Object
 with config/strategy consistency enforcement complete, `Flag` mutation methods
-consolidated by concern (`SetEnabled` / `UpdateStrategy` / `Update` → `Reconfigure`).
-Next: contract tests for API responses.**
+consolidated by concern (`SetEnabled` / `UpdateStrategy` / `Update` → `Reconfigure`),
+`Description` + `Tags` metadata landed on per-env `Flag` with `UpdateMetadata`
+mutation, AI prompt enrichment, and zero-downtime additive migration. Next: contract
+tests for API responses.**
 
 ---
 
