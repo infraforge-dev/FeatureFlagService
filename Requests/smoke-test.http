@@ -11,7 +11,7 @@
 # Setup
 # =========================
 
-### Create a percentage rollout flag
+### Create a percentage rollout flag (with description + tags — the rich shape)
 POST {{host}}/api/flags
 Content-Type: application/json
 
@@ -20,10 +20,12 @@ Content-Type: application/json
   "environment": "{{environment}}",
   "isEnabled": true,
   "strategyType": "Percentage",
-  "strategyConfig": "{\"percentage\": 50}"
+  "strategyConfig": "{\"percentage\": 50}",
+  "description": "Gradual rollout of the v2 checkout flow to half of traffic.",
+  "tags": ["squad-checkout", "release-q2"]
 }
 
-### Create a role-based flag for admins and beta users
+### Create a role-based flag (minimal shape — omits metadata for backward-compat demo)
 POST {{host}}/api/flags
 Content-Type: application/json
 
@@ -35,14 +37,40 @@ Content-Type: application/json
   "strategyConfig": "{\"roles\": [\"admin\", \"beta\"]}"
 }
 
-### Update the percentage rollout to a wider audience
+### Update the percentage rollout — widen audience AND replace tags wholesale
 PUT {{host}}/api/flags/{{percentageFlagName}}?environment={{environment}}
 Content-Type: application/json
 
 {
   "isEnabled": true,
   "strategyType": "Percentage",
-  "strategyConfig": "{\"percentage\": 75}"
+  "strategyConfig": "{\"percentage\": 75}",
+  "description": "Widened to 75% after passing canary checks.",
+  "tags": ["squad-checkout", "release-q2", "ga-candidate"]
+}
+
+### Update preserving tags — null on description/tags means "no change"
+PUT {{host}}/api/flags/{{percentageFlagName}}?environment={{environment}}
+Content-Type: application/json
+
+{
+  "isEnabled": true,
+  "strategyType": "Percentage",
+  "strategyConfig": "{\"percentage\": 75}",
+  "description": null,
+  "tags": null
+}
+
+### Update clearing description — empty string clears, empty array clears tags
+PUT {{host}}/api/flags/{{percentageFlagName}}?environment={{environment}}
+Content-Type: application/json
+
+{
+  "isEnabled": true,
+  "strategyType": "Percentage",
+  "strategyConfig": "{\"percentage\": 75}",
+  "description": "",
+  "tags": []
 }
 
 # =========================

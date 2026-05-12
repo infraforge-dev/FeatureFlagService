@@ -12,29 +12,59 @@ public sealed class DatabaseSeeder(BanderasDbContext db, ILogger<DatabaseSeeder>
 {
     private static readonly SeedRecord[] SeedManifest =
     [
-        new("dark-mode", EnvironmentType.Development, true, RolloutStrategy.None, "{}"),
+        new(
+            "dark-mode",
+            EnvironmentType.Development,
+            true,
+            RolloutStrategy.None,
+            "{}",
+            "Toggles the dark theme across the web app.",
+            ["squad-ui", "theme"]
+        ),
         new(
             "new-dashboard",
             EnvironmentType.Development,
             true,
             RolloutStrategy.Percentage,
-            """{"percentage":30}"""
+            """{"percentage":30}""",
+            "Gradual rollout of the redesigned analytics dashboard.",
+            ["squad-analytics", "release-q2"]
         ),
         new(
             "beta-features",
             EnvironmentType.Development,
             true,
             RolloutStrategy.RoleBased,
-            """{"roles":["Admin","Beta"]}"""
+            """{"roles":["Admin","Beta"]}""",
+            "Opt-in surface for admins and beta testers to preview unreleased features.",
+            ["beta-program", "internal"]
         ),
-        new("maintenance-mode", EnvironmentType.Development, false, RolloutStrategy.None, "{}"),
-        new("dark-mode", EnvironmentType.Staging, true, RolloutStrategy.None, "{}"),
+        new(
+            "maintenance-mode",
+            EnvironmentType.Development,
+            false,
+            RolloutStrategy.None,
+            "{}",
+            "Kill switch that disables write paths during planned maintenance windows.",
+            ["ops", "killswitch"]
+        ),
+        new(
+            "dark-mode",
+            EnvironmentType.Staging,
+            true,
+            RolloutStrategy.None,
+            "{}",
+            "Toggles the dark theme across the web app.",
+            ["squad-ui", "theme"]
+        ),
         new(
             "new-dashboard",
             EnvironmentType.Staging,
             true,
             RolloutStrategy.Percentage,
-            """{"percentage":50}"""
+            """{"percentage":50}""",
+            "Widened staging rollout of the redesigned analytics dashboard.",
+            ["squad-analytics", "release-q2", "staging-canary"]
         ),
     ];
 
@@ -138,13 +168,15 @@ public sealed class DatabaseSeeder(BanderasDbContext db, ILogger<DatabaseSeeder>
         EnvironmentType Environment,
         bool IsEnabled,
         RolloutStrategy StrategyType,
-        string StrategyConfig
+        string StrategyConfig,
+        string? Description = null,
+        IReadOnlyList<string>? Tags = null
     )
     {
         public Flag ToFlag()
         {
             var config = new StrategyConfig(StrategyType, StrategyConfig);
-            return new Flag(Name, Environment, IsEnabled, StrategyType, config);
+            return new Flag(Name, Environment, IsEnabled, StrategyType, config, Description, Tags);
         }
     }
 }

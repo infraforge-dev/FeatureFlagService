@@ -25,6 +25,19 @@ public sealed class FlagConfiguration : IEntityTypeConfiguration<Flag>
             .HasColumnType("jsonb")
             .HasConversion(new StrategyConfigConverter());
 
+        builder.Property(f => f.Description).HasMaxLength(500).IsRequired(false);
+
+        // Tags persists as jsonb; the SQL-level default '[]' backfills existing
+        // rows on migration apply and guarantees the domain invariant
+        // (Flag.Tags != null). HasDefaultValueSql is required here because the
+        // CLR property type is IReadOnlyList<string>, not the post-conversion string.
+        builder
+            .Property(f => f.Tags)
+            .IsRequired()
+            .HasColumnType("jsonb")
+            .HasConversion(new TagListConverter())
+            .HasDefaultValueSql("'[]'");
+
         builder.Property(f => f.IsEnabled).IsRequired();
 
         builder.Property(f => f.IsArchived).IsRequired();
