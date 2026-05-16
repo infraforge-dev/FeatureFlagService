@@ -60,7 +60,9 @@
         "eamodio.gitlens",
         "editorconfig.editorconfig",
         "streetsidesoftware.code-spell-checker",
-        "csharpier.csharpier-vscode"
+        "csharpier.csharpier-vscode",
+        "likec4.likec4-vscode",
+        "bracketpaircolordlw.bracket-pair-color-dlw"
       ],
       "settings": {
         "editor.formatOnSave": true,

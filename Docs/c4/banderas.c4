@@ -1,0 +1,474 @@
+specification {
+  element person {
+    style {
+      shape person
+      color amber
+    }
+  }
+  element system {
+    style {
+      color primary
+    }
+  }
+  element container {
+    style {
+      color secondary
+    }
+  }
+  element component {
+    style {
+      color green
+    }
+  }
+  element database {
+    style {
+      shape cylinder
+      color indigo
+    }
+  }
+  element externalSystem {
+    style {
+      color muted
+    }
+  }
+}
+
+model {
+  // Actors
+  sdkClient = person 'SDK / API Client' {
+    description 'External application or .NET SDK calling the Banderas API to evaluate flags or manage flag configuration'
+  }
+
+  operator = person 'Platform Operator' {
+    description 'Engineer who creates, updates, archives, and analyses feature flags via the REST API'
+  }
+
+  // External Azure services
+  azureKeyVault = externalSystem 'Azure Key Vault' {
+    description 'Stores secrets: database connection string and Application Insights connection string'
+    technology 'Azure Key Vault'
+    style {
+      icon azure:key-vaults
+    }
+  }
+
+  azureAppInsights = externalSystem 'Azure Application Insights' {
+    description 'Receives structured telemetry and flag.evaluated custom events'
+    technology 'Azure Application Insights'
+    style {
+      icon azure:application-insights
+    }
+  }
+
+  azureOpenAI = externalSystem 'Azure OpenAI' {
+    description 'Hosts the gpt-5-mini deployment used for AI flag health analysis'
+    technology 'Azure OpenAI — gpt-5-mini'
+    style {
+      icon azure:cognitive-services
+    }
+  }
+
+  // Banderas system
+  banderas = system 'Banderas' {
+    description 'Azure-native, .NET-first, AI-assisted feature flag platform'
+
+    // ── API Layer ──────────────────────────────────────────────────────────
+    api = container 'API Layer' {
+      description 'Handles HTTP requests. Thin controllers — no business logic. Validates all mutating requests via FluentValidation before any service code runs. Returns RFC 9457 ProblemDetails on errors.'
+      technology 'ASP.NET Core 10 — Controllers'
+
+      banderasController = component 'BanderasController' {
+        description 'Flag management endpoints: GET /api/flags, POST /api/flags, PUT /api/flags/{name}, DELETE /api/flags/{name}, POST /api/flags/health'
+        technology 'ASP.NET Core Controller'
+      }
+
+      evaluationController = component 'EvaluationController' {
+        description 'POST /api/evaluate — evaluates a flag for a given user context and returns { isEnabled }'
+        technology 'ASP.NET Core Controller'
+      }
+
+      globalExceptionMiddleware = component 'GlobalExceptionMiddleware' {
+        description 'Catches all unhandled exceptions. Maps domain exceptions to RFC 9457 ProblemDetails: 404 FlagNotFound, 409 Duplicate/Domain, 503 AiUnavailable'
+        technology 'ASP.NET Core Middleware'
+      }
+
+      inputValidation = component 'FluentValidation Validators' {
+        description 'CreateFlagRequestValidator, UpdateFlagRequestValidator, EvaluationRequestValidator, FlagHealthRequestValidator. Called manually via ValidateAsync() at the top of each mutating action.'
+        technology 'FluentValidation v12'
+      }
+    }
+
+    // ── Application Layer ──────────────────────────────────────────────────
+    application = container 'Application Layer' {
+      description 'Orchestrates use cases. DTO ↔ domain entity boundary. Sanitizes inputs before evaluation and before AI prompts.'
+      technology 'C# — BanderasService, FeatureEvaluator, Strategies'
+
+      banderasService = component 'BanderasService' {
+        description 'Implements IBanderasService. Owns all use-case orchestration: CRUD, evaluation, archival, AI health analysis. Applies InputSanitizer to evaluation context before passing to FeatureEvaluator. Applies IPromptSanitizer to flag data before building AI payloads.'
+        technology 'C#'
+      }
+
+      inputSanitizer = component 'InputSanitizer' {
+        description 'Static helper. Trims whitespace and strips ASCII control characters below 0x20 (except tab) from string inputs. Called in validators (for validation consistency) and in BanderasService (to ensure strategies receive clean values).'
+        technology 'C# — static helper'
+      }
+
+      featureEvaluator = component 'FeatureEvaluator' {
+        description 'Pure strategy dispatcher. Resolves the correct IRolloutStrategy from a Dictionary<RolloutStrategy, IRolloutStrategy> keyed by enum. Precondition: caller must check Flag.IsEnabled first.'
+        technology 'C# — registry dispatch pattern'
+      }
+
+      noneStrategy = component 'NoneStrategy' {
+        description 'Passthrough strategy — always returns true. Used when a flag has no targeting rules.'
+        technology 'IRolloutStrategy'
+      }
+
+      percentageStrategy = component 'PercentageStrategy' {
+        description 'Deterministic SHA256 hashing of UserId into 100 buckets. Same user always falls in the same bucket — evaluation is stable across restarts.'
+        technology 'IRolloutStrategy'
+      }
+
+      roleStrategy = component 'RoleStrategy' {
+        description 'Config-driven, case-insensitive role matching. Parses allowed roles from StrategyConfig JSON. Fail-closed — missing or malformed config returns false.'
+        technology 'IRolloutStrategy'
+      }
+
+      promptSanitizer = component 'PromptSanitizer' {
+        description 'Implements IPromptSanitizer. Normalizes newlines, redacts instruction-override phrases, strips role-confusion markers, and caps strings at 500 chars before flag data is embedded in AI prompts.'
+        technology 'C# — GeneratedRegex'
+      }
+
+      strategyConfigFactory = component 'StrategyConfigFactory' {
+        description 'Registry dispatch keyed on RolloutStrategy. Creates typed StrategyConfig value objects, invoking the matching IStrategyConfigValidator to verify JSON structure before construction.'
+        technology 'C#'
+      }
+    }
+
+    // ── Domain Layer ───────────────────────────────────────────────────────
+    domain = container 'Domain Layer' {
+      description 'Core business rules. No infrastructure dependencies. All invariants enforced via private setters and concern-named mutation methods.'
+      technology 'C# — pure domain'
+
+      flagEntity = component 'Flag' {
+        description 'Aggregate root. Carries per-environment config (IsEnabled, StrategyType, StrategyConfig, IsArchived) and operator metadata (Description, Tags). Mutation methods: Reconfigure, UpdateName, UpdateMetadata, Archive — each checks the archived guard and bumps UpdatedAt.'
+        technology 'C# entity'
+      }
+
+      strategyConfigVO = component 'StrategyConfig' {
+        description 'Sealed record value object. Holds ValidatedFor (RolloutStrategy) and RawJson (string). Flag enforces config.ValidatedFor == StrategyType at construction and on every mutation.'
+        technology 'C# value object'
+      }
+
+      evaluationContextVO = component 'FeatureEvaluationContext' {
+        description 'Immutable value object passed into IBanderasService.IsEnabledAsync. Carries UserId, UserRoles (IReadOnlyList<string>), and Environment. Guard clauses on construction.'
+        technology 'C# value object — IEquatable<T>'
+      }
+    }
+
+    // ── Infrastructure Layer ───────────────────────────────────────────────
+    infrastructure = container 'Infrastructure Layer' {
+      description 'Persistence, AI analysis, and telemetry implementations. All domain interfaces satisfied here.'
+      technology 'EF Core 10, Npgsql, Semantic Kernel, Azure SDK'
+
+      banderasRepository = component 'BanderasRepository' {
+        description 'Implements IBanderasRepository. Filters archived flags on all reads. GetAllAsync accepts nullable EnvironmentType — null returns cross-environment results for AI health analysis. SaveChangesAsync catches Postgres 23505 and DbUpdateConcurrencyException, translating them to typed domain exceptions.'
+        technology 'EF Core + Npgsql'
+      }
+
+      dbContext = component 'BanderasDbContext' {
+        description 'EF Core DbContext. Single DbSet<Flag>. Configured via FlagConfiguration — enums as strings, StrategyConfig and Tags as jsonb via value converters, partial unique index on (Name, Environment) filtered to IsArchived = false.'
+        technology 'EF Core DbContext'
+      }
+
+      strategyConfigConverter = component 'StrategyConfigConverter' {
+        description 'EF Core ValueConverter<StrategyConfig, string>. Serializes/deserializes the StrategyConfig value object to/from the jsonb column. FlagConfiguration maps it via backing field to allow lazy ValidatedFor reconciliation on read.'
+        technology 'EF Core ValueConverter'
+      }
+
+      tagListConverter = component 'TagListConverter' {
+        description 'EF Core ValueConverter<IReadOnlyList<string>, string>. Serializes/deserializes the Tags collection to/from the jsonb column. Null-fallback to empty list on read preserves the domain invariant.'
+        technology 'EF Core ValueConverter'
+      }
+
+      aiFlagAnalyzer = component 'AiFlagAnalyzer' {
+        description 'Implements IAiFlagAnalyzer. Builds a structured JSON prompt from sanitized flag data (name, description, tags, config, dates). Calls Azure OpenAI via Semantic Kernel with structured output (ResponseFormat = typeof(FlagHealthAnalysisResponse)). Validates the deserialized response: non-empty summary, non-empty assessments, full input-flag coverage, and documented status values (Healthy/Stale/Misconfigured/NeedsReview). All failures wrapped as AiAnalysisUnavailableException.'
+        technology 'Semantic Kernel + Azure OpenAI'
+      }
+
+      unavailableAiFlagAnalyzer = component 'UnavailableAiFlagAnalyzer' {
+        description 'Registered when AzureOpenAI:Endpoint is missing or blank. Always throws AiAnalysisUnavailableException — prevents a missing AI config from blocking app startup or breaking non-AI endpoints.'
+        technology 'C# — null object pattern'
+      }
+
+      telemetryService = component 'ApplicationInsightsTelemetryService' {
+        description 'Implements ITelemetryService. Emits a flag.evaluated custom event to Azure Application Insights on every evaluation. Properties: FlagName, Result (enabled/disabled), Strategy, Environment.'
+        technology 'Application Insights SDK'
+      }
+
+      dbSeeder = component 'DatabaseSeeder' {
+        description 'Seeds six realistic Flag records across all three rollout strategies on startup in Development. Each record carries an operator-authored description and 2–3 tags so GET /api/flags and POST /api/flags/health exhibit the metadata story without manual setup.'
+        technology 'C# — scoped service, called from Program.cs'
+      }
+    }
+
+    db = database 'PostgreSQL' {
+      description 'Stores Flag records. Each row scoped to a single environment. Partial unique index on (Name, Environment) filtered to IsArchived = false. StrategyConfig and Tags stored as jsonb.'
+      technology 'PostgreSQL 16'
+    }
+
+    // ── Internal container-level flows ─────────────────────────────────────
+    api -> application 'Delegates use cases via IBanderasService' {
+      technology 'In-process method call'
+    }
+
+    application -> domain 'Constructs and mutates Flag entities' {
+      technology 'In-process method call'
+    }
+
+    application -> infrastructure 'Persists and retrieves flags via IBanderasRepository' {
+      technology 'In-process method call'
+    }
+
+    application -> infrastructure 'Requests AI flag health analysis via IAiFlagAnalyzer' {
+      technology 'In-process method call'
+    }
+
+    application -> infrastructure 'Emits evaluation telemetry via ITelemetryService' {
+      technology 'In-process method call'
+    }
+
+    infrastructure -> db 'Reads and writes flag records' {
+      technology 'EF Core + Npgsql'
+    }
+
+    // ── Component-level flows ──────────────────────────────────────────────
+
+    // API → Application
+    api.banderasController -> application.banderasService 'CRUD + health analysis via IBanderasService' {
+      technology 'In-process method call'
+    }
+    api.evaluationController -> application.banderasService 'IsEnabledAsync via IBanderasService' {
+      technology 'In-process method call'
+    }
+    api.banderasController -> api.inputValidation 'ValidateAsync on POST/PUT/health' {
+      technology 'FluentValidation'
+    }
+    api.evaluationController -> api.inputValidation 'ValidateAsync on POST' {
+      technology 'FluentValidation'
+    }
+
+    // Application internal
+    application.banderasService -> application.inputSanitizer 'Sanitizes UserId, UserRoles, Name, Description, Tags' {
+      technology 'Static call'
+    }
+    application.banderasService -> application.promptSanitizer 'Sanitizes flag data before AI prompt' {
+      technology 'IPromptSanitizer'
+    }
+    application.banderasService -> application.featureEvaluator 'Evaluate(flag, sanitizedContext)' {
+      technology 'In-process method call'
+    }
+    application.banderasService -> application.strategyConfigFactory 'Create(strategyType, rawJson)' {
+      technology 'In-process method call'
+    }
+    application.featureEvaluator -> application.noneStrategy 'Dispatches when RolloutStrategy.None' {
+      technology 'IRolloutStrategy.Evaluate'
+    }
+    application.featureEvaluator -> application.percentageStrategy 'Dispatches when RolloutStrategy.Percentage' {
+      technology 'IRolloutStrategy.Evaluate'
+    }
+    application.featureEvaluator -> application.roleStrategy 'Dispatches when RolloutStrategy.RoleBased' {
+      technology 'IRolloutStrategy.Evaluate'
+    }
+
+    // Application → Infrastructure
+    application.banderasService -> infrastructure.banderasRepository 'GetByNameAsync, GetAllAsync, AddAsync, ExistsAsync, SaveChangesAsync' {
+      technology 'IBanderasRepository'
+    }
+    application.banderasService -> infrastructure.aiFlagAnalyzer 'AnalyzeAsync(sanitizedFlags, threshold)' {
+      technology 'IAiFlagAnalyzer'
+    }
+    application.banderasService -> infrastructure.telemetryService 'TrackEvaluation(name, result, strategy, env)' {
+      technology 'ITelemetryService'
+    }
+
+    // Infrastructure internal
+    infrastructure.banderasRepository -> infrastructure.dbContext 'Queries and tracks Flag entities' {
+      technology 'EF Core LINQ'
+    }
+    infrastructure.dbContext -> infrastructure.strategyConfigConverter 'Converts StrategyConfig ↔ jsonb on read/write' {
+      technology 'EF Core ValueConverter'
+    }
+    infrastructure.dbContext -> infrastructure.tagListConverter 'Converts Tags ↔ jsonb on read/write' {
+      technology 'EF Core ValueConverter'
+    }
+    infrastructure.aiFlagAnalyzer -> azureOpenAI 'Sends chat history + structured output request' {
+      technology 'Semantic Kernel — HTTPS'
+    }
+    infrastructure.telemetryService -> azureAppInsights 'TrackEvent("flag.evaluated", properties)' {
+      technology 'Application Insights SDK'
+    }
+
+    // Infrastructure → DB
+    infrastructure.dbContext -> db 'SQL queries via Npgsql' {
+      technology 'EF Core + Npgsql'
+    }
+  }
+
+  // External relationships
+  sdkClient -> banderas.api 'Evaluates flags / manages flag configuration' {
+    technology 'HTTPS — REST JSON'
+  }
+
+  operator -> banderas.api 'Creates, updates, archives, and analyses flags' {
+    technology 'HTTPS — REST JSON'
+  }
+
+  banderas.api -> azureKeyVault 'Reads secrets at startup via DefaultAzureCredential' {
+    technology 'Azure SDK'
+  }
+
+  banderas.infrastructure -> azureAppInsights 'Sends structured telemetry and flag.evaluated events' {
+    technology 'Application Insights SDK'
+  }
+
+  banderas.infrastructure -> azureOpenAI 'Sends flag health prompts, receives structured analysis' {
+    technology 'Semantic Kernel — HTTPS'
+  }
+}
+
+views {
+  view index {
+    title 'Banderas — System Landscape'
+    description 'All actors and external systems in relation to Banderas'
+    include *
+  }
+
+  view container of banderas {
+    title 'Banderas — Container View'
+    description 'Internal containers of the Banderas feature flag service and their relationships to external systems'
+
+    include *
+    include sdkClient
+    include operator
+    include azureKeyVault
+    include azureAppInsights
+    include azureOpenAI
+
+    style sdkClient, operator {
+      color amber
+    }
+
+    style azureKeyVault, azureAppInsights, azureOpenAI {
+      color muted
+    }
+  }
+
+  view appComponents of banderas.application {
+    title 'Banderas — Application Layer Components'
+    description 'Components inside the Application Layer and how they collaborate with the API Layer, Domain Layer, Infrastructure Layer, and external Azure services'
+
+    include *
+
+    // Pull in the controllers that drive the service
+    include banderas.api.banderasController
+    include banderas.api.evaluationController
+    include banderas.api.inputValidation
+    include banderas.api.globalExceptionMiddleware
+
+    // Pull in domain value objects the strategies depend on
+    include banderas.domain.flagEntity
+    include banderas.domain.strategyConfigVO
+    include banderas.domain.evaluationContextVO
+
+    // Pull in infrastructure implementations
+    include banderas.infrastructure.banderasRepository
+    include banderas.infrastructure.aiFlagAnalyzer
+    include banderas.infrastructure.telemetryService
+
+    // Pull in external Azure services
+    include azureOpenAI
+    include azureAppInsights
+
+    style banderas.api.banderasController,
+          banderas.api.evaluationController,
+          banderas.api.inputValidation,
+          banderas.api.globalExceptionMiddleware {
+      color secondary
+    }
+
+    style banderas.domain.flagEntity,
+          banderas.domain.strategyConfigVO,
+          banderas.domain.evaluationContextVO {
+      color indigo
+    }
+
+    style banderas.infrastructure.banderasRepository,
+          banderas.infrastructure.aiFlagAnalyzer,
+          banderas.infrastructure.telemetryService {
+      color primary
+    }
+
+    style azureOpenAI, azureAppInsights {
+      color muted
+    }
+  }
+
+  view infraComponents of banderas.infrastructure {
+    title 'Banderas — Infrastructure Layer Components'
+    description 'Components inside the Infrastructure Layer: persistence stack, AI analysis, telemetry, and their relationships to external Azure services and PostgreSQL'
+
+    include *
+
+    // Application layer callers
+    include banderas.application.banderasService
+
+    // Domain entities touched by the persistence stack
+    include banderas.domain.flagEntity
+    include banderas.domain.strategyConfigVO
+
+    // External systems
+    include azureOpenAI
+    include azureAppInsights
+    include db
+
+    style banderas.application.banderasService {
+      color secondary
+    }
+
+    style banderas.domain.flagEntity,
+          banderas.domain.strategyConfigVO {
+      color indigo
+    }
+
+    style azureOpenAI, azureAppInsights {
+      color muted
+    }
+
+    style db {
+      color indigo
+    }
+  }
+
+  // ── Evaluation request flow ─────────────────────────────────────────────
+  // Dynamic view: traces a single POST /api/evaluate from HTTP boundary
+  // through validation → sanitization → flag lookup → strategy dispatch →
+  // telemetry → response.
+  dynamic view evaluationFlow {
+    title 'Banderas — Evaluation Request Flow'
+    description 'Step-by-step path of a POST /api/evaluate request through the system'
+
+    sdkClient -> banderas.api.evaluationController '1. POST /api/evaluate {flagName, userId, roles, env}'
+    banderas.api.evaluationController -> banderas.api.inputValidation '2. ValidateAsync(EvaluationRequest)'
+    banderas.api.evaluationController -> banderas.application.banderasService '3. IsEnabledAsync(flagName, context)'
+    banderas.application.banderasService -> banderas.application.inputSanitizer '4. Clean(UserId) + CleanCollection(UserRoles)'
+    banderas.application.banderasService -> banderas.infrastructure.banderasRepository '5. GetByNameAsync(flagName, environment)'
+    banderas.infrastructure.banderasRepository -> banderas.infrastructure.dbContext '6. LINQ WHERE Name + Environment + !IsArchived'
+    banderas.infrastructure.dbContext -> db '7. SELECT FROM flags'
+    banderas.application.banderasService -> banderas.application.featureEvaluator '8. Evaluate(flag, sanitizedContext)'
+    banderas.application.featureEvaluator -> banderas.application.percentageStrategy '9a. SHA256(userId) mod 100 <= percentage?'
+    banderas.application.featureEvaluator -> banderas.application.roleStrategy '9b. sanitizedRoles intersects allowedRoles?'
+    banderas.application.featureEvaluator -> banderas.application.noneStrategy '9c. Always true'
+    banderas.application.banderasService -> banderas.infrastructure.telemetryService '10. TrackEvaluation(name, result, strategy, env)'
+    banderas.infrastructure.telemetryService -> azureAppInsights '11. TrackEvent("flag.evaluated")'
+  }
+}

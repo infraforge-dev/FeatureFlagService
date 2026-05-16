@@ -8,8 +8,8 @@ with AI-assisted flag analysis and a first-class .NET SDK as core product featur
 
 [![.NET](https://img.shields.io/badge/.NET-10.0-512BD4?logo=dotnet)](https://dotnet.microsoft.com)
 [![CI](https://img.shields.io/github/actions/workflow/status/amodelandme/Banderas/ci.yml?label=CI&logo=github)](https://github.com/amodelandme/Banderas/actions)
-[![Tests](https://img.shields.io/badge/Tests-166%20passing-brightgreen?logo=github)](#testing)
-[![Phase](https://img.shields.io/badge/Phase-1.5%20Complete%20%E2%80%94%20GO%20WITH%20CONDITIONS-blue)](#️-roadmap)
+[![Tests](https://img.shields.io/badge/Tests-273%20passing-brightgreen?logo=github)](#testing)
+[![Phase](https://img.shields.io/badge/Phase-2%20In%20Progress-blue)](#️-roadmap)
 
 ---
 
@@ -63,7 +63,7 @@ Natural language flag health analysis, stale flag detection, rollout risk reason
 Self-hostable by design. Managed hosting and enterprise features are the intended business model — not infrastructure lock-in.
 
 **🧪 Production-quality engineering**
-146 tests cover strategies, the registry dispatch engine, validators, service behavior, prompt sanitization, and HTTP integration paths. CI runs format gating, zero-warnings builds, unit tests, integration tests, and an optional AI reviewer for Clean Architecture compliance.
+273 tests cover strategies, the registry dispatch engine, validators, service behavior, prompt sanitization, AI analysis orchestration, domain invariants, metadata normalization, and HTTP integration paths. CI runs format gating, zero-warnings builds, unit tests, integration tests, and an optional AI reviewer for Clean Architecture compliance.
 
 ---
 
@@ -71,46 +71,33 @@ Self-hostable by design. Managed hosting and enterprise features are the intende
 
 Banderas follows Clean Architecture with strict unidirectional dependencies. Every layer has one job and knows nothing about the layers above it.
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                        CLIENT                               │
-└──────────────────────────────┬──────────────────────────────┘
-                               │ HTTP
-┌──────────────────────────────▼──────────────────────────────┐
-│                    API LAYER (Controllers)                   │
-│  • Validates body DTOs via FluentValidation v12              │
-│  • Returns DTOs; never exposes Flag entities                 │
-│  • GlobalExceptionMiddleware wraps entire pipeline           │
-│  • RouteParameterGuard — allowlist enforcement for names     │
-└──────────────────────────────┬──────────────────────────────┘
-                               │ DTOs + approved evaluation value object
-┌──────────────────────────────▼──────────────────────────────┐
-│             APPLICATION LAYER (IBanderasService)             │
-│  • Orchestrates use cases                                    │
-│  • Owns DTO ↔ domain entity mapping                          │
-│  • InputSanitizer — validation + service-layer cleanup       │
-│  • Name uniqueness enforced before DB write                  │
-│  • IAiFlagAnalyzer boundary for AI health analysis           │
-└──────────────┬───────────────────────────────┬──────────────┘
-               │                               │
-┌──────────────▼──────────┐     ┌──────────────▼──────────────┐
-│   EVALUATION ENGINE      │     │   DATA ACCESS LAYER          │
-│   (FeatureEvaluator)     │     │   (IBanderasRepository)      │
-│                          │     │                              │
-│  Registry dispatch →     │     │  EF Core + Npgsql            │
-│  IRolloutStrategy        │     │  jsonb for StrategyConfig    │
-│  • NoneStrategy          │     │  Soft delete via archiving   │
-│  • PercentageStrategy    │     │  Partial unique index on     │
-│  • RoleStrategy          │     │  (Name, Environment)         │
-└──────────────────────────┘     └──────────────────────────────┘
-               │
-┌──────────────▼──────────────────────────────────────────────┐
-│                    DOMAIN LAYER                              │
-│  Flag entity • FeatureEvaluationContext • RolloutStrategy    │
-│  Exception hierarchy (FlagNotFoundException, etc.)           │
-│  No outward dependencies — the innermost layer               │
-└─────────────────────────────────────────────────────────────┘
-```
+<table>
+  <tr>
+    <th align="center">System Landscape</th>
+    <th align="center">Container View</th>
+  </tr>
+  <tr>
+    <td align="center"><img src="Docs/c4/exports/index.png" alt="System Landscape" width="480"/></td>
+    <td align="center"><img src="Docs/c4/exports/container.png" alt="Container View" width="480"/></td>
+  </tr>
+  <tr>
+    <th align="center">Application Layer Components</th>
+    <th align="center">Infrastructure Layer Components</th>
+  </tr>
+  <tr>
+    <td align="center"><img src="Docs/c4/exports/appComponents.png" alt="Application Layer Components" width="480"/></td>
+    <td align="center"><img src="Docs/c4/exports/infraComponents.png" alt="Infrastructure Layer Components" width="480"/></td>
+  </tr>
+  <tr>
+    <th align="center" colspan="2">Evaluation Request Flow</th>
+  </tr>
+  <tr>
+    <td align="center" colspan="2"><img src="Docs/c4/exports/evaluationFlow.png" alt="Evaluation Request Flow" width="720"/></td>
+  </tr>
+</table>
+
+> Diagrams are generated from [`Docs/c4/banderas.c4`](Docs/c4/banderas.c4) using [LikeC4](https://likec4.dev).
+> To explore interactively: `npx likec4 start Docs/c4`
 
 ### Project Structure
 
@@ -186,14 +173,28 @@ Azure OpenAI integration is behind `IAiFlagAnalyzer`. Missing `AzureOpenAI:Endpo
 | **Endpoint-scoped AI failure** | Missing Azure OpenAI endpoint leaves non-AI endpoints available and returns `503` only for AI analysis |
 | **AI PR Reviewer** | Claude-powered code review on every PR — checks Clean Architecture, FluentValidation v12 patterns, and project conventions |
 | **CI pipeline** | GitHub Actions — format gate (CSharpier), zero-warnings build, unit tests, integration tests, optional AI review |
+| **Flag description + tags** | Operator-authored metadata on every flag — description (varchar 500) and tags (jsonb array); included in AI health analysis prompts |
+| **AI response contract validation** | `AiFlagAnalyzer` validates model output before returning — full flag coverage, allowed status values, non-empty summary |
+| **Archived state terminal enforcement** | All `Flag` mutation methods guard against operating on archived flags; `FlagDomainException` → 409 |
+| **Typed `StrategyConfig` value object** | Strategy configuration validated at write time via `IStrategyConfigValidator` registry; type/config consistency enforced by `Flag` |
+
+### ✅ Recently Completed (Phase 2)
+
+| Feature | Details |
+|---------|---------|
+| **AI response semantic validation** | `AiFlagAnalyzer` validates full flag coverage, allowed status values, and non-empty summary before returning `200` |
+| **Archived state as terminal** | All `Flag` mutation methods guard against `IsArchived = true` — `FlagDomainException` on violation |
+| **Typed `StrategyConfig` value object** | `StrategyConfig` is a sealed record; `Flag` enforces `config.ValidatedFor == StrategyType` at construction and mutation |
+| **Concern-named mutation methods** | `Reconfigure`, `UpdateName`, `UpdateMetadata`, `Archive` replace the former field-shaped `SetEnabled` / `UpdateStrategy` / `Update` surface |
+| **Flag description + tags** | `Flag.Description` (nullable varchar 500) and `Flag.Tags` (jsonb) — operator-authored metadata; AI health prompts include sanitized values |
+| **`IsSeeded` removed from domain** | Provenance tracking moved to EF Core shadow property — domain entity no longer carries infrastructure concerns |
 
 ### 🔜 Coming Soon
 
 | Phase | Feature |
 |-------|---------|
-| **2** | AI response semantic validation after deserialization |
-| **2** | Stronger direct `Flag` invariants and domain tests |
 | **2** | Contract tests for API responses |
+| **2** | Multivariate flag support (`Variation` value object) or `Flag` → `FlagDefinition` / `FlagEnvironmentConfig` aggregate split |
 | **3** | JWT authentication and RBAC |
 | **5** | User targeting, time-based activation, gradual rollout |
 | **6** | Redis caching layer |
@@ -348,17 +349,17 @@ The exception hierarchy follows the **Open/Closed Principle** — new exception 
 
 ## 🧪 Testing
 
-### Test Suite — 146/146 Passing
+### Test Suite — 273/273 Passing
 
-Unit tests live in `Banderas.Tests/` and cover pure logic: strategies, evaluator behavior, validators, domain value objects, service orchestration, logging, prompt sanitization, and AI analysis orchestration.
+Unit tests live in `Banderas.Tests/` and cover pure logic: strategies, evaluator behavior, validators, domain value objects, service orchestration, logging, prompt sanitization, AI analysis orchestration, `Flag` archived-terminal invariants, `StrategyConfig` value object, config validators, metadata normalization, and `StrategyConfigFactory`.
 
-Integration tests live in `Banderas.Tests.Integration/` and run the HTTP stack against Testcontainers PostgreSQL. They cover CRUD, evaluation, seed-data startup, AI health analysis, and the missing-Azure-OpenAI startup resilience path.
+Integration tests live in `Banderas.Tests.Integration/` and run the HTTP stack against Testcontainers PostgreSQL. They cover CRUD, evaluation, archived-flag mutation paths, `FlagDomainException` → 409 middleware contract, optimistic concurrency, seed-data startup, AI health analysis, AI-unavailable 503 behavior, semantic AI response validation, metadata round-trips, and the missing-Azure-OpenAI startup resilience path.
 
 | Suite | Count | Coverage |
 |-------|------:|----------|
-| Unit | 107 | Domain, strategies, evaluator, validators, services, logging, prompt sanitization |
-| Integration | 39 | API endpoints, ProblemDetails responses, seed data, AI health, startup resilience |
-| **Total** | **146** | |
+| Unit | 203 | Domain, strategies, evaluator, validators, services, logging, prompt sanitization, AI analysis, metadata, StrategyConfig VO |
+| Integration | 70 | API endpoints, ProblemDetails responses, archived-flag paths, concurrency, seed data, AI health, startup resilience |
+| **Total** | **273** | |
 
 ### A Bug Story Worth Telling
 
@@ -433,7 +434,7 @@ AI is split between capabilities available now and features planned for later ph
 | **Flag health analysis** | 1.5 ✅ | Natural language analysis of flag state, age, and strategy configuration |
 | **Stale flag detection** | 1.5 ✅ | Uses `UpdatedAt` and caller-supplied staleness threshold to flag stale candidates |
 | **AI unavailable fallback** | 1.5 ✅ | Missing Azure OpenAI endpoint returns `503` only on the AI health endpoint |
-| **AI response contract validation** | 2 | Enforce allowed statuses and one assessment per analyzed flag before returning `200` |
+| **AI response contract validation** | 2 ✅ | Full flag coverage, allowed status values, and non-empty summary enforced before returning `200` |
 | **Rollout risk reasoning** | Future | "Is it safe to roll this flag out to 100%?" — answered in plain English |
 | **Natural language flag creation** | Future | Describe a flag in English; get a fully configured flag back |
 | **Anomaly detection** | Future | Alert when evaluation patterns change unexpectedly |
@@ -470,7 +471,7 @@ All AI features will use **Azure OpenAI** and **Semantic Kernel** — consistent
 Phase 0  ✅  Foundation — domain, strategies, persistence, API
 Phase 1  ✅  MVP Completion — validation, CI, error handling, tests, telemetry
 Phase 1.5 ✅  Azure Foundation + AI — Key Vault, App Insights, AI analysis endpoint
-Phase 2      Testing & Reliability — AI contracts, domain invariants, API contracts
+Phase 2  🔄  Testing & Reliability — domain invariants, StrategyConfig VO, metadata, contract tests remaining
 Phase 3      Auth & Security — JWT, RBAC, rate limiting, audit trail
 Phase 4      Observability — evaluation telemetry, debugging endpoint, dashboards
 Phase 5      Advanced Strategies — user targeting, time-based, gradual rollout
@@ -503,6 +504,18 @@ Phase 9      Open Core Launch — public Docker image, hosted offering
 - [x] AI unavailability maps to `503 ProblemDetails`
 - [x] Missing Azure OpenAI endpoint does not block non-AI app startup
 - [x] Architecture review completed — gate: GO WITH CONDITIONS
+
+### Phase 2 Progress
+
+- [x] AI response semantic validation — full flag coverage, allowed statuses, non-empty summary
+- [x] Archived state as terminal — guard clause on all `Flag` mutation methods
+- [x] `IsSeeded` removed from domain entity — moved to EF Core shadow property
+- [x] Archived-flag integration test coverage — PUT/DELETE/evaluate → 404, `FlagDomainException` → 409
+- [x] Typed `StrategyConfig` value object — config/strategy consistency enforced by `Flag`
+- [x] Mutation methods consolidated by concern — `Reconfigure`, `UpdateName`, `UpdateMetadata`, `Archive`
+- [x] `Flag.Description` + `Flag.Tags` — operator metadata, zero-downtime migration, AI prompt enrichment
+- [ ] Contract tests for API responses
+- [ ] Multivariate flag support / `Flag` → `FlagDefinition` aggregate split
 
 ---
 
