@@ -1,7 +1,7 @@
 ---
 name: post-work
 description: >
-  Update all foundation documents to reflect completed implementation and produce the
+  Update all foundation documents to reflect completed implementation, update c4 diagrams (if necessary) ,and produce the
   implementation notes file. Use this skill whenever the user says "/post-work",
   "update the docs", "update foundation docs", "write the implementation notes", or
   after implementation has been reviewed and approved at the HITL gate. This skill
@@ -88,6 +88,9 @@ Use this structure exactly:
 ## Foundation Docs Updated
 ## Definition of Done — Status
 ```
+## Step 6 — Update C4 Diagrams (Docs/c4)
+
+Update c4 diagrams if there were any changes that require modification to the diagrams. 
 
 Rules:
 - **What Was Built**: 2–4 sentences for a new team member. Outcome, not steps.
