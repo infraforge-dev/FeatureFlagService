@@ -21,7 +21,7 @@ internal sealed class ApiInfoTransformer : IOpenApiDocumentTransformer
             Description =
                 "Azure-native, .NET-first feature flag evaluation service. "
                 + "Supports percentage rollouts, role-based targeting, and "
-                + "deterministic user bucketing. AI-assisted analysis coming in Phase 1.5.",
+                + "deterministic user bucketing. Includes AI-assisted flag health analysis.",
             Contact = new OpenApiContact
             {
                 Name = "Banderas",

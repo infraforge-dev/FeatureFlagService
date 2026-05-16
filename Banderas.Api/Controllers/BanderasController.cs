@@ -31,11 +31,11 @@ public sealed class BanderasController : ControllerBase
     }
 
     /// <summary>
-    /// Retrieves all feature flags for the specified environment.
+    /// Retrieves all active (non-archived) feature flags for the specified environment.
     /// </summary>
     /// <param name="environment">The target deployment environment.</param>
     /// <param name="ct">Cancellation token.</param>
-    /// <response code="200">Returns the list of feature flags.</response>
+    /// <response code="200">Returns the list of feature flags for the specified environment.</response>
     [HttpGet]
     [ProducesResponseType<IEnumerable<FlagResponse>>(
         StatusCodes.Status200OK,
@@ -187,13 +187,24 @@ public sealed class BanderasController : ControllerBase
     /// Requests an AI-generated health analysis of all feature flags.
     /// Analytical only — no flags are modified.
     /// </summary>
+    /// <param name="request">Analysis options, including the staleness threshold.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     /// <response code="200">Returns the structured health analysis.</response>
     /// <response code="400">Validation failed. See the errors collection for details.</response>
-    /// <response code="503">AI analysis service is currently unavailable.</response>
+    /// <response code="503">The AI analysis service is currently unavailable.</response>
     [HttpPost("health")]
-    [ProducesResponseType(typeof(FlagHealthAnalysisResponse), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status503ServiceUnavailable)]
+    [ProducesResponseType<FlagHealthAnalysisResponse>(
+        StatusCodes.Status200OK,
+        Description = "The AI-generated health analysis for all feature flags."
+    )]
+    [ProducesResponseType<ValidationProblemDetails>(
+        StatusCodes.Status400BadRequest,
+        Description = "One or more validation errors. See the errors field for details."
+    )]
+    [ProducesResponseType<ProblemDetails>(
+        StatusCodes.Status503ServiceUnavailable,
+        Description = "The AI analysis service is currently unavailable. Retry after a short delay."
+    )]
     public async Task<IActionResult> AnalyzeFlagsAsync(
         [FromBody] FlagHealthRequest request,
         CancellationToken cancellationToken

@@ -12,8 +12,8 @@ namespace Banderas.Application.DTOs;
 /// Percentage or RoleBased. Maximum 2000 characters.
 /// </param>
 /// <param name="Description">
-/// New description. Null = no change. Empty string = clear to null.
-/// Maximum 500 characters.
+/// Updated description. Null leaves the existing value unchanged.
+/// Empty string removes the description. Maximum 500 characters.
 /// </param>
 /// <param name="Tags">
 /// New tag set. Null = no change. Empty list = clear all tags. Otherwise replaces
