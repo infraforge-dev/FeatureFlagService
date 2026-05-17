@@ -51,12 +51,29 @@ public abstract class IntegrationTestBase : IAsyncLifetime
         response.Content.Headers.ContentType!.MediaType.Should().Be("application/problem+json");
     }
 
+    protected static async Task<JsonDocument> ReadRawJsonAsync(HttpResponseMessage response)
+    {
+        string json = await response.Content.ReadAsStringAsync();
+        return JsonDocument.Parse(json);
+    }
+
     protected async Task<ProblemDetails> ReadProblemDetailsAsync(
         HttpResponseMessage response,
         HttpStatusCode expectedStatus
     )
     {
         AssertProblemContentType(response);
+
+        using JsonDocument doc = await ReadRawJsonAsync(response);
+        JsonElement root = doc.RootElement;
+        root.TryGetProperty("type", out _).Should().BeTrue("ProblemDetails must contain 'type'");
+        root.TryGetProperty("title", out _).Should().BeTrue("ProblemDetails must contain 'title'");
+        root.TryGetProperty("status", out _)
+            .Should()
+            .BeTrue("ProblemDetails must contain 'status'");
+        root.TryGetProperty("detail", out _)
+            .Should()
+            .BeTrue("ProblemDetails must contain 'detail'");
 
         ProblemDetails? body = await response.Content.ReadFromJsonAsync<ProblemDetails>(
             JsonOptions
@@ -72,6 +89,12 @@ public abstract class IntegrationTestBase : IAsyncLifetime
     )
     {
         AssertProblemContentType(response);
+
+        using JsonDocument doc = await ReadRawJsonAsync(response);
+        JsonElement root = doc.RootElement;
+        root.TryGetProperty("errors", out _)
+            .Should()
+            .BeTrue("ValidationProblemDetails must contain 'errors'");
 
         ValidationProblemDetails? body =
             await response.Content.ReadFromJsonAsync<ValidationProblemDetails>(JsonOptions);
