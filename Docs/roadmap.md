@@ -182,7 +182,9 @@ Every phase of this roadmap builds toward that demo.
         `TagListConverter` + `jsonb` column; AI prompt embeds sanitized metadata
         (PR TBD — landed on per-environment `Flag` ahead of the aggregate split;
         forward-migration owed to the future `FlagDefinition` spec)
-* [ ] Contract tests for API responses
+* [x] Contract tests for API responses — `ContractTests.cs`; pins JSON wire shape for
+      all 4 success response types; `ReadRawJsonAsync` helper + field-name assertions on
+      error helpers in `IntegrationTestBase` (PR TBD)
 * [ ] Handle invalid strategy configurations gracefully
 * [ ] Test environment-specific behavior edge cases
 * [ ] Mutation testing baseline
@@ -275,8 +277,9 @@ archived-flag integration test coverage complete, typed `StrategyConfig` Value O
 with config/strategy consistency enforcement complete, `Flag` mutation methods
 consolidated by concern (`SetEnabled` / `UpdateStrategy` / `Update` → `Reconfigure`),
 `Description` + `Tags` metadata landed on per-env `Flag` with `UpdateMetadata`
-mutation, AI prompt enrichment, and zero-downtime additive migration. Next: contract
-tests for API responses.**
+mutation, AI prompt enrichment, and zero-downtime additive migration. Contract tests
+for all API response wire shapes complete (PR TBD). Next: handle invalid strategy
+configurations gracefully.**
 
 ---
 
