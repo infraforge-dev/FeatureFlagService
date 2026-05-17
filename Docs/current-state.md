@@ -49,12 +49,13 @@
 **Phase 2 — Typed StrategyConfig Value Object (PR TBD): ✅ Complete**
 **Phase 2 — Consolidate Flag Mutation Methods by Concern (PR TBD): ✅ Complete**
 **Phase 2 — Flag Description + Tags Metadata (PR TBD): ✅ Complete**
+**Phase 2 — API Response Contract Tests (PR TBD): ✅ Complete**
 
 **Gate Decision:** GO WITH CONDITIONS — AI response validation condition closed
 
 Audit report: `Docs/architecture-review-phase1-report.md`
 
-203 unit tests + 70 integration tests passing (all 273 green).
+203 unit tests + 75 integration tests passing (all 278 green).
 
 ---
 
@@ -212,14 +213,22 @@ Audit report: `Docs/architecture-review-phase1-report.md`
   metadata defaults (2), `Flag.UpdateMetadata` (4), `BanderasServiceMetadataTests`
   (10 — create normalization + update preserve/clear semantics), `StrategyConfig` VO,
   config validators, `StrategyConfigFactory`
-- 70 integration tests — all endpoints including `POST /api/flags/health`,
+- 75 integration tests — all endpoints including `POST /api/flags/health`,
   missing-Azure-OpenAI startup resilience, AI-unavailable 503 behavior,
   semantic AI response validation, archived-flag mutation coverage,
   `FlagDomainException` → 409 ProblemDetails middleware contract, optimistic
   concurrency token, `TagListConverter` round-trip (3), `FlagCrudMetadata`
-  POST/PUT/GET semantics (10), and `AiHealthMetadataPrompt` end-to-end
-  description/tag sanitization across the HTTP boundary (3)
-- 203 unit + 70 integration passing
+  POST/PUT/GET semantics (10), `AiHealthMetadataPrompt` end-to-end
+  description/tag sanitization across the HTTP boundary (3), and
+  `ContractTests` JSON wire-shape assertions for all 4 success response types (5)
+- 203 unit + 75 integration passing
+- `ContractTests` — 5 integration tests in `Banderas.Tests.Integration/ContractTests.cs`;
+  parse raw `JsonDocument` to pin camelCase field names, enum-as-string serialization,
+  `description`/`tags` always-present shape, and `Content-Type: application/json` on
+  all success responses; `ReadProblemDetailsAsync` and `ReadValidationProblemDetailsAsync`
+  in `IntegrationTestBase` extended with camelCase field-name assertions (AC-6, AC-7)
+- `IntegrationTestBase.ReadRawJsonAsync` — shared helper returning `JsonDocument` from
+  an `HttpResponseMessage`; caller is responsible for disposal
 - `InternalsVisibleTo("Banderas.Tests")` and `InternalsVisibleTo("Banderas.Infrastructure")`
   via `Banderas.Domain.csproj`
 - `BanderasServiceLoggingTests` — `NullPromptSanitizer` + `NullAiFlagAnalyzer`
@@ -288,8 +297,9 @@ undocumented status values before any `200 OK` response can leave the AI boundar
    `Variation` as a Value Object on `Flag` (multivariate flag support), or begin
    the `Flag` → `FlagDefinition` / `FlagEnvironmentConfig` aggregate split — the
    description/tags forward-migration is the split spec's concern
-2. Contract tests for API responses
-3. Handle invalid strategy configurations gracefully (defense-in-depth beyond VO validation)
+2. Handle invalid strategy configurations gracefully (defense-in-depth beyond VO validation)
+3. Test environment-specific behavior edge cases
+4. Mutation testing baseline
 
 GET query environment validation placement is ratified as service-level
 (`EnvironmentRules.RequireValid` in `BanderasService`) — see
@@ -449,6 +459,19 @@ GET query environment validation placement is ratified as service-level
   prefer init-only properties in the record body over positional parameters with
   defaults — they survive collection-typed defaults, preserve positional call sites,
   and don't reorder the constructor parameter list as the record evolves.
+
+- `[2026-05-17] — Contract tests require raw JsonDocument, not typed deserialization`
+
+  Typed deserialization (`ReadFromJsonAsync<T>`) silently tolerates missing fields and
+  casing mismatches because `PropertyNameCaseInsensitive = true` in `JsonOptions`. A
+  field renamed from `strategyType` to `strategy_type`, or an enum serialized as `0`
+  instead of `"None"`, would pass all existing behavioral tests without complaint.
+  Contract tests must parse `JsonDocument` directly and assert field names as string
+  literals — only then does a casing change or missing field produce a red test. The
+  rule going forward: when pinning a wire format, always use `JsonDocument.TryGetProperty`
+  rather than typed deserialization. Behavioral tests and contract tests belong in
+  separate classes with separate intent — a red contract test means "the wire format
+  changed," a red behavioral test means "the feature broke."
 
 - `[2026-05-12] — Sanitization at the HTTP boundary precedes prompt sanitization — write tests against the observable contract, not the upstream mechanism`
 
