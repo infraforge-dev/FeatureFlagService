@@ -485,3 +485,7 @@ $RECYCLE.BIN/
 .claude/settings.local.json
 claude.md
 
+
+# Pi toolkit (symlinked from ~/dev/pi-toolkit)
+.skills
+agent.md

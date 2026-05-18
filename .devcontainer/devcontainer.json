@@ -2,8 +2,7 @@
   "name": "Banderas",
   "image": "mcr.microsoft.com/devcontainers/base:ubuntu-24.04",
   "features": {
-    "ghcr.io/anthropics/devcontainer-features/claude-code:1.0": {},
-    // Node is required at runtime by Claude Code
+    // Node is required at runtime by Pi
     "ghcr.io/devcontainers/features/node:1": {
       "version": "lts"
     },
@@ -16,8 +15,7 @@
   },
   "forwardPorts": [
     5000,
-    5001,
-    10000
+    5001
   ],
   "portsAttributes": {
     "5000": {
@@ -27,31 +25,24 @@
     "5001": {
       "label": "HTTPS",
       "onAutoForward": "notify"
-    },
-    "10000": {
-      "label": "Claude Auth",
-      "onAutoForward": "silent"
     }
   },
-  // Keeps Claude auth + config between container rebuilds
+  // Mount Pi auth/config and the toolkit into the container
   "mounts": [
-    // Bind from host instead of an isolated volume
-    "source=${localEnv:HOME}/.claude,target=/home/vscode/.claude,type=bind",
-    "source=${localEnv:HOME}/.claude.json,target=/home/vscode/.claude.json,type=bind",
+    "source=${localEnv:HOME}/.pi,target=/home/vscode/.pi,type=bind",
+    "source=${localEnv:HOME}/dev/pi-toolkit,target=/home/vscode/pi-toolkit,type=bind",
     "source=/var/run/docker.sock,target=/var/run/docker.sock,type=bind"
   ],
   "containerEnv": {
-    "CLAUDE_CONFIG_DIR": "/home/vscode/.claude",
     "ASPNETCORE_ENVIRONMENT": "Development"
   },
   // Both must match to avoid file permission issues
   "remoteUser": "vscode",
   "containerUser": "vscode",
-  "postCreateCommand": "sudo groupadd -f docker && sudo usermod -aG docker vscode && dotnet restore Banderas.sln && dotnet tool restore",
-  // Git safe.directory + join the Postgres network so "postgres" resolves as the DB host.
-  // Network name matches docker-compose project dir: featureflagservice_default.
-  // The network connect is idempotent (|| true) — safe if already connected or network not yet up.
-  "postStartCommand": "git config --global --add safe.directory ${containerWorkspaceFolder} && docker network connect featureflagservice_default $(cat /etc/hostname) 2>/dev/null || true",
+  "postCreateCommand": "sudo groupadd -f docker && sudo usermod -aG docker vscode && npm install -g @earendil-works/pi-coding-agent && dotnet restore Banderas.sln && dotnet tool restore",
+  // Symlink toolkit into the workspace, set up git safe.directory, join Postgres network
+  // Symlink toolkit into workspace, bridge ~/dev/pi-toolkit for settings.json, git + network setup
+  "postStartCommand": "mkdir -p /home/vscode/dev && ln -sfn /home/vscode/pi-toolkit /home/vscode/dev/pi-toolkit && ln -sfn /home/vscode/pi-toolkit/skills ${containerWorkspaceFolder}/.skills && ln -sfn /home/vscode/pi-toolkit/agent.md ${containerWorkspaceFolder}/agent.md && git config --global --add safe.directory ${containerWorkspaceFolder} && docker network connect featureflagservice_default $(cat /etc/hostname) 2>/dev/null || true",
   "customizations": {
     "vscode": {
       "extensions": [
