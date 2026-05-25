@@ -157,12 +157,17 @@ public sealed class BanderasService : IBanderasService
             request.StrategyType,
             request.StrategyConfig
         );
+
+        // Validator guarantees a non-null, non-empty, valid menu by the time we land here.
+        IReadOnlyList<Variation> variations = request.Variations.Select(v => v.ToDomain()).ToList();
+
         var flag = new Flag(
             name,
             request.Environment,
             request.IsEnabled,
             request.StrategyType,
             strategyConfig,
+            variations,
             SanitizeDescription(request.Description),
             NormalizeTags(request.Tags)
         );
@@ -202,6 +207,18 @@ public sealed class BanderasService : IBanderasService
                     : flag.Description,
                 tags: request.Tags is not null ? NormalizeTags(request.Tags) : flag.Tags
             );
+        }
+
+        // Variations follow the same null-means-no-change semantics. Empty array
+        // is rejected by the validator (cannot violate the non-empty invariant
+        // here). Single SaveChangesAsync flushes Reconfigure + UpdateMetadata +
+        // UpdateVariations together.
+        if (request.Variations is not null)
+        {
+            IReadOnlyList<Variation> newVariations = request
+                .Variations.Select(v => v.ToDomain())
+                .ToList();
+            flag.UpdateVariations(newVariations);
         }
 
         await _repository.SaveChangesAsync(ct);
@@ -264,6 +281,9 @@ public sealed class BanderasService : IBanderasService
         // StrategyConfig and Description are string? — null guard required (AC-7).
         // Tags are short structured labels but still pass through the sanitizer
         // to defend against operator-authored prompt injection attempts.
+        // Variations: Key and Value are operator-authored — both sanitized.
+        // Kind is enum-derived (canonical name from VariationKind), not operator
+        // input, so it is emitted verbatim through ToString().
         List<FlagResponse> sanitizedFlags = flagResponses
             .Select(f =>
                 f with
@@ -276,6 +296,13 @@ public sealed class BanderasService : IBanderasService
                         ? _promptSanitizer.Sanitize(f.Description)
                         : null,
                     Tags = f.Tags.Select(_promptSanitizer.Sanitize).ToList(),
+                    Variations = f
+                        .Variations.Select(v => new VariationResponse(
+                            _promptSanitizer.Sanitize(v.Key),
+                            v.Kind,
+                            _promptSanitizer.Sanitize(v.Value)
+                        ))
+                        .ToList(),
                 }
             )
             .ToList();

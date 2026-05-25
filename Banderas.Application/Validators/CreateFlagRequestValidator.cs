@@ -76,5 +76,12 @@ public sealed class CreateFlagRequestValidator : AbstractValidator<CreateFlagReq
             .WithMessage(
                 "Tags may only contain lowercase letters, numbers, hyphens, and underscores."
             );
+
+        // Variations: required + non-empty + all seven DD-2 invariants.
+        // Both rules surface under "Variations" as field-level 400 messages.
+        RuleFor(x => (IReadOnlyList<DTOs.VariationRequest>?)x.Variations)
+            .NotNull()
+            .WithMessage("Variations is required.")
+            .ApplyMenuRules();
     }
 }

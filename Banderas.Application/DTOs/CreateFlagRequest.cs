@@ -29,4 +29,13 @@ public sealed record CreateFlagRequest(
     string? StrategyConfig,
     string? Description = null,
     IReadOnlyList<string>? Tags = null
-);
+)
+{
+    /// <summary>
+    /// Required variation menu. Must contain 1-20 entries, all sharing the same
+    /// <c>Kind</c>, with case-insensitively unique keys and ordinally unique values.
+    /// Init-only on the record body so the positional constructor signature stays
+    /// stable across the description/tags/variations evolution.
+    /// </summary>
+    public IReadOnlyList<VariationRequest> Variations { get; init; } = [];
+}

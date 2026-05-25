@@ -53,5 +53,9 @@ public sealed class UpdateFlagRequestValidator : AbstractValidator<UpdateFlagReq
             .WithMessage(
                 "Tags may only contain lowercase letters, numbers, hyphens, and underscores."
             );
+
+        // Variations: null is tolerated (means "no change"); when present, all seven
+        // DD-2 invariants apply, including the non-empty rule (empty array is rejected).
+        RuleFor(x => x.Variations).ApplyMenuRules();
     }
 }

@@ -31,4 +31,11 @@ public sealed record FlagResponse(
 
     /// <summary>Operator-authored organizational labels (normalized).</summary>
     public IReadOnlyList<string> Tags { get; init; } = [];
+
+    /// <summary>
+    /// Ordered, non-empty menu of variations this flag may produce.
+    /// Always present and contains at least one entry on any successful response
+    /// (enforced by the domain invariant + migration backfill).
+    /// </summary>
+    public IReadOnlyList<VariationResponse> Variations { get; init; } = [];
 }
