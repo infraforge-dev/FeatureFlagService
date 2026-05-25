@@ -184,7 +184,7 @@ Every phase of this roadmap builds toward that demo.
         forward-migration owed to the future `FlagDefinition` spec)
 * [x] Contract tests for API responses — `ContractTests.cs`; pins JSON wire shape for
       all 4 success response types; `ReadRawJsonAsync` helper + field-name assertions on
-      error helpers in `IntegrationTestBase` (PR TBD)
+      error helpers in `IntegrationTestBase` (PR #65)
 * [ ] Handle invalid strategy configurations gracefully
 * [ ] Test environment-specific behavior edge cases
 * [ ] Mutation testing baseline
@@ -270,7 +270,7 @@ Every phase of this roadmap builds toward that demo.
    (`Variation` Value Object) or the `Flag` → `FlagDefinition` /
    `FlagEnvironmentConfig` aggregate split
 2. Continue working through the `Flag` DDD analysis backlog
-3. Contract tests for API responses
+3. Handle invalid strategy configurations gracefully
 
 **Phase 2 progress: archived state terminal (PR #59), `IsSeeded` removed from domain,
 archived-flag integration test coverage complete, typed `StrategyConfig` Value Object
@@ -278,7 +278,7 @@ with config/strategy consistency enforcement complete, `Flag` mutation methods
 consolidated by concern (`SetEnabled` / `UpdateStrategy` / `Update` → `Reconfigure`),
 `Description` + `Tags` metadata landed on per-env `Flag` with `UpdateMetadata`
 mutation, AI prompt enrichment, and zero-downtime additive migration. Contract tests
-for all API response wire shapes complete (PR TBD). Next: handle invalid strategy
+for all API response wire shapes complete (PR #65). Next: handle invalid strategy
 configurations gracefully.**
 
 ---

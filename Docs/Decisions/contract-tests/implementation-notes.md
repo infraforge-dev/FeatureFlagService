@@ -5,7 +5,7 @@
 **Spec reference:** Docs/Decisions/contract-tests/spec.md
 **Build status:** ✅ Passing — 0 warnings, 0 errors
 **Tests:** 278/278 passing (203 unit + 75 integration)
-**PR:** TBD
+**PR:** #65
 
 ---
 
