@@ -52,28 +52,28 @@ internal static class VariationMenuRules
     {
         if (menu is null)
         {
-            return "Variations is required.";
+            return VariationValidationMessage.Required.Message;
         }
 
-        return EvaluateMenu(menu) ?? "Variations is valid.";
+        return EvaluateMenu(menu)?.Message ?? "Variations is valid.";
     }
 
     /// <summary>
     /// Evaluates a non-null menu against all seven invariants and returns the
     /// first violation message encountered, or <c>null</c> if the menu is valid.
     /// </summary>
-    private static string? EvaluateMenu(IReadOnlyList<VariationRequest> menu)
+    private static VariationValidationMessage? EvaluateMenu(IReadOnlyList<VariationRequest> menu)
     {
         // Invariant 1: non-empty
         if (menu.Count == 0)
         {
-            return "Variations must contain at least one variation.";
+            return VariationValidationMessage.Empty;
         }
 
         // Invariant 2: max count
         if (menu.Count > MaxCount)
         {
-            return $"Variations may not contain more than {MaxCount} entries.";
+            return VariationValidationMessage.TooMany(MaxCount);
         }
 
         // Per-element rules (invariants 6 + 7, plus value-is-valid-JSON-for-kind)
@@ -83,27 +83,27 @@ internal static class VariationMenuRules
 
             if (string.IsNullOrWhiteSpace(v.Key) || !KeyPattern.IsMatch(v.Key))
             {
-                return $"variations[{i}].key may only contain lowercase letters, numbers, hyphens, and underscores.";
+                return VariationValidationMessage.KeyInvalidCharacters(i);
             }
 
             if (v.Key.Length > MaxKeyLength)
             {
-                return $"variations[{i}].key must not exceed {MaxKeyLength} characters.";
+                return VariationValidationMessage.KeyTooLong(i, MaxKeyLength);
             }
 
             if (v.Value is null || v.Value.Length > MaxValueLength)
             {
-                return $"variations[{i}].value must be non-null and not exceed {MaxValueLength} characters.";
+                return VariationValidationMessage.ValueInvalid(i, MaxValueLength);
             }
 
             if (!FlagMappings.TryParseKind(v.Kind, out VariationKind parsedKind))
             {
-                return $"variations[{i}].kind must be one of Boolean, String, Number, Json.";
+                return VariationValidationMessage.KindInvalid(i);
             }
 
             if (!IsValueValidForKind(parsedKind, v.Value))
             {
-                return $"variations[{i}].value is not valid JSON for the declared Kind={parsedKind}.";
+                return VariationValidationMessage.ValueNotValidForKind(i, parsedKind.ToString());
             }
         }
 
@@ -113,7 +113,7 @@ internal static class VariationMenuRules
         {
             if (ParseKindOrDefault(menu[i].Kind) != firstKind)
             {
-                return "All variations on a flag must share the same Kind.";
+                return VariationValidationMessage.MixedKinds;
             }
         }
 
@@ -123,7 +123,7 @@ internal static class VariationMenuRules
         {
             if (!seenKeys.Add(v.Key))
             {
-                return $"Variation key '{v.Key}' is duplicated (keys are case-insensitive).";
+                return VariationValidationMessage.DuplicateKey(v.Key);
             }
         }
 
@@ -133,7 +133,7 @@ internal static class VariationMenuRules
         {
             if (!seenValues.Add(v.Value))
             {
-                return $"Variation value '{v.Value}' is duplicated within the menu.";
+                return VariationValidationMessage.DuplicateValue(v.Value);
             }
         }
 

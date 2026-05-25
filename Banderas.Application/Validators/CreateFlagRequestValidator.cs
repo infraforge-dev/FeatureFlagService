@@ -15,16 +15,16 @@ public sealed class CreateFlagRequestValidator : AbstractValidator<CreateFlagReq
         // which the service layer will sanitize to "dark-mode" before storing.
         RuleFor(x => x.Name)
             .NotEmpty()
-            .WithMessage("Flag name is required.")
+            .WithMessage(FlagValidationMessage.NameRequired.Message)
             .MaximumLength(100)
-            .WithMessage("Flag name must not exceed 100 characters.")
+            .WithMessage(FlagValidationMessage.NameTooLong.Message)
             .Must(name =>
                 System.Text.RegularExpressions.Regex.IsMatch(
                     InputSanitizer.Clean(name) ?? string.Empty,
                     @"^[a-zA-Z0-9\-_]+$"
                 )
             )
-            .WithMessage("Flag name may only contain letters, numbers, hyphens, and underscores.");
+            .WithMessage(FlagValidationMessage.NameInvalidCharacters.Message);
 
         RuleFor(x => x.Environment)
             .Must(EnvironmentRules.IsValid)
@@ -32,56 +32,49 @@ public sealed class CreateFlagRequestValidator : AbstractValidator<CreateFlagReq
 
         RuleFor(x => x.StrategyType)
             .IsInEnum()
-            .WithMessage("StrategyType must be a valid value (None, Percentage, or RoleBased).");
+            .WithMessage(FlagValidationMessage.StrategyTypeInvalid.Message);
 
         // StrategyConfig: enforce size limit first, then cross-field structure rules.
         // Note: StrategyConfig is NOT sanitized — it is JSON and must be stored verbatim.
         // Only its length and internal structure are validated.
         RuleFor(x => x.StrategyConfig)
             .MaximumLength(2000)
-            .WithMessage("StrategyConfig must not exceed 2000 characters.");
+            .WithMessage(FlagValidationMessage.StrategyConfigTooLong.Message);
 
         // Cross-field validation: delegate to StrategyConfigFactory via StrategyConfigRules
         RuleFor(x => x.StrategyConfig)
             .Must((request, config) => rules.BeValidStrategyConfig(request.StrategyType, config))
-            .WithMessage(
-                "StrategyConfig is invalid for the specified StrategyType. "
-                    + "Percentage requires a 'percentage' field (1-100). "
-                    + "RoleBased requires a non-empty 'roles' array. "
-                    + "None requires no config."
-            );
+            .WithMessage(FlagValidationMessage.StrategyConfigInvalid.Message);
 
         // Description: optional, ≤500 characters. Length runs on the raw value
         // (consistent with how Name is handled).
         RuleFor(x => x.Description)
             .MaximumLength(500)
-            .WithMessage("Description must not exceed 500 characters.");
+            .WithMessage(FlagValidationMessage.DescriptionTooLong.Message);
 
         RuleFor(x => x.Tags)
             .Must(tags => tags is null || tags.Count <= 20)
-            .WithMessage("Tags may not contain more than 20 entries.");
+            .WithMessage(FlagValidationMessage.TagsTooMany.Message);
 
         // RuleForEach skips when the collection is null. Length runs on the raw value;
         // char-class runs on the cleaned + lowercased projection so padded/mixed-case
         // input the service will normalize ("Checkout", " checkout ") is accepted.
         RuleForEach(x => x.Tags)
             .MaximumLength(50)
-            .WithMessage("Each tag must not exceed 50 characters.")
+            .WithMessage(FlagValidationMessage.TagTooLong.Message)
             .Must(tag =>
                 System.Text.RegularExpressions.Regex.IsMatch(
                     (InputSanitizer.Clean(tag) ?? string.Empty).ToLowerInvariant(),
                     @"^[a-z0-9\-_]+$"
                 )
             )
-            .WithMessage(
-                "Tags may only contain lowercase letters, numbers, hyphens, and underscores."
-            );
+            .WithMessage(FlagValidationMessage.TagInvalidCharacters.Message);
 
         // Variations: required + non-empty + all seven DD-2 invariants.
         // Both rules surface under "Variations" as field-level 400 messages.
         RuleFor(x => (IReadOnlyList<DTOs.VariationRequest>?)x.Variations)
             .NotNull()
-            .WithMessage("Variations is required.")
+            .WithMessage(VariationValidationMessage.Required.Message)
             .ApplyMenuRules();
     }
 }
