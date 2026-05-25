@@ -8,7 +8,7 @@ with AI-assisted flag analysis and a first-class .NET SDK as core product featur
 
 [![.NET](https://img.shields.io/badge/.NET-10.0-512BD4?logo=dotnet)](https://dotnet.microsoft.com)
 [![CI](https://img.shields.io/github/actions/workflow/status/amodelandme/Banderas/ci.yml?label=CI&logo=github)](https://github.com/amodelandme/Banderas/actions)
-[![Tests](https://img.shields.io/badge/Tests-273%20passing-brightgreen?logo=github)](#testing)
+[![Tests](https://img.shields.io/badge/Tests-278%20passing-brightgreen?logo=github)](#testing)
 [![Phase](https://img.shields.io/badge/Phase-2%20In%20Progress-blue)](#️-roadmap)
 
 ---
@@ -63,7 +63,7 @@ Natural language flag health analysis, stale flag detection, rollout risk reason
 Self-hostable by design. Managed hosting and enterprise features are the intended business model — not infrastructure lock-in.
 
 **🧪 Production-quality engineering**
-273 tests cover strategies, the registry dispatch engine, validators, service behavior, prompt sanitization, AI analysis orchestration, domain invariants, metadata normalization, and HTTP integration paths. CI runs format gating, zero-warnings builds, unit tests, integration tests, and an optional AI reviewer for Clean Architecture compliance.
+278 tests cover strategies, the registry dispatch engine, validators, service behavior, prompt sanitization, AI analysis orchestration, domain invariants, metadata normalization, and HTTP integration paths. CI runs format gating, zero-warnings builds, unit tests, integration tests, and an optional AI reviewer for Clean Architecture compliance.
 
 ---
 
@@ -188,12 +188,12 @@ Azure OpenAI integration is behind `IAiFlagAnalyzer`. Missing `AzureOpenAI:Endpo
 | **Concern-named mutation methods** | `Reconfigure`, `UpdateName`, `UpdateMetadata`, `Archive` replace the former field-shaped `SetEnabled` / `UpdateStrategy` / `Update` surface |
 | **Flag description + tags** | `Flag.Description` (nullable varchar 500) and `Flag.Tags` (jsonb) — operator-authored metadata; AI health prompts include sanitized values |
 | **`IsSeeded` removed from domain** | Provenance tracking moved to EF Core shadow property — domain entity no longer carries infrastructure concerns |
+| **API response contract tests** | `ContractTests.cs` pins JSON wire shape for all 4 success response types and all error response shapes via `ReadRawJsonAsync` + field-name assertions |
 
 ### 🔜 Coming Soon
 
 | Phase | Feature |
 |-------|---------|
-| **2** | Contract tests for API responses |
 | **2** | Multivariate flag support (`Variation` value object) or `Flag` → `FlagDefinition` / `FlagEnvironmentConfig` aggregate split |
 | **3** | JWT authentication and RBAC |
 | **5** | User targeting, time-based activation, gradual rollout |
@@ -349,17 +349,17 @@ The exception hierarchy follows the **Open/Closed Principle** — new exception 
 
 ## 🧪 Testing
 
-### Test Suite — 273/273 Passing
+### Test Suite — 278/278 Passing
 
 Unit tests live in `Banderas.Tests/` and cover pure logic: strategies, evaluator behavior, validators, domain value objects, service orchestration, logging, prompt sanitization, AI analysis orchestration, `Flag` archived-terminal invariants, `StrategyConfig` value object, config validators, metadata normalization, and `StrategyConfigFactory`.
 
-Integration tests live in `Banderas.Tests.Integration/` and run the HTTP stack against Testcontainers PostgreSQL. They cover CRUD, evaluation, archived-flag mutation paths, `FlagDomainException` → 409 middleware contract, optimistic concurrency, seed-data startup, AI health analysis, AI-unavailable 503 behavior, semantic AI response validation, metadata round-trips, and the missing-Azure-OpenAI startup resilience path.
+Integration tests live in `Banderas.Tests.Integration/` and run the HTTP stack against Testcontainers PostgreSQL. They cover CRUD, evaluation, archived-flag mutation paths, `FlagDomainException` → 409 middleware contract, optimistic concurrency, seed-data startup, AI health analysis, AI-unavailable 503 behavior, semantic AI response validation, metadata round-trips, and the missing-Azure-OpenAI startup resilience path, and API response contract shapes.
 
 | Suite | Count | Coverage |
 |-------|------:|----------|
 | Unit | 203 | Domain, strategies, evaluator, validators, services, logging, prompt sanitization, AI analysis, metadata, StrategyConfig VO |
-| Integration | 70 | API endpoints, ProblemDetails responses, archived-flag paths, concurrency, seed data, AI health, startup resilience |
-| **Total** | **273** | |
+| Integration | 75 | API endpoints, ProblemDetails responses, archived-flag paths, concurrency, seed data, AI health, startup resilience, contract tests |
+| **Total** | **278** | |
 
 ### A Bug Story Worth Telling
 
@@ -514,7 +514,7 @@ Phase 9      Open Core Launch — public Docker image, hosted offering
 - [x] Typed `StrategyConfig` value object — config/strategy consistency enforced by `Flag`
 - [x] Mutation methods consolidated by concern — `Reconfigure`, `UpdateName`, `UpdateMetadata`, `Archive`
 - [x] `Flag.Description` + `Flag.Tags` — operator metadata, zero-downtime migration, AI prompt enrichment
-- [ ] Contract tests for API responses
+- [x] Contract tests for API responses — JSON wire shape pinned for all 4 success types and all error shapes
 - [ ] Multivariate flag support / `Flag` → `FlagDefinition` aggregate split
 
 ---
