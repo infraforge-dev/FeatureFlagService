@@ -78,7 +78,14 @@ public sealed class StrategyConfigTests
 
         // Act
         Action act = () =>
-            new Flag("test", EnvironmentType.Development, true, RolloutStrategy.RoleBased, config);
+            new Flag(
+                "test",
+                EnvironmentType.Development,
+                true,
+                RolloutStrategy.RoleBased,
+                config,
+                FlagBuilder.DefaultVariations()
+            );
 
         // Assert
         act.Should().Throw<FlagDomainException>();

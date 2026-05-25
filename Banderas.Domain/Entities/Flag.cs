@@ -16,6 +16,20 @@ public class Flag
     public string? Description { get; private set; }
     public IReadOnlyList<string> Tags { get; private set; } = [];
 
+    private IReadOnlyList<Variation> _variations = [];
+
+    /// <summary>
+    /// The ordered, non-empty menu of variations this flag may produce.
+    /// Ordering is wire-significant: index is the machine identity referenced
+    /// by targeting rules (Phase 5) and SDK telemetry (Phase 7); key is the
+    /// human identity for UIs, logs, and AI prompts.
+    /// </summary>
+    public IReadOnlyList<Variation> Variations
+    {
+        get => _variations;
+        private set => _variations = value;
+    }
+
     private StrategyConfig _strategyConfig = null!;
 
     public StrategyConfig StrategyConfig
@@ -43,6 +57,7 @@ public class Flag
         bool isEnabled,
         RolloutStrategy strategyType,
         StrategyConfig strategyConfig,
+        IReadOnlyList<Variation> variations,
         string? description = null,
         IReadOnlyList<string>? tags = null
     )
@@ -60,6 +75,9 @@ public class Flag
             );
         }
 
+        ArgumentNullException.ThrowIfNull(variations);
+        EnsureVariationMenuIsValid(variations);
+
         Name = name;
         Environment = environment;
         IsEnabled = isEnabled;
@@ -67,6 +85,7 @@ public class Flag
         StrategyConfig = strategyConfig;
         Description = description;
         Tags = tags ?? [];
+        _variations = variations;
     }
 
     // Required by EF Core
@@ -75,6 +94,7 @@ public class Flag
         Name = string.Empty;
         StrategyConfig = new StrategyConfig(RolloutStrategy.None, "{}");
         Tags = [];
+        _variations = [];
     }
 
     public void UpdateName(string name)
@@ -146,5 +166,78 @@ public class Flag
         Description = description;
         Tags = tags;
         UpdatedAt = DateTime.UtcNow;
+    }
+
+    /// <summary>
+    /// Atomically replaces the variation menu with <paramref name="variations"/>.
+    /// All-or-nothing: the collection-level invariants are checked first, and on
+    /// failure the existing menu is preserved. No partial-application semantics.
+    /// </summary>
+    public void UpdateVariations(IReadOnlyList<Variation> variations)
+    {
+        if (IsArchived)
+        {
+            throw new FlagDomainException($"Flag '{Name}' is archived and cannot be modified.");
+        }
+
+        ArgumentNullException.ThrowIfNull(variations);
+        EnsureVariationMenuIsValid(variations);
+
+        _variations = variations;
+        UpdatedAt = DateTime.UtcNow;
+    }
+
+    /// <summary>
+    /// Enforces the five collection-level variation invariants (non-empty, max 20,
+    /// shared Kind, unique keys case-insensitive, unique values ordinal).
+    /// Single-element invariants live on the <see cref="Variation"/> VO ctor.
+    /// </summary>
+    private static void EnsureVariationMenuIsValid(IReadOnlyList<Variation> variations)
+    {
+        if (variations.Count == 0)
+        {
+            throw new FlagDomainException("Flag must declare at least one variation.");
+        }
+
+        if (variations.Count > 20)
+        {
+            throw new FlagDomainException(
+                $"Flag may not declare more than 20 variations (was {variations.Count})."
+            );
+        }
+
+        VariationKind firstKind = variations[0].Kind;
+        for (int i = 1; i < variations.Count; i++)
+        {
+            if (variations[i].Kind != firstKind)
+            {
+                throw new FlagDomainException(
+                    "All variations on a flag must share the same Kind "
+                        + $"(found {firstKind} and {variations[i].Kind})."
+                );
+            }
+        }
+
+        HashSet<string> seenKeys = new(StringComparer.OrdinalIgnoreCase);
+        foreach (Variation v in variations)
+        {
+            if (!seenKeys.Add(v.Key))
+            {
+                throw new FlagDomainException(
+                    $"Variation key '{v.Key}' is duplicated (keys are case-insensitive)."
+                );
+            }
+        }
+
+        HashSet<string> seenValues = new(StringComparer.Ordinal);
+        foreach (Variation v in variations)
+        {
+            if (!seenValues.Add(v.Value))
+            {
+                throw new FlagDomainException(
+                    $"Variation value '{v.Value}' is duplicated within the menu."
+                );
+            }
+        }
     }
 }

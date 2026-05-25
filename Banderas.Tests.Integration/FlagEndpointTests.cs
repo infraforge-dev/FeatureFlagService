@@ -30,6 +30,21 @@ public sealed class FlagEndpointTests : IntegrationTestBase
             IsEnabled = true,
             StrategyType = RolloutStrategy.None,
             StrategyConfig = (string?)null,
+            Variations = new[]
+            {
+                new
+                {
+                    Key = "off",
+                    Kind = "Boolean",
+                    Value = "false",
+                },
+                new
+                {
+                    Key = "on",
+                    Kind = "Boolean",
+                    Value = "true",
+                },
+            },
         };
         DateTime before = DateTime.UtcNow;
 
@@ -72,6 +87,21 @@ public sealed class FlagEndpointTests : IntegrationTestBase
             IsEnabled = true,
             StrategyType = RolloutStrategy.None,
             StrategyConfig = (string?)null,
+            Variations = new[]
+            {
+                new
+                {
+                    Key = "off",
+                    Kind = "Boolean",
+                    Value = "false",
+                },
+                new
+                {
+                    Key = "on",
+                    Kind = "Boolean",
+                    Value = "true",
+                },
+            },
         };
 
         // Act
@@ -100,6 +130,21 @@ public sealed class FlagEndpointTests : IntegrationTestBase
             IsEnabled = true,
             StrategyType = RolloutStrategy.None,
             StrategyConfig = (string?)null,
+            Variations = new[]
+            {
+                new
+                {
+                    Key = "off",
+                    Kind = "Boolean",
+                    Value = "false",
+                },
+                new
+                {
+                    Key = "on",
+                    Kind = "Boolean",
+                    Value = "true",
+                },
+            },
         };
 
         // Act
@@ -128,6 +173,21 @@ public sealed class FlagEndpointTests : IntegrationTestBase
             IsEnabled = true,
             StrategyType = RolloutStrategy.None,
             StrategyConfig = (string?)null,
+            Variations = new[]
+            {
+                new
+                {
+                    Key = "off",
+                    Kind = "Boolean",
+                    Value = "false",
+                },
+                new
+                {
+                    Key = "on",
+                    Kind = "Boolean",
+                    Value = "true",
+                },
+            },
         };
 
         // Act
@@ -532,6 +592,21 @@ public sealed class FlagEndpointTests : IntegrationTestBase
             IsEnabled = false,
             StrategyType = RolloutStrategy.None,
             StrategyConfig = (string?)null,
+            Variations = new[]
+            {
+                new
+                {
+                    Key = "off",
+                    Kind = "Boolean",
+                    Value = "false",
+                },
+                new
+                {
+                    Key = "on",
+                    Kind = "Boolean",
+                    Value = "true",
+                },
+            },
         };
 
         // Act
@@ -636,6 +711,21 @@ public sealed class FlagEndpointTests : IntegrationTestBase
             IsEnabled = isEnabled,
             StrategyType = strategyType,
             StrategyConfig = strategyConfig,
+            Variations = new[]
+            {
+                new
+                {
+                    Key = "off",
+                    Kind = "Boolean",
+                    Value = "false",
+                },
+                new
+                {
+                    Key = "on",
+                    Kind = "Boolean",
+                    Value = "true",
+                },
+            },
         };
 
         HttpResponseMessage response = await Client.PostAsJsonAsync(

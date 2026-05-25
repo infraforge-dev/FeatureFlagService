@@ -2,16 +2,27 @@
 @environment = Development
 @percentageFlagName = checkout-redesign
 @roleFlagName = admin-beta-dashboard
+@multivariateFlagName = pricing-experiment
 @missingFlagName = does-not-exist
 
 # Smoke test walkthrough for local development.
 # Run the requests in order to exercise the full CRUD + evaluation flow on port 5227.
+#
+# Variations note (DD-1):
+#   • Boolean values are canonical JSON lowercase: "true" / "false".
+#   • String values include the JSON-encoding quotes: "\"red-button\"".
+#   • Number values are JSON numbers as strings: "42".
+#   • Json values are objects/arrays as strings: "{\"theme\":\"dark\"}".
+#   • Raw "red-button" (no outer quotes) is a 400 — operators must JSON-encode.
+#
+# Every POST and PUT now requires `variations`. PUT also accepts `"variations": null`
+# to leave the menu unchanged; `[]` is a 400 because the menu must always be non-empty.
 
 # =========================
 # Setup
 # =========================
 
-### Create a percentage rollout flag (with description + tags — the rich shape)
+### Create a percentage rollout flag with the default boolean menu
 POST {{host}}/api/flags
 Content-Type: application/json
 
@@ -22,10 +33,14 @@ Content-Type: application/json
   "strategyType": "Percentage",
   "strategyConfig": "{\"percentage\": 50}",
   "description": "Gradual rollout of the v2 checkout flow to half of traffic.",
-  "tags": ["squad-checkout", "release-q2"]
+  "tags": ["squad-checkout", "release-q2"],
+  "variations": [
+    { "key": "off", "kind": "Boolean", "value": "false" },
+    { "key": "on",  "kind": "Boolean", "value": "true"  }
+  ]
 }
 
-### Create a role-based flag (minimal shape — omits metadata for backward-compat demo)
+### Create a role-based flag with a minimal default menu
 POST {{host}}/api/flags
 Content-Type: application/json
 
@@ -34,10 +49,33 @@ Content-Type: application/json
   "environment": "{{environment}}",
   "isEnabled": true,
   "strategyType": "RoleBased",
-  "strategyConfig": "{\"roles\": [\"admin\", \"beta\"]}"
+  "strategyConfig": "{\"roles\": [\"admin\", \"beta\"]}",
+  "variations": [
+    { "key": "off", "kind": "Boolean", "value": "false" },
+    { "key": "on",  "kind": "Boolean", "value": "true"  }
+  ]
 }
 
-### Update the percentage rollout — widen audience AND replace tags wholesale
+### Create a multivariate flag — three Number variations (non-default menu)
+POST {{host}}/api/flags
+Content-Type: application/json
+
+{
+  "name": "{{multivariateFlagName}}",
+  "environment": "{{environment}}",
+  "isEnabled": true,
+  "strategyType": "None",
+  "strategyConfig": null,
+  "description": "Pricing tier experiment — low/mid/high.",
+  "tags": ["pricing", "experiment"],
+  "variations": [
+    { "key": "low",  "kind": "Number", "value": "9"  },
+    { "key": "mid",  "kind": "Number", "value": "19" },
+    { "key": "high", "kind": "Number", "value": "29" }
+  ]
+}
+
+### Update the percentage rollout — widen audience AND replace variations wholesale
 PUT {{host}}/api/flags/{{percentageFlagName}}?environment={{environment}}
 Content-Type: application/json
 
@@ -46,10 +84,14 @@ Content-Type: application/json
   "strategyType": "Percentage",
   "strategyConfig": "{\"percentage\": 75}",
   "description": "Widened to 75% after passing canary checks.",
-  "tags": ["squad-checkout", "release-q2", "ga-candidate"]
+  "tags": ["squad-checkout", "release-q2", "ga-candidate"],
+  "variations": [
+    { "key": "off",        "kind": "Boolean", "value": "false" },
+    { "key": "on",         "kind": "Boolean", "value": "true"  }
+  ]
 }
 
-### Update preserving tags — null on description/tags means "no change"
+### Update preserving variations — null on description/tags/variations means "no change"
 PUT {{host}}/api/flags/{{percentageFlagName}}?environment={{environment}}
 Content-Type: application/json
 
@@ -58,10 +100,12 @@ Content-Type: application/json
   "strategyType": "Percentage",
   "strategyConfig": "{\"percentage\": 75}",
   "description": null,
-  "tags": null
+  "tags": null,
+  "variations": null
 }
 
-### Update clearing description — empty string clears, empty array clears tags
+### Update clearing description — empty string clears desc, [] clears tags
+###   (variations omitted entirely — also means "no change")
 PUT {{host}}/api/flags/{{percentageFlagName}}?environment={{environment}}
 Content-Type: application/json
 
@@ -80,8 +124,11 @@ Content-Type: application/json
 ### Get all active flags for the development environment
 GET {{host}}/api/flags?environment={{environment}}
 
-### Get the updated percentage flag by name
+### Get the updated percentage flag by name (variations should be present)
 GET {{host}}/api/flags/{{percentageFlagName}}?environment={{environment}}
+
+### Get the multivariate flag (three Number variations)
+GET {{host}}/api/flags/{{multivariateFlagName}}?environment={{environment}}
 
 ### Confirm missing flags return 404
 GET {{host}}/api/flags/{{missingFlagName}}?environment={{environment}}
@@ -106,6 +153,7 @@ Content-Type: application/json
 # =========================
 
 ### Analyze all flags — uses default staleness threshold (30 days)
+###   Variations should appear in the AI's reasoning context.
 POST {{host}}/api/flags/health
 Content-Type: application/json
 
@@ -128,3 +176,6 @@ DELETE {{host}}/api/flags/{{percentageFlagName}}?environment={{environment}}
 
 ### Archive the role-based flag
 DELETE {{host}}/api/flags/{{roleFlagName}}?environment={{environment}}
+
+### Archive the multivariate flag
+DELETE {{host}}/api/flags/{{multivariateFlagName}}?environment={{environment}}

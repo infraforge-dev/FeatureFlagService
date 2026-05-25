@@ -9,6 +9,7 @@ using Banderas.Domain.Entities;
 using Banderas.Domain.Enums;
 using Banderas.Domain.Interfaces;
 using Banderas.Domain.ValueObjects;
+using Banderas.Tests.Helpers;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -174,8 +175,14 @@ public sealed class BanderasServiceMetadataTests
         _repo.ExistingFlag.Tags.Should().BeEquivalentTo(["new"]);
     }
 
+    private static IReadOnlyList<VariationRequest> DefaultVariationRequests() =>
+        [new("off", "Boolean", "false"), new("on", "Boolean", "true")];
+
     private static CreateFlagRequest NewCreateRequest() =>
-        new("test-flag", EnvironmentType.Development, true, RolloutStrategy.None, null);
+        new("test-flag", EnvironmentType.Development, true, RolloutStrategy.None, null)
+        {
+            Variations = DefaultVariationRequests(),
+        };
 
     private static UpdateFlagRequest NewUpdateRequest() => new(true, RolloutStrategy.None, null);
 
@@ -186,8 +193,9 @@ public sealed class BanderasServiceMetadataTests
             true,
             RolloutStrategy.None,
             new StrategyConfig(RolloutStrategy.None, "{}"),
-            description,
-            tags
+            variations: FlagBuilder.DefaultVariations(),
+            description: description,
+            tags: tags
         );
 
     private sealed class CapturingRepository : IBanderasRepository

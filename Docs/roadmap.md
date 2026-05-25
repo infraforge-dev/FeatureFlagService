@@ -185,6 +185,10 @@ Every phase of this roadmap builds toward that demo.
 * [x] Contract tests for API responses — `ContractTests.cs`; pins JSON wire shape for
       all 4 success response types; `ReadRawJsonAsync` helper + field-name assertions on
       error helpers in `IntegrationTestBase` (PR #65)
+* [x] `Variation` Value Object on `Flag` — `VariationKind` enum (Boolean | String | Number | Json);
+      single-element and collection-level invariants enforced on `Flag`; `UpdateVariations`
+      mutation; DTO/validator/mapping/AI prompt wiring; zero-downtime additive migration
+      with Boolean menu backfill; 404/101 tests green (PR TBD)
 * [ ] Handle invalid strategy configurations gracefully
 * [ ] Test environment-specific behavior edge cases
 * [ ] Mutation testing baseline
@@ -265,21 +269,21 @@ Every phase of this roadmap builds toward that demo.
 
 **Phase 2 — Testing & Reliability**
 
-1. Continue strengthening `Flag` domain invariants — description + tags shipped on
-   the per-environment row; next backlog item is multivariate flag support
-   (`Variation` Value Object) or the `Flag` → `FlagDefinition` /
-   `FlagEnvironmentConfig` aggregate split
-2. Continue working through the `Flag` DDD analysis backlog
-3. Handle invalid strategy configurations gracefully
+1. `Flag` → `FlagDefinition` / `FlagEnvironmentConfig` aggregate split — or begin
+   Phase 5 targeting-rules spec (output model is now locked by the Variation VO)
+2. Handle invalid strategy configurations gracefully (defense-in-depth beyond VO validation)
+3. Test environment-specific behavior edge cases
+4. Mutation testing baseline
 
 **Phase 2 progress: archived state terminal (PR #59), `IsSeeded` removed from domain,
 archived-flag integration test coverage complete, typed `StrategyConfig` Value Object
 with config/strategy consistency enforcement complete, `Flag` mutation methods
 consolidated by concern (`SetEnabled` / `UpdateStrategy` / `Update` → `Reconfigure`),
-`Description` + `Tags` metadata landed on per-env `Flag` with `UpdateMetadata`
-mutation, AI prompt enrichment, and zero-downtime additive migration. Contract tests
-for all API response wire shapes complete (PR #65). Next: handle invalid strategy
-configurations gracefully.**
+`Description` + `Tags` metadata landed on per-env `Flag`, AI prompt enrichment, and
+zero-downtime migration. Contract tests for all API response wire shapes (PR #65).
+`Variation` Value Object shipped — `VariationKind` enum, collection-level invariants,
+`UpdateVariations` mutation, full DTO/validator/mapping/AI/migration slice (PR TBD).
+Next: handle invalid strategy configurations gracefully.**
 
 ---
 

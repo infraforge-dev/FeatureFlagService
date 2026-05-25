@@ -35,7 +35,7 @@ public sealed class CreateFlagRequestValidatorTests
         );
 
         // Act
-        ValidationResult result = await _validator.ValidateAsync(request);
+        ValidationResult result = await _validator.ValidateWithDefaultsAsync(request);
 
         // Assert
         result.IsValid.Should().BeFalse();
@@ -56,7 +56,7 @@ public sealed class CreateFlagRequestValidatorTests
         );
 
         // Act
-        ValidationResult result = await _validator.ValidateAsync(request);
+        ValidationResult result = await _validator.ValidateWithDefaultsAsync(request);
 
         // Assert
         result.IsValid.Should().BeFalse();
@@ -77,7 +77,7 @@ public sealed class CreateFlagRequestValidatorTests
         );
 
         // Act
-        ValidationResult result = await _validator.ValidateAsync(request);
+        ValidationResult result = await _validator.ValidateWithDefaultsAsync(request);
 
         // Assert
         result.IsValid.Should().BeFalse();
@@ -102,7 +102,7 @@ public sealed class CreateFlagRequestValidatorTests
         );
 
         // Act
-        ValidationResult result = await _validator.ValidateAsync(request);
+        ValidationResult result = await _validator.ValidateWithDefaultsAsync(request);
 
         // Assert
         result.IsValid.Should().BeFalse();
@@ -125,7 +125,7 @@ public sealed class CreateFlagRequestValidatorTests
         );
 
         // Act
-        ValidationResult result = await _validator.ValidateAsync(request);
+        ValidationResult result = await _validator.ValidateWithDefaultsAsync(request);
 
         // Assert
         result.IsValid.Should().BeTrue();
@@ -145,7 +145,7 @@ public sealed class CreateFlagRequestValidatorTests
         );
 
         // Act
-        ValidationResult result = await _validator.ValidateAsync(request);
+        ValidationResult result = await _validator.ValidateWithDefaultsAsync(request);
 
         // Assert
         result.IsValid.Should().BeTrue();
@@ -165,7 +165,7 @@ public sealed class CreateFlagRequestValidatorTests
         );
 
         // Act
-        ValidationResult result = await _validator.ValidateAsync(request);
+        ValidationResult result = await _validator.ValidateWithDefaultsAsync(request);
 
         // Assert
         result.IsValid.Should().BeFalse();
@@ -183,7 +183,7 @@ public sealed class CreateFlagRequestValidatorTests
         var request = new CreateFlagRequest("test-flag", env, true, RolloutStrategy.None, null!);
 
         // Act
-        ValidationResult result = await _validator.ValidateAsync(request);
+        ValidationResult result = await _validator.ValidateWithDefaultsAsync(request);
 
         // Assert
         result.IsValid.Should().BeTrue();
@@ -203,7 +203,7 @@ public sealed class CreateFlagRequestValidatorTests
         );
 
         // Act
-        ValidationResult result = await _validator.ValidateAsync(request);
+        ValidationResult result = await _validator.ValidateWithDefaultsAsync(request);
 
         // Assert
         result.IsValid.Should().BeFalse();
@@ -224,7 +224,7 @@ public sealed class CreateFlagRequestValidatorTests
         );
 
         // Act
-        ValidationResult result = await _validator.ValidateAsync(request);
+        ValidationResult result = await _validator.ValidateWithDefaultsAsync(request);
 
         // Assert
         result.IsValid.Should().BeTrue();
@@ -244,7 +244,7 @@ public sealed class CreateFlagRequestValidatorTests
         );
 
         // Act
-        ValidationResult result = await _validator.ValidateAsync(request);
+        ValidationResult result = await _validator.ValidateWithDefaultsAsync(request);
 
         // Assert
         result.IsValid.Should().BeTrue();
@@ -264,7 +264,7 @@ public sealed class CreateFlagRequestValidatorTests
         );
 
         // Act
-        ValidationResult result = await _validator.ValidateAsync(request);
+        ValidationResult result = await _validator.ValidateWithDefaultsAsync(request);
 
         // Assert
         result.IsValid.Should().BeFalse();
@@ -285,7 +285,7 @@ public sealed class CreateFlagRequestValidatorTests
         );
 
         // Act
-        ValidationResult result = await _validator.ValidateAsync(request);
+        ValidationResult result = await _validator.ValidateWithDefaultsAsync(request);
 
         // Assert
         result.IsValid.Should().BeFalse();
@@ -306,7 +306,7 @@ public sealed class CreateFlagRequestValidatorTests
         );
 
         // Act
-        ValidationResult result = await _validator.ValidateAsync(request);
+        ValidationResult result = await _validator.ValidateWithDefaultsAsync(request);
 
         // Assert
         result.IsValid.Should().BeTrue();
@@ -326,7 +326,7 @@ public sealed class CreateFlagRequestValidatorTests
         );
 
         // Act
-        ValidationResult result = await _validator.ValidateAsync(request);
+        ValidationResult result = await _validator.ValidateWithDefaultsAsync(request);
 
         // Assert
         result.IsValid.Should().BeFalse();
@@ -347,7 +347,7 @@ public sealed class CreateFlagRequestValidatorTests
         );
 
         // Act
-        ValidationResult result = await _validator.ValidateAsync(request);
+        ValidationResult result = await _validator.ValidateWithDefaultsAsync(request);
 
         // Assert
         result.IsValid.Should().BeFalse();
@@ -370,7 +370,7 @@ public sealed class CreateFlagRequestValidatorTests
         );
 
         // Act
-        ValidationResult result = await _validator.ValidateAsync(request);
+        ValidationResult result = await _validator.ValidateWithDefaultsAsync(request);
 
         // Assert
         result.IsValid.Should().BeFalse();
@@ -383,7 +383,7 @@ public sealed class CreateFlagRequestValidatorTests
     {
         CreateFlagRequest request = NewRequest() with { Description = new string('a', 500) };
 
-        ValidationResult result = await _validator.ValidateAsync(request);
+        ValidationResult result = await _validator.ValidateWithDefaultsAsync(request);
 
         result.IsValid.Should().BeTrue();
     }
@@ -394,7 +394,7 @@ public sealed class CreateFlagRequestValidatorTests
     {
         CreateFlagRequest request = NewRequest() with { Description = new string('a', 501) };
 
-        ValidationResult result = await _validator.ValidateAsync(request);
+        ValidationResult result = await _validator.ValidateWithDefaultsAsync(request);
 
         result.IsValid.Should().BeFalse();
         result.Errors.Should().Contain(e => e.PropertyName == "Description");
@@ -406,7 +406,7 @@ public sealed class CreateFlagRequestValidatorTests
     {
         CreateFlagRequest request = NewRequest() with { Description = null };
 
-        ValidationResult result = await _validator.ValidateAsync(request);
+        ValidationResult result = await _validator.ValidateWithDefaultsAsync(request);
 
         result.IsValid.Should().BeTrue();
     }
@@ -420,7 +420,7 @@ public sealed class CreateFlagRequestValidatorTests
             Tags = Enumerable.Range(1, 20).Select(i => $"tag-{i}").ToList(),
         };
 
-        ValidationResult result = await _validator.ValidateAsync(request);
+        ValidationResult result = await _validator.ValidateWithDefaultsAsync(request);
 
         result.IsValid.Should().BeTrue();
     }
@@ -434,7 +434,7 @@ public sealed class CreateFlagRequestValidatorTests
             Tags = Enumerable.Range(1, 21).Select(i => $"tag-{i}").ToList(),
         };
 
-        ValidationResult result = await _validator.ValidateAsync(request);
+        ValidationResult result = await _validator.ValidateWithDefaultsAsync(request);
 
         result.IsValid.Should().BeFalse();
         result.Errors.Should().Contain(e => e.PropertyName == "Tags");
@@ -446,7 +446,7 @@ public sealed class CreateFlagRequestValidatorTests
     {
         CreateFlagRequest request = NewRequest() with { Tags = [new string('a', 51)] };
 
-        ValidationResult result = await _validator.ValidateAsync(request);
+        ValidationResult result = await _validator.ValidateWithDefaultsAsync(request);
 
         result.IsValid.Should().BeFalse();
         result.Errors.Should().Contain(e => e.PropertyName.StartsWith("Tags"));
@@ -462,7 +462,7 @@ public sealed class CreateFlagRequestValidatorTests
     {
         CreateFlagRequest request = NewRequest() with { Tags = [tag] };
 
-        ValidationResult result = await _validator.ValidateAsync(request);
+        ValidationResult result = await _validator.ValidateWithDefaultsAsync(request);
 
         result.IsValid.Should().BeFalse();
         result.Errors.Should().Contain(e => e.PropertyName.StartsWith("Tags"));
@@ -480,7 +480,7 @@ public sealed class CreateFlagRequestValidatorTests
     {
         CreateFlagRequest request = NewRequest() with { Tags = [tag] };
 
-        ValidationResult result = await _validator.ValidateAsync(request);
+        ValidationResult result = await _validator.ValidateWithDefaultsAsync(request);
 
         result.IsValid.Should().BeTrue();
     }
@@ -491,7 +491,7 @@ public sealed class CreateFlagRequestValidatorTests
     {
         CreateFlagRequest request = NewRequest() with { Tags = null };
 
-        ValidationResult result = await _validator.ValidateAsync(request);
+        ValidationResult result = await _validator.ValidateWithDefaultsAsync(request);
 
         result.IsValid.Should().BeTrue();
     }
@@ -502,7 +502,7 @@ public sealed class CreateFlagRequestValidatorTests
     {
         CreateFlagRequest request = NewRequest() with { Tags = [] };
 
-        ValidationResult result = await _validator.ValidateAsync(request);
+        ValidationResult result = await _validator.ValidateWithDefaultsAsync(request);
 
         result.IsValid.Should().BeTrue();
     }

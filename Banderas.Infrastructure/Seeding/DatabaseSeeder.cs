@@ -10,6 +10,33 @@ namespace Banderas.Infrastructure.Seeding;
 
 public sealed class DatabaseSeeder(BanderasDbContext db, ILogger<DatabaseSeeder> logger)
 {
+    /// <summary>
+    /// Default boolean variation menu shared by the migration backfill and most
+    /// seed flags. Defined here as the single source of truth so the seeder and
+    /// the migration stay in lockstep.
+    /// </summary>
+    private static IReadOnlyList<Variation> DefaultBooleanMenu() =>
+        [new("off", VariationKind.Boolean, "false"), new("on", VariationKind.Boolean, "true")];
+
+    /// <summary>
+    /// Three-variation demo menu used by exactly one seed flag
+    /// (<c>new-dashboard</c> in Development) so smoke-test and the dev-loop
+    /// can demonstrate multivariate menus from <c>docker compose up</c> onward.
+    /// </summary>
+    /// <remarks>
+    /// Uses <see cref="VariationKind.Number"/> rather than Boolean: the spec
+    /// originally suggested a 3-Boolean menu (<c>off/on/beta</c>) but that would
+    /// require duplicate values (<c>true</c> for both <c>on</c> and <c>beta</c>),
+    /// which violates the unique-values invariant 5. Number is the next-simplest
+    /// kind that exercises a non-default menu shape.
+    /// </remarks>
+    private static IReadOnlyList<Variation> ThreeVariationDemoMenu() =>
+        [
+            new("low", VariationKind.Number, "0"),
+            new("mid", VariationKind.Number, "50"),
+            new("high", VariationKind.Number, "100"),
+        ];
+
     private static readonly SeedRecord[] SeedManifest =
     [
         new(
@@ -19,7 +46,8 @@ public sealed class DatabaseSeeder(BanderasDbContext db, ILogger<DatabaseSeeder>
             RolloutStrategy.None,
             "{}",
             "Toggles the dark theme across the web app.",
-            ["squad-ui", "theme"]
+            ["squad-ui", "theme"],
+            DefaultBooleanMenu()
         ),
         new(
             "new-dashboard",
@@ -28,7 +56,8 @@ public sealed class DatabaseSeeder(BanderasDbContext db, ILogger<DatabaseSeeder>
             RolloutStrategy.Percentage,
             """{"percentage":30}""",
             "Gradual rollout of the redesigned analytics dashboard.",
-            ["squad-analytics", "release-q2"]
+            ["squad-analytics", "release-q2"],
+            ThreeVariationDemoMenu()
         ),
         new(
             "beta-features",
@@ -37,7 +66,8 @@ public sealed class DatabaseSeeder(BanderasDbContext db, ILogger<DatabaseSeeder>
             RolloutStrategy.RoleBased,
             """{"roles":["Admin","Beta"]}""",
             "Opt-in surface for admins and beta testers to preview unreleased features.",
-            ["beta-program", "internal"]
+            ["beta-program", "internal"],
+            DefaultBooleanMenu()
         ),
         new(
             "maintenance-mode",
@@ -46,7 +76,8 @@ public sealed class DatabaseSeeder(BanderasDbContext db, ILogger<DatabaseSeeder>
             RolloutStrategy.None,
             "{}",
             "Kill switch that disables write paths during planned maintenance windows.",
-            ["ops", "killswitch"]
+            ["ops", "killswitch"],
+            DefaultBooleanMenu()
         ),
         new(
             "dark-mode",
@@ -55,7 +86,8 @@ public sealed class DatabaseSeeder(BanderasDbContext db, ILogger<DatabaseSeeder>
             RolloutStrategy.None,
             "{}",
             "Toggles the dark theme across the web app.",
-            ["squad-ui", "theme"]
+            ["squad-ui", "theme"],
+            DefaultBooleanMenu()
         ),
         new(
             "new-dashboard",
@@ -64,7 +96,8 @@ public sealed class DatabaseSeeder(BanderasDbContext db, ILogger<DatabaseSeeder>
             RolloutStrategy.Percentage,
             """{"percentage":50}""",
             "Widened staging rollout of the redesigned analytics dashboard.",
-            ["squad-analytics", "release-q2", "staging-canary"]
+            ["squad-analytics", "release-q2", "staging-canary"],
+            DefaultBooleanMenu()
         ),
     ];
 
@@ -169,14 +202,24 @@ public sealed class DatabaseSeeder(BanderasDbContext db, ILogger<DatabaseSeeder>
         bool IsEnabled,
         RolloutStrategy StrategyType,
         string StrategyConfig,
-        string? Description = null,
-        IReadOnlyList<string>? Tags = null
+        string? Description,
+        IReadOnlyList<string>? Tags,
+        IReadOnlyList<Variation> Variations
     )
     {
         public Flag ToFlag()
         {
             var config = new StrategyConfig(StrategyType, StrategyConfig);
-            return new Flag(Name, Environment, IsEnabled, StrategyType, config, Description, Tags);
+            return new Flag(
+                Name,
+                Environment,
+                IsEnabled,
+                StrategyType,
+                config,
+                Variations,
+                Description,
+                Tags
+            );
         }
     }
 }

@@ -50,12 +50,13 @@
 **Phase 2 — Consolidate Flag Mutation Methods by Concern (PR TBD): ✅ Complete**
 **Phase 2 — Flag Description + Tags Metadata (PR TBD): ✅ Complete**
 **Phase 2 — API Response Contract Tests (PR #65): ✅ Complete**
+**Phase 2 — Flag Variations Definition Layer (PR TBD): ✅ Complete**
 
 **Gate Decision:** GO WITH CONDITIONS — AI response validation condition closed
 
 Audit report: `Docs/architecture-review-phase1-report.md`
 
-203 unit tests + 75 integration tests passing (all 278 green).
+303 unit tests + 101 integration tests passing (all 404 green).
 
 ---
 
@@ -95,6 +96,19 @@ Audit report: `Docs/architecture-review-phase1-report.md`
   null description clears value, empty tag list clears collection
 - `Flag` constructor accepts optional `description` and `tags` for create-time
   initialization; tags default to empty list when omitted
+- `VariationKind` enum (`Banderas.Domain/Enums/`) — `Boolean | String | Number | Json`;
+  CA1720 suppressed via `[SuppressMessage]` — names are the wire contract
+- `Variation` sealed record value object (`Banderas.Domain/ValueObjects/`) — `Key`,
+  `Kind`, `Value`; constructor enforces single-element invariants: key char-class
+  `^[a-z0-9\-_]+$`, key ≤50 chars, value ≤2000 chars, `Boolean` accepts only
+  canonical `"true"`/`"false"`, `Number`/`String`/`Json` validated via
+  `JsonDocument.Parse` + `using` dispose pattern; equality is record-default (ordinal)
+- `Flag` gains `IReadOnlyList<Variation> Variations` property via `_variations` backing
+  field; constructor gains required `variations` parameter (sixth positional);
+  `EnsureVariationMenuIsValid` enforces five collection-level invariants: non-empty,
+  ≤20, all same Kind, unique keys (case-insensitive), unique values (ordinal)
+- `Flag.UpdateVariations(IReadOnlyList<Variation>)` — fourth concern-named mutation;
+  archived-terminal guard; all-or-nothing atomic replacement; bumps `UpdatedAt`
 
 ### Application Layer
 
@@ -109,7 +123,8 @@ Audit report: `Docs/architecture-review-phase1-report.md`
   `FeatureEvaluationContext` directly as an intentional immutable value-object
   boundary input
 - DTOs: `CreateFlagRequest`, `UpdateFlagRequest`, `FlagResponse`, `EvaluationRequest`,
-  `FlagMappings`, `FlagHealthRequest`, `FlagAssessment`, `FlagHealthAnalysisResponse`
+  `FlagMappings`, `FlagHealthRequest`, `FlagAssessment`, `FlagHealthAnalysisResponse`,
+  `VariationRequest`, `VariationResponse`
 - `FlagResponse.StrategyConfig` — `string?` (nullable); flags with `RolloutStrategy.None`
   have no strategy config
 - `CreateFlagRequest` / `UpdateFlagRequest` / `FlagResponse` carry optional
@@ -118,6 +133,18 @@ Audit report: `Docs/architecture-review-phase1-report.md`
   positional constructor stays compatible with existing call sites
 - `UpdateFlagRequest` semantics: `description: null` / `tags: null` = no change;
   `description: ""` = clear to null; `tags: []` = clear all tags
+- `UpdateFlagRequest.Variations` is nullable — `null` = no change; `[]` = 400;
+  populated array = full atomic replacement; `CreateFlagRequest.Variations` is
+  required and non-empty (init-only body property, defaults to `[]` which
+  the validator rejects with a 400 ProblemDetails)
+- `FlagResponse.Variations` — init-only `IReadOnlyList<VariationResponse>` defaulting
+  to `[]`; always present and non-empty on any 2xx flag response
+- `VariationRequest` — `Key`, `Kind` (case-insensitive string), `Value` (JSON-encoded)
+- `VariationResponse` — same fields; `Kind` emitted as canonical PascalCase name
+- `VariationMenuRules.ApplyMenuRules<T>` — shared FluentValidation extension enforcing
+  all seven DD-2 invariants; used by both Create and Update validators
+- `BanderasService.AnalyzeFlagsAsync` sanitizes each variation's `Key` and `Value`
+  via `IPromptSanitizer`; `Kind` emitted verbatim (not operator input)
 - `BanderasService.CreateFlagAsync` and `UpdateFlagAsync` normalize tags
   (`InputSanitizer.CleanCollection` + `ToLowerInvariant` + `Distinct`) and sanitize
   description (empty/whitespace-only → null) before persisting; `Reconfigure` and
@@ -153,19 +180,33 @@ Audit report: `Docs/architecture-review-phase1-report.md`
 - `TagListConverter` — EF Core `ValueConverter<IReadOnlyList<string>, string>` for
   `Tags`; serializes/deserializes as a JSON array via `System.Text.Json`;
   null-fallback to empty list on read to preserve the domain invariant
-- `FlagConfiguration` maps `Description` (nullable `varchar(500)`) and `Tags`
-  (`jsonb`, `IsRequired`, `HasDefaultValueSql("'[]'")`)
-- Migration `20260512194041_AddFlagDescriptionAndTags` — additive, zero-downtime,
-  zero-data-loss; existing rows pick up `Description = NULL` and `Tags = '[]'` on
-  apply via the SQL-level default
+- `FlagConfiguration` maps `Description` (nullable `varchar(500)`), `Tags`
+  (`jsonb`, `IsRequired`, `HasDefaultValueSql("'[]'"`)), and `Variations` (`jsonb`,
+  `IsRequired`, no permanent SQL default — permanent `'[]'` would silently violate
+  the non-empty domain invariant; default is applied only during the migration's
+  transient window then dropped)
+- `VariationListConverter` — `ValueConverter<IReadOnlyList<Variation>, string>`;
+  camelCase + enum-as-string write; re-runs `Variation` VO ctor on read (loud failure
+  on corruption); null-fallback to empty list (defensive)
+- Migration `20260512194041_AddFlagDescriptionAndTags` — additive, zero-downtime;
+  existing rows pick up `Description = NULL` and `Tags = '[]'` via SQL default
+- Migration `20260522205830_AddFlagVariations` — three-statement `Up`: ADD COLUMN
+  with transient default, backfill UPDATE to `[{off,false},{on,true}]` for every
+  existing row, DROP DEFAULT; `Down` drops column; verified by `MigrationBackfillTests`
+- `DatabaseSeeder` — all six seed flags now declare `Variations` explicitly; one demo
+  flag (`new-dashboard` Development) carries a three-Number menu `[low=0,mid=50,high=100]`
 - `IBanderasRepository.GetAllAsync(EnvironmentType? environment = null, ...)` —
   nullable environment param; `null` = no filter, returns all non-archived flags
   across all environments; passing an explicit value preserves scoped behavior
 - `AiFlagAnalyzer` — Semantic Kernel + Azure OpenAI implementation; all failures
   wrapped as `AiAnalysisUnavailableException`; validates deserialized model output
   for summary, non-empty assessments, input-flag coverage, and documented status values;
-  `BuildPrompt` emits `Description` + `Tags` per flag and the system prompt declares
-  them inert data alongside name/config
+  `BuildPrompt` (now `internal static` for testability) emits `Description`, `Tags`,
+  and `Variations` (key+kind+value per entry) per flag; system prompt rule 1 declares
+  variation keys, kinds, and values as inert configuration data; `SystemPromptForTesting`
+  static property exposes the prompt for unit assertions;
+  `InternalsVisibleTo("Banderas.Tests.Integration")` added to
+  `Banderas.Infrastructure.csproj`
 - `UnavailableAiFlagAnalyzer` — endpoint-scoped unavailable implementation used when
   `AzureOpenAI:Endpoint` is missing or blank
 - Semantic Kernel and `DefaultAzureCredential` fully excluded from `Testing`
@@ -207,22 +248,20 @@ Audit report: `Docs/architecture-review-phase1-report.md`
 
 ### Tests
 
-- 203 unit tests — strategies, evaluator, validators (including 17 new tag/description
-  rules), logging behavior, prompt sanitization (21), service analysis (7 — includes
-  description/tag sanitization), `Flag` archived-terminal invariants, `Flag` ctor
-  metadata defaults (2), `Flag.UpdateMetadata` (4), `BanderasServiceMetadataTests`
-  (10 — create normalization + update preserve/clear semantics), `StrategyConfig` VO,
-  config validators, `StrategyConfigFactory`
-- 75 integration tests — all endpoints including `POST /api/flags/health`,
-  missing-Azure-OpenAI startup resilience, AI-unavailable 503 behavior,
-  semantic AI response validation, archived-flag mutation coverage,
-  `FlagDomainException` → 409 ProblemDetails middleware contract, optimistic
-  concurrency token, `TagListConverter` round-trip (3), `FlagCrudMetadata`
-  POST/PUT/GET semantics (10), `AiHealthMetadataPrompt` end-to-end
-  description/tag sanitization across the HTTP boundary (3), and
-  `ContractTests` JSON wire-shape assertions for all 4 success response types (5)
-- 203 unit + 75 integration passing
-- `ContractTests` — 5 integration tests in `Banderas.Tests.Integration/ContractTests.cs`;
+- 303 unit tests — all prior coverage plus `VariationTests` (48 — VO ctor invariants
+  across all 4 Kind-specific JSON-validity rules), `FlagVariationsTests` (14 —
+  collection invariants 1–5 + archived guard on `UpdateVariations`),
+  `VariationRequestValidatorTests` (21 — all 7 DD-2 invariants + happy paths),
+  `FlagMappingsVariationsTests` (14 — round-trip across 4 Kinds + unknown-kind),
+  `BanderasServiceVariationsTests` (7 — create/update wiring + sanitization);
+  `ValidatorTestExtensions` — test-only extension injecting default Variations into
+  existing happy-path validator tests so they don't need to repeat boilerplate
+- 101 integration tests — extends prior 75 with `FlagCrudVariationsTests` (10),
+  `VariationListConverterTests` (7), `MigrationBackfillTests` (2),
+  `AiHealthVariationsPromptTests` (4); `ContractTests` extended with 2 new variation
+  wire-shape tests + `AssertVariationsShape` helper
+- 303 unit + 101 integration = **404 total** passing
+- `ContractTests` — 7 integration tests in `Banderas.Tests.Integration/ContractTests.cs`;
   parse raw `JsonDocument` to pin camelCase field names, enum-as-string serialization,
   `description`/`tags` always-present shape, and `Content-Type: application/json` on
   all success responses; `ReadProblemDetailsAsync` and `ReadValidationProblemDetailsAsync`
@@ -243,15 +282,16 @@ Audit report: `Docs/architecture-review-phase1-report.md`
 
 ### Developer Experience
 
-- `Requests/smoke-test.http` — all endpoints covered including `POST /api/flags/health`
-  (default threshold + `stalenessThresholdDays: 7` variants); the create-percentage
-  flag and one PUT now demonstrate the metadata fields, with a minimal create that
-  omits them for backward-compat illustration, and additional PUT variants for the
-  null=no-change / empty=clear semantics on description + tags
+- `Requests/smoke-test.http` — all endpoints covered; POST samples include a default
+  `[off, on]` Boolean menu and a `pricing-experiment` flag with a three-Number
+  multivariate menu; PUT samples include `"variations": null` (no change) and
+  populated replacement; JSON-encoding rules documented inline; new
+  `@multivariateFlagName` variable demonstrates the non-default menu path through
+  CRUD + AI health analysis
 - `DatabaseSeeder` — six seed flags available immediately on `docker compose up`;
-  every entry carries a realistic operator-authored description and 2–3 tags so
-  `GET /api/flags?environment=Development` and `POST /api/flags/health` exhibit
-  the metadata story without any setup
+  every entry carries description, tags, and an explicit variations menu; one demo
+  flag (`new-dashboard` Development) carries a three-Number menu so the dev loop
+  demonstrates multivariate behavior from first `docker compose up`
 
 ---
 
@@ -293,10 +333,9 @@ undocumented status values before any `200 OK` response can leave the AI boundar
 ### Immediate Next Tasks
 
 1. Continue working through the `Flag` DDD analysis backlog
-   (`Docs/Decisions/flag-ddd-analysis-backlog.md`) — next item: introduce
-   `Variation` as a Value Object on `Flag` (multivariate flag support), or begin
-   the `Flag` → `FlagDefinition` / `FlagEnvironmentConfig` aggregate split — the
-   description/tags forward-migration is the split spec's concern
+   (`Docs/Decisions/flag-ddd-analysis-backlog.md`) — `Variation` VO shipped; next
+   items: `Flag` → `FlagDefinition` / `FlagEnvironmentConfig` aggregate split, or
+   begin Phase 5 targeting-rules spec (which now has its output model locked)
 2. Handle invalid strategy configurations gracefully (defense-in-depth beyond VO validation)
 3. Test environment-specific behavior edge cases
 4. Mutation testing baseline

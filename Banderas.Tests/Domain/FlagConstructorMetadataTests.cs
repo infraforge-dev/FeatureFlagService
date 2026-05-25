@@ -31,6 +31,7 @@ public sealed class FlagConstructorMetadataTests
             isEnabled: true,
             strategyType: RolloutStrategy.None,
             strategyConfig: config,
+            variations: FlagBuilder.DefaultVariations(),
             description: "Controls the v2 checkout flow",
             tags: ["squad-checkout", "release-q2"]
         );
