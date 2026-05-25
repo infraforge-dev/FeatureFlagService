@@ -35,6 +35,21 @@ public sealed class ContractTests : IntegrationTestBase
             IsEnabled = true,
             StrategyType = RolloutStrategy.None,
             StrategyConfig = (string?)null,
+            Variations = new[]
+            {
+                new
+                {
+                    Key = "off",
+                    Kind = "Boolean",
+                    Value = "false",
+                },
+                new
+                {
+                    Key = "on",
+                    Kind = "Boolean",
+                    Value = "true",
+                },
+            },
         };
 
         // Act
@@ -52,6 +67,7 @@ public sealed class ContractTests : IntegrationTestBase
         JsonElement root = doc.RootElement;
 
         AssertFlagResponseShape(root);
+        AssertVariationsShape(root);
 
         // description must be present and null (not absent)
         root.TryGetProperty("description", out JsonElement description)
@@ -91,6 +107,7 @@ public sealed class ContractTests : IntegrationTestBase
         using JsonDocument doc = await ReadRawJsonAsync(response);
         AssertFlagResponseShape(doc.RootElement);
         AssertOptionalMetadataFields(doc.RootElement);
+        AssertVariationsShape(doc.RootElement);
     }
 
     // -------------------------------------------------------------------------
@@ -120,6 +137,70 @@ public sealed class ContractTests : IntegrationTestBase
         JsonElement firstElement = root[0];
         AssertFlagResponseShape(firstElement);
         AssertOptionalMetadataFields(firstElement);
+        AssertVariationsShape(firstElement);
+    }
+
+    // -------------------------------------------------------------------------
+    // AC-12: Variations wire shape across every success response
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    [Trait("Category", "Integration")]
+    public async Task CreateFlag_ResponseShape_IncludesVariationsArrayAsync()
+    {
+        var payload = new
+        {
+            Name = "contract-variations-create",
+            Environment = EnvironmentType.Development,
+            IsEnabled = true,
+            StrategyType = RolloutStrategy.None,
+            StrategyConfig = (string?)null,
+            Variations = new[]
+            {
+                new
+                {
+                    Key = "low",
+                    Kind = "Number",
+                    Value = "0",
+                },
+                new
+                {
+                    Key = "mid",
+                    Kind = "Number",
+                    Value = "50",
+                },
+            },
+        };
+
+        HttpResponseMessage response = await Client.PostAsJsonAsync(
+            "/api/flags",
+            payload,
+            JsonOptions
+        );
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
+
+        using JsonDocument doc = await ReadRawJsonAsync(response);
+        AssertVariationsShape(doc.RootElement);
+
+        // Order preservation: array index reflects input order (DD-3).
+        JsonElement variations = doc.RootElement.GetProperty("variations");
+        variations[0].GetProperty("key").GetString().Should().Be("low");
+        variations[1].GetProperty("key").GetString().Should().Be("mid");
+    }
+
+    [Fact]
+    [Trait("Category", "Integration")]
+    public async Task GetFlag_ResponseShape_IncludesVariationsArrayAsync()
+    {
+        await CreateFlagAsync("contract-variations-get");
+
+        HttpResponseMessage response = await Client.GetAsync(
+            "/api/flags/contract-variations-get?environment=Development"
+        );
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        using JsonDocument doc = await ReadRawJsonAsync(response);
+        AssertVariationsShape(doc.RootElement);
     }
 
     // -------------------------------------------------------------------------
@@ -329,6 +410,46 @@ public sealed class ContractTests : IntegrationTestBase
         tags.ValueKind.Should().Be(JsonValueKind.Array);
     }
 
+    /// <summary>
+    /// Asserts the variations wire contract: present, non-empty, ordered array of
+    /// objects with camelCase <c>key</c> / <c>kind</c> / <c>value</c> fields, where
+    /// <c>kind</c> is the enum name (a string, not an integer).
+    /// </summary>
+    private static void AssertVariationsShape(JsonElement element)
+    {
+        element
+            .TryGetProperty("variations", out JsonElement variations)
+            .Should()
+            .BeTrue("FlagResponse must always include 'variations'");
+        variations.ValueKind.Should().Be(JsonValueKind.Array);
+        variations.GetArrayLength().Should().BeGreaterThan(0, "variations is never empty");
+
+        foreach (JsonElement variation in variations.EnumerateArray())
+        {
+            variation
+                .TryGetProperty("key", out JsonElement key)
+                .Should()
+                .BeTrue("each variation must contain 'key'");
+            key.ValueKind.Should().Be(JsonValueKind.String);
+
+            variation
+                .TryGetProperty("kind", out JsonElement kind)
+                .Should()
+                .BeTrue("each variation must contain 'kind'");
+            kind.ValueKind.Should()
+                .Be(
+                    JsonValueKind.String,
+                    "VariationKind must serialize as a string, not an integer"
+                );
+
+            variation
+                .TryGetProperty("value", out JsonElement value)
+                .Should()
+                .BeTrue("each variation must contain 'value'");
+            value.ValueKind.Should().Be(JsonValueKind.String);
+        }
+    }
+
     private async Task<bool> CreateFlagAsync(string name)
     {
         var payload = new
@@ -338,6 +459,21 @@ public sealed class ContractTests : IntegrationTestBase
             IsEnabled = true,
             StrategyType = RolloutStrategy.None,
             StrategyConfig = (string?)null,
+            Variations = new[]
+            {
+                new
+                {
+                    Key = "off",
+                    Kind = "Boolean",
+                    Value = "false",
+                },
+                new
+                {
+                    Key = "on",
+                    Kind = "Boolean",
+                    Value = "true",
+                },
+            },
         };
 
         HttpResponseMessage response = await Client.PostAsJsonAsync(

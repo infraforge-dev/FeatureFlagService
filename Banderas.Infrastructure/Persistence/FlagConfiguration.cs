@@ -38,6 +38,18 @@ public sealed class FlagConfiguration : IEntityTypeConfiguration<Flag>
             .HasConversion(new TagListConverter())
             .HasDefaultValueSql("'[]'");
 
+        // Variations: jsonb, NOT NULL, no permanent SQL default (DD-6, pitfall #2).
+        // The default is applied via raw SQL in the migration's Up only and dropped
+        // after backfill — leaving a permanent '[]' default would silently violate
+        // the non-empty domain invariant on any future INSERT that forgets to set it.
+        builder
+            .Property(f => f.Variations)
+            .HasField("_variations")
+            .UsePropertyAccessMode(PropertyAccessMode.Field)
+            .IsRequired()
+            .HasColumnType("jsonb")
+            .HasConversion(new VariationListConverter());
+
         builder.Property(f => f.IsEnabled).IsRequired();
 
         builder.Property(f => f.IsArchived).IsRequired();

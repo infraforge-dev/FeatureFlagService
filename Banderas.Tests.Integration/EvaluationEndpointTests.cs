@@ -279,6 +279,21 @@ public sealed class EvaluationEndpointTests : IntegrationTestBase
             IsEnabled = isEnabled,
             StrategyType = strategyType,
             StrategyConfig = strategyConfig,
+            Variations = new[]
+            {
+                new
+                {
+                    Key = "off",
+                    Kind = "Boolean",
+                    Value = "false",
+                },
+                new
+                {
+                    Key = "on",
+                    Kind = "Boolean",
+                    Value = "true",
+                },
+            },
         };
 
         HttpResponseMessage response = await Client.PostAsJsonAsync(

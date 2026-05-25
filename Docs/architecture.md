@@ -292,11 +292,19 @@ reintroduce env-sentinel checks at the controller layer.
   mismatches throw `FlagDomainException`
 * `FeatureEvaluationContext` — immutable, `IEquatable<T>`, guard clauses on
   construction
+* `Variation` — sealed record (`Key`, `Kind`, `Value`); enforces single-element
+  invariants at construction: key `^[a-z0-9\-_]+$` ≤50 chars, value ≤2000 chars,
+  `Boolean` accepts only canonical `"true"`/`"false"`, `Number`/`String`/`Json`
+  validated via `JsonDocument.Parse`; equality is record-default (ordinal);
+  `Flag.EnsureVariationMenuIsValid` enforces five collection-level invariants: non-empty,
+  ≤20, all same `Kind`, unique keys (case-insensitive), unique values (ordinal)
 
 **Enums:**
 
 * `RolloutStrategy` (None, Percentage, RoleBased)
 * `EnvironmentType` (None = 0 sentinel, Development, Staging, Production)
+* `VariationKind` (Boolean, String, Number, Json); CA1720 suppressed — names are the
+  wire contract emitted as PascalCase strings in all JSON responses
 
 **Interfaces:**
 

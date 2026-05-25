@@ -26,6 +26,21 @@ public sealed class FlagCrudMetadataTests : IntegrationTestBase
             IsEnabled = true,
             StrategyType = RolloutStrategy.None,
             StrategyConfig = (string?)null,
+            Variations = new[]
+            {
+                new
+                {
+                    Key = "off",
+                    Kind = "Boolean",
+                    Value = "false",
+                },
+                new
+                {
+                    Key = "on",
+                    Kind = "Boolean",
+                    Value = "true",
+                },
+            },
             Description = "Checkout v2 experiment",
             Tags = new[] { "squad-checkout", "release-q2" },
         };
@@ -53,6 +68,21 @@ public sealed class FlagCrudMetadataTests : IntegrationTestBase
             IsEnabled = true,
             StrategyType = RolloutStrategy.None,
             StrategyConfig = (string?)null,
+            Variations = new[]
+            {
+                new
+                {
+                    Key = "off",
+                    Kind = "Boolean",
+                    Value = "false",
+                },
+                new
+                {
+                    Key = "on",
+                    Kind = "Boolean",
+                    Value = "true",
+                },
+            },
         };
 
         HttpResponseMessage response = await Client.PostAsJsonAsync(
@@ -78,6 +108,21 @@ public sealed class FlagCrudMetadataTests : IntegrationTestBase
             IsEnabled = true,
             StrategyType = RolloutStrategy.None,
             StrategyConfig = (string?)null,
+            Variations = new[]
+            {
+                new
+                {
+                    Key = "off",
+                    Kind = "Boolean",
+                    Value = "false",
+                },
+                new
+                {
+                    Key = "on",
+                    Kind = "Boolean",
+                    Value = "true",
+                },
+            },
             Tags = new[] { "Checkout", " checkout ", "CHECKOUT", "Release-Q2" },
         };
 
@@ -103,6 +148,21 @@ public sealed class FlagCrudMetadataTests : IntegrationTestBase
             IsEnabled = true,
             StrategyType = RolloutStrategy.None,
             StrategyConfig = (string?)null,
+            Variations = new[]
+            {
+                new
+                {
+                    Key = "off",
+                    Kind = "Boolean",
+                    Value = "false",
+                },
+                new
+                {
+                    Key = "on",
+                    Kind = "Boolean",
+                    Value = "true",
+                },
+            },
             Tags = Enumerable.Range(1, 21).Select(i => $"tag-{i}").ToArray(),
         };
 
@@ -128,6 +188,21 @@ public sealed class FlagCrudMetadataTests : IntegrationTestBase
             IsEnabled = true,
             StrategyType = RolloutStrategy.None,
             StrategyConfig = (string?)null,
+            Variations = new[]
+            {
+                new
+                {
+                    Key = "off",
+                    Kind = "Boolean",
+                    Value = "false",
+                },
+                new
+                {
+                    Key = "on",
+                    Kind = "Boolean",
+                    Value = "true",
+                },
+            },
             Description = new string('a', 501),
         };
 
@@ -153,6 +228,21 @@ public sealed class FlagCrudMetadataTests : IntegrationTestBase
             IsEnabled = true,
             StrategyType = RolloutStrategy.None,
             StrategyConfig = (string?)null,
+            Variations = new[]
+            {
+                new
+                {
+                    Key = "off",
+                    Kind = "Boolean",
+                    Value = "false",
+                },
+                new
+                {
+                    Key = "on",
+                    Kind = "Boolean",
+                    Value = "true",
+                },
+            },
             Description = (string?)null,
             Tags = (string[]?)null,
         };
@@ -179,6 +269,21 @@ public sealed class FlagCrudMetadataTests : IntegrationTestBase
             IsEnabled = true,
             StrategyType = RolloutStrategy.None,
             StrategyConfig = (string?)null,
+            Variations = new[]
+            {
+                new
+                {
+                    Key = "off",
+                    Kind = "Boolean",
+                    Value = "false",
+                },
+                new
+                {
+                    Key = "on",
+                    Kind = "Boolean",
+                    Value = "true",
+                },
+            },
             Tags = Array.Empty<string>(),
         };
 
@@ -204,6 +309,21 @@ public sealed class FlagCrudMetadataTests : IntegrationTestBase
             IsEnabled = true,
             StrategyType = RolloutStrategy.None,
             StrategyConfig = (string?)null,
+            Variations = new[]
+            {
+                new
+                {
+                    Key = "off",
+                    Kind = "Boolean",
+                    Value = "false",
+                },
+                new
+                {
+                    Key = "on",
+                    Kind = "Boolean",
+                    Value = "true",
+                },
+            },
             Description = "",
         };
 
@@ -229,6 +349,21 @@ public sealed class FlagCrudMetadataTests : IntegrationTestBase
             IsEnabled = true,
             StrategyType = RolloutStrategy.None,
             StrategyConfig = (string?)null,
+            Variations = new[]
+            {
+                new
+                {
+                    Key = "off",
+                    Kind = "Boolean",
+                    Value = "false",
+                },
+                new
+                {
+                    Key = "on",
+                    Kind = "Boolean",
+                    Value = "true",
+                },
+            },
             Description = "new text",
         };
 
@@ -272,6 +407,21 @@ public sealed class FlagCrudMetadataTests : IntegrationTestBase
             IsEnabled = true,
             StrategyType = RolloutStrategy.None,
             StrategyConfig = (string?)null,
+            Variations = new[]
+            {
+                new
+                {
+                    Key = "off",
+                    Kind = "Boolean",
+                    Value = "false",
+                },
+                new
+                {
+                    Key = "on",
+                    Kind = "Boolean",
+                    Value = "true",
+                },
+            },
             Description = description,
             Tags = tags,
         };
@@ -293,6 +443,21 @@ public sealed class FlagCrudMetadataTests : IntegrationTestBase
             IsEnabled = true,
             StrategyType = RolloutStrategy.None,
             StrategyConfig = (string?)null,
+            Variations = new[]
+            {
+                new
+                {
+                    Key = "off",
+                    Kind = "Boolean",
+                    Value = "false",
+                },
+                new
+                {
+                    Key = "on",
+                    Kind = "Boolean",
+                    Value = "true",
+                },
+            },
             Description = description,
         };
 

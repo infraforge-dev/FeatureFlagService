@@ -25,4 +25,13 @@ public sealed record UpdateFlagRequest(
     string? StrategyConfig,
     string? Description = null,
     IReadOnlyList<string>? Tags = null
-);
+)
+{
+    /// <summary>
+    /// New variation menu, or <c>null</c> to leave the existing menu untouched.
+    /// Empty array (<c>[]</c>) is rejected by the validator (violates the
+    /// non-empty invariant); unlike <see cref="Tags"/>, there is no "clear all"
+    /// path for variations.
+    /// </summary>
+    public IReadOnlyList<VariationRequest>? Variations { get; init; }
+}

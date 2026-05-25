@@ -69,7 +69,12 @@ public sealed class SeedDataStartupTests
                 EnvironmentType.Production,
                 isEnabled: true,
                 RolloutStrategy.None,
-                strategyConfig: StrategyConfig.Create(RolloutStrategy.None, "{}")
+                strategyConfig: StrategyConfig.Create(RolloutStrategy.None, "{}"),
+                variations:
+                [
+                    new("off", VariationKind.Boolean, "false"),
+                    new("on", VariationKind.Boolean, "true"),
+                ]
             );
             await dbContext.Flags.AddAsync(manualFlag);
             await dbContext.SaveChangesAsync();
