@@ -124,6 +124,21 @@ public sealed class AiHealthMetadataPromptTests : IntegrationTestBase
             IsEnabled = true,
             StrategyType = RolloutStrategy.None,
             StrategyConfig = (string?)null,
+            Variations = new[]
+            {
+                new
+                {
+                    Key = "off",
+                    Kind = "Boolean",
+                    Value = "false",
+                },
+                new
+                {
+                    Key = "on",
+                    Kind = "Boolean",
+                    Value = "true",
+                },
+            },
             Description = description,
             Tags = tags,
         };

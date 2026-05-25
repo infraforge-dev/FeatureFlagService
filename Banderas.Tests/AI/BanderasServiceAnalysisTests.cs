@@ -10,6 +10,7 @@ using Banderas.Domain.Entities;
 using Banderas.Domain.Enums;
 using Banderas.Domain.Interfaces;
 using Banderas.Domain.ValueObjects;
+using Banderas.Tests.Helpers;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Banderas.Tests.AI;
@@ -71,7 +72,8 @@ public sealed class BanderasServiceAnalysisTests
                 EnvironmentType.Development,
                 true,
                 RolloutStrategy.None,
-                new StrategyConfig(RolloutStrategy.None, "{}")
+                new StrategyConfig(RolloutStrategy.None, "{}"),
+                variations: FlagBuilder.DefaultVariations()
             ),
         ];
 
@@ -92,7 +94,8 @@ public sealed class BanderasServiceAnalysisTests
                 EnvironmentType.Development,
                 true,
                 RolloutStrategy.None,
-                new StrategyConfig(RolloutStrategy.None, "{}")
+                new StrategyConfig(RolloutStrategy.None, "{}"),
+                variations: FlagBuilder.DefaultVariations()
             ),
         ];
 
@@ -113,6 +116,7 @@ public sealed class BanderasServiceAnalysisTests
                 true,
                 RolloutStrategy.None,
                 new StrategyConfig(RolloutStrategy.None, "{}"),
+                variations: FlagBuilder.DefaultVariations(),
                 description: "Controls checkout v2",
                 tags: ["squad-checkout", "release-q2"]
             ),
@@ -136,6 +140,7 @@ public sealed class BanderasServiceAnalysisTests
                 true,
                 RolloutStrategy.None,
                 new StrategyConfig(RolloutStrategy.None, "{}"),
+                variations: FlagBuilder.DefaultVariations(),
                 description: null,
                 tags: []
             ),

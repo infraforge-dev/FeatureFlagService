@@ -10,6 +10,7 @@ using Banderas.Domain.Enums;
 using Banderas.Domain.Exceptions;
 using Banderas.Domain.Interfaces;
 using Banderas.Domain.ValueObjects;
+using Banderas.Tests.Helpers;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Testing;
 
@@ -53,7 +54,8 @@ public sealed class BanderasServiceLoggingTests
             EnvironmentType.Development,
             isEnabled: false,
             RolloutStrategy.None,
-            new StrategyConfig(RolloutStrategy.None, "{}")
+            new StrategyConfig(RolloutStrategy.None, "{}"),
+            variations: FlagBuilder.DefaultVariations()
         );
 
         FeatureEvaluationContext context = new("user-1", [], EnvironmentType.Development);
@@ -77,7 +79,8 @@ public sealed class BanderasServiceLoggingTests
             EnvironmentType.Development,
             isEnabled: true,
             RolloutStrategy.None,
-            new StrategyConfig(RolloutStrategy.None, "{}")
+            new StrategyConfig(RolloutStrategy.None, "{}"),
+            variations: FlagBuilder.DefaultVariations()
         );
 
         FeatureEvaluationContext context = new("user-1", [], EnvironmentType.Development);
@@ -101,7 +104,8 @@ public sealed class BanderasServiceLoggingTests
             EnvironmentType.Development,
             isEnabled: false,
             RolloutStrategy.None,
-            new StrategyConfig(RolloutStrategy.None, "{}")
+            new StrategyConfig(RolloutStrategy.None, "{}"),
+            variations: FlagBuilder.DefaultVariations()
         );
 
         const string RawUserId = "user-abc-123";

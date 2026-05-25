@@ -39,7 +39,12 @@ public sealed class FlagConcurrencyTokenTests : IntegrationTestBase
                 EnvironmentType.Development,
                 isEnabled: false,
                 RolloutStrategy.None,
-                strategyConfig: StrategyConfig.Create(RolloutStrategy.None, "{}")
+                strategyConfig: StrategyConfig.Create(RolloutStrategy.None, "{}"),
+                variations:
+                [
+                    new("off", VariationKind.Boolean, "false"),
+                    new("on", VariationKind.Boolean, "true"),
+                ]
             );
             db.Flags.Add(seed);
             await db.SaveChangesAsync();
