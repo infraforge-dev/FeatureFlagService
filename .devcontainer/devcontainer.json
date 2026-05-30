@@ -30,7 +30,7 @@
   // Mount Pi auth/config and the toolkit into the container
   "mounts": [
     "source=${localEnv:HOME}/.pi,target=/home/vscode/.pi,type=bind",
-    "source=${localEnv:HOME}/dev/pi-toolkit,target=/home/vscode/pi-toolkit,type=bind",
+    "source=${localEnv:HOME}/Dev/pi-toolkit,target=/home/vscode/pi-toolkit,type=bind",
     "source=/var/run/docker.sock,target=/var/run/docker.sock,type=bind"
   ],
   "containerEnv": {
